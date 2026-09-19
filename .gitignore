@@ -1,0 +1,9 @@
+_old/
+resources/
+*.key.txt
+.env
+.env.*
+!.env.example
+.vercel
+node_modules/
+.DS_Store
