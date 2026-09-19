@@ -22,7 +22,7 @@ export function SheetContent({
   const body = stickyActions ? (
     <StickyActionsProvider
       className="min-h-0 flex-1"
-      bodyClassName="px-5 pt-1"
+      bodyClassName="px-5 pt-1 pb-1"
       footerClassName="px-5"
     >
       {children}

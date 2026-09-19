@@ -3,30 +3,17 @@ import { useTranslation } from 'react-i18next'
 import { LabasIcon } from '@/components/LabasIcon'
 import { StickyActionsProvider } from '@/components/ui/sticky-actions'
 import { OnboardingWizardBody } from '@/features/onboarding/OnboardingPage'
-import { attestationDaysRemaining, type Wallet } from '@/services/wallet.ts'
+import {
+  attestationDaysRemaining,
+  walletEssentialsFilled,
+  walletRemainingPercent,
+  type Wallet,
+} from '@/services/wallet.ts'
 import { cn } from '@/lib/utils'
 
 export type WalletNudgeKind = 'empty' | 'expired' | 'expiring' | null
 
-const ESSENTIAL_FIELDS = [
-  'name',
-  'phone',
-  'plate',
-  'vehicle',
-  'insurer',
-  'city',
-] as const satisfies ReadonlyArray<keyof Wallet>
-
-/** Share of essentials still missing (0–100). */
-export function walletRemainingPercent(profile: Wallet): number {
-  const filled = ESSENTIAL_FIELDS.filter((key) => String(profile[key] ?? '').trim()).length
-  const done = filled / ESSENTIAL_FIELDS.length
-  return Math.max(0, Math.round((1 - done) * 100))
-}
-
-export function walletEssentialsFilled(profile: Wallet): boolean {
-  return walletRemainingPercent(profile) === 0
-}
+export { walletEssentialsFilled, walletRemainingPercent, walletClaimReady } from '@/services/wallet.ts'
 
 export function walletNudgeKind(profile: Wallet): WalletNudgeKind {
   if (!walletEssentialsFilled(profile)) return 'empty'
@@ -38,7 +25,7 @@ export function walletNudgeKind(profile: Wallet): WalletNudgeKind {
 
 /**
  * Docked bottom drawer: collapsed peek → expands into onboarding wizard.
- * One ergonomic title. No overlay. No second sheet.
+ * Overlay only when expanded. Peek stays pinned (shell locks viewport).
  */
 export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
   const { t } = useTranslation()
@@ -113,7 +100,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
         {expanded ? (
           <StickyActionsProvider
             className="min-h-0 max-h-[min(70dvh,32rem)]"
-            bodyClassName="px-5"
+            bodyClassName="px-5 pb-1"
             footerClassName="px-5"
           >
             <OnboardingWizardBody

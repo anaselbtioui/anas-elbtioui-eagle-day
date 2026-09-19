@@ -11,7 +11,10 @@
     "close": "Fermer",
     "notAClaim": "Ceci n’ouvre pas un dossier assureur.",
     "noFault": "Décrivez les faits. Ne concluez pas sur la responsabilité.",
-    "resetProfile": "Effacer mon profil"
+    "resetProfile": "Effacer mon profil",
+    "resetProfileTitle": "Effacer mon profil ?",
+    "resetProfileBody": "Cette action efface le portefeuille et les preuves sur cet appareil. Elle est définitive.",
+    "resetProfileConfirm": "Effacer définitivement"
   },
   "role": {
     "title": "Med Assurance",
@@ -72,6 +75,7 @@
     "doorNowHint": "Sur place — sécurité et preuves",
     "doorLater": "Déclarer un sinistre",
     "doorLaterHint": "Plus tard — via votre courtier",
+    "laterBlocked": "Complétez votre portefeuille (identité, véhicule, contrat et courtier) avant de déclarer un sinistre.",
     "doorAssist": "Véhicule immobilisé",
     "doorAssistHint": "Assistance du contrat — pas la déclaration",
     "packSaved": "Pack de preuves enregistré",
@@ -80,13 +84,14 @@
   },
   "motorist": {
     "navLabel": "Navigation",
-    "navClaims": "Sinistres",
+    "navClaims": "Accidents",
     "navPast": "Passés",
     "navSettings": "Profil",
     "navRecent": "Récents",
     "searchPh": "Rechercher…",
     "noMatch": "Aucun résultat",
-    "claimsEmpty": "Aucun sinistre ouvert",
+    "accidentsTitle": "Accidents en cours",
+    "claimsEmpty": "Aucun accident en cours",
     "pastTitle": "Passés",
     "pastHint": "",
     "pastEmpty": "Aucun dossier passé",
@@ -107,8 +112,18 @@
     "settingsEdit": "Assistant",
     "settingsAccountHint": "Compte et données sur cet appareil",
     "settingsCat": {
-      "portefeuille": "Portefeuille",
+      "identite": "Identité",
+      "vehicule": "Véhicule",
+      "contrat": "Contrat",
+      "courtier": "Courtier",
       "compte": "Compte"
+    },
+    "settingsCatHint": {
+      "identite": "Nom, téléphone, CIN, ville et permis",
+      "vehicule": "Immatriculation et description du véhicule",
+      "contrat": "Assureur, police, attestation et assistance",
+      "courtier": "Courtier associé sur Med Assurance",
+      "compte": "Compte et données sur cet appareil"
     },
     "walletNudgePeek": "À compléter",
     "walletNudgeRemaining": "Il vous reste {{pct}} % pour compléter votre portefeuille",
@@ -117,14 +132,14 @@
     "walletNudgeOpen": "Voir",
     "walletNudgeSettings": "Profil",
     "packStatus": {
-      "draft": "Accident — sur place",
-      "saved": "Sinistre — à déclarer",
-      "stopped": "Passé — arrêté"
+      "draft": "En cours — sur place",
+      "saved": "Prêt à déclarer",
+      "stopped": "Arrêté"
     },
     "packStatusHint": {
-      "draft": "Collecte en cours sur place (accident).",
-      "saved": "Preuves prêtes — déclarer le sinistre via le courtier.",
-      "stopped": "Flux arrêté (blessure / refus / fuite). Suivez le PV."
+      "draft": "Reprendre la collecte sur place.",
+      "saved": "Preuves prêtes — déclarer via le courtier.",
+      "stopped": "Flux arrêté (blessure / refus / fuite)."
     }
   },
   "onboarding": {
@@ -265,6 +280,8 @@
     "photos": "Photos",
     "gap": "Écart",
     "blocked": "Il manque un constat signé ou un PV. Sans ça, la déclaration ne part pas.",
+    "profileIncomplete": "Portefeuille incomplet ou courtier manquant. Remplissez le profil (tiroir ou réglages), puis revenez déclarer.",
+    "completeProfile": "Compléter mon profil",
     "markConstat": "J’ai le constat signé",
     "markPv": "J’ai obtenu le PV",
     "facts": "Faits (sans conclure sur la faute)",

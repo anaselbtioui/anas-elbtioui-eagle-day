@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
-import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import { filterDeskBundles, type DeskBundle } from '@/domain/desk.ts'
 import { useBrokerDeskStore } from '@/store/brokerDesk'
@@ -173,11 +172,6 @@ export function BrokerQueuePage() {
       {!loading && bundles.length === 0 ? (
         <div className="rounded-[var(--radius-labas)] bg-sand-deep px-4 py-4">
           <p className="text-ink-muted">{t('broker.emptyQueue')}</p>
-          <Button asChild className="mt-3" variant="secondary">
-            <Link to="/desk/import" data-testid="empty-queue-import">
-              {t('broker.importLink')}
-            </Link>
-          </Button>
         </div>
       ) : null}
 

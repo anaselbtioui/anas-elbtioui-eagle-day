@@ -11,14 +11,17 @@ import type { DeskEvent } from '@/domain/desk.ts'
 import type { Contact, Dossier, EvidencePack as DomainPack } from '@/domain/types.ts'
 import { api } from '@/services/api.ts'
 import { packLooksStarted } from '@/services/pack-map.ts'
+import { walletClaimReady } from '@/services/wallet.ts'
 import { useProfileStore } from '@/store/profile.ts'
 
 type Step = 'edit' | 'review'
 
 export function LaterPage() {
   const { t } = useTranslation()
-  const motoristId = useProfileStore((s) => s.profile.motoristId)
-  const brokerName = useProfileStore((s) => s.profile.broker)
+  const profile = useProfileStore((s) => s.profile)
+  const motoristId = profile.motoristId
+  const brokerName = profile.broker
+  const claimReady = walletClaimReady(profile)
   const [pack, setPack] = useState<DomainPack | null>(null)
   const [dossier, setDossier] = useState<Dossier | null>(null)
   const [submittedAt, setSubmittedAt] = useState<string | null>(null)
@@ -134,6 +137,25 @@ export function LaterPage() {
     }
   }
 
+  if (!claimReady) {
+    return (
+      <WizardFrame title={t('later.title')}>
+        <WizardSection title={t('later.title')} hint={t('later.profileIncomplete')}>
+          <StickyActions>
+            <div className="space-y-2">
+              <Button asChild className="w-full" variant="moss">
+                <Link to="/">{t('later.completeProfile')}</Link>
+              </Button>
+              <Button asChild variant="ghost" className="w-full">
+                <Link to="/">{t('app.back')}</Link>
+              </Button>
+            </div>
+          </StickyActions>
+        </WizardSection>
+      </WizardFrame>
+    )
+  }
+
   if (loading) {
     return (
       <WizardFrame title={t('later.title')}>
@@ -156,7 +178,7 @@ export function LaterPage() {
     )
   }
 
-  const ready = canSubmit(pack.evidence)
+  const ready = canSubmit(pack.evidence) && claimReady && Boolean(profile.brokerId.trim())
   const sent = Boolean(submittedAt)
   const displayBroker = brokerName || brokerContact?.displayName || t('onboarding.broker')
 

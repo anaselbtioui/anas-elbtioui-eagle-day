@@ -25,6 +25,8 @@ interface EvidenceState {
   starting: boolean
   error: string | null
   start: () => Promise<void>
+  /** Park current active if needed, then make this pack the NOW active. */
+  resume: (id: string) => boolean
   dispatch: (action: EvidenceAction) => void
   persistActive: () => Promise<void>
   hydrateFromDomain: (packs: DomainPack[]) => void
@@ -129,6 +131,13 @@ export const useEvidenceStore = create<EvidenceState>()(
       start: async () => {
         set({ starting: true, error: null })
         try {
+          const current = get().pack
+          if (current) {
+            set({
+              history: [current, ...get().history.filter((h) => h.id !== current.id)].slice(0, 20),
+              pack: null,
+            })
+          }
           if (!isBrowserOnline()) {
             set({ pack: startOfflinePack(), starting: false })
             return
@@ -159,6 +168,18 @@ export const useEvidenceStore = create<EvidenceState>()(
           })
           throw err
         }
+      },
+      resume: (id) => {
+        const { pack, history } = get()
+        if (pack?.id === id) return true
+        const found = history.find((h) => h.id === id)
+        if (!found) return false
+        let nextHistory = history.filter((h) => h.id !== id)
+        if (pack) {
+          nextHistory = [pack, ...nextHistory.filter((h) => h.id !== pack.id)]
+        }
+        set({ pack: found, history: nextHistory.slice(0, 20) })
+        return true
       },
       dispatch: (action) => {
         const current = get().pack

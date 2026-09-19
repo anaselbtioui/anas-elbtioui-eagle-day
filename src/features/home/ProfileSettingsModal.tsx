@@ -2,21 +2,75 @@ import { useEffect, useState, type ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import { Settings } from 'lucide-react'
-import { LabasIcon } from '@/components/LabasIcon'
+import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StickyActions, StickyActionsProvider } from '@/components/ui/sticky-actions'
-import { OnboardingWizardBody } from '@/features/onboarding/OnboardingPage'
-import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
 import { api } from '@/services/api.ts'
-import { attestationDaysRemaining, walletToDomain } from '@/services/wallet.ts'
+import { attestationDaysRemaining, walletToDomain, type Wallet } from '@/services/wallet.ts'
 import { cn } from '@/lib/utils'
 
-type SettingsCategory = 'portefeuille' | 'compte'
+type ProfileCategory = 'identite' | 'vehicule' | 'contrat' | 'courtier'
+type SettingsCategory = ProfileCategory | 'compte'
 
-const CATEGORIES: SettingsCategory[] = ['portefeuille', 'compte']
+const PROFILE_CATEGORIES: ProfileCategory[] = [
+  'identite',
+  'vehicule',
+  'contrat',
+  'courtier',
+]
+
+const CATEGORIES: SettingsCategory[] = [...PROFILE_CATEGORIES, 'compte']
+
+const CATEGORY_ICON: Record<SettingsCategory, LabasIconName> = {
+  identite: 'user',
+  vehicule: 'car',
+  contrat: 'clipboard',
+  courtier: 'briefcase',
+  compte: 'lock',
+}
+
+type FieldKey = keyof Pick<
+  Wallet,
+  | 'name'
+  | 'phone'
+  | 'cin'
+  | 'city'
+  | 'licenseNumber'
+  | 'plate'
+  | 'vehicle'
+  | 'insurer'
+  | 'policy'
+  | 'attestationValidUntil'
+  | 'assistanceNumber'
+  | 'broker'
+  | 'brokerPhone'
+>
+
+const CATEGORY_FIELDS: Record<ProfileCategory, FieldKey[]> = {
+  identite: ['name', 'phone', 'cin', 'city', 'licenseNumber'],
+  vehicule: ['plate', 'vehicle'],
+  contrat: ['insurer', 'policy', 'attestationValidUntil', 'assistanceNumber'],
+  courtier: ['broker', 'brokerPhone'],
+}
+
+const FIELD_LABEL: Record<FieldKey, string> = {
+  name: 'onboarding.name',
+  phone: 'onboarding.phone',
+  cin: 'onboarding.cin',
+  city: 'onboarding.city',
+  licenseNumber: 'onboarding.licenseNumber',
+  plate: 'onboarding.plate',
+  vehicle: 'onboarding.vehicle',
+  insurer: 'onboarding.insurer',
+  policy: 'onboarding.policy',
+  attestationValidUntil: 'onboarding.attestationValidUntil',
+  assistanceNumber: 'onboarding.assistance',
+  broker: 'onboarding.broker',
+  brokerPhone: 'onboarding.brokerPhone',
+}
 
 function FieldRow({
   label,
@@ -27,12 +81,14 @@ function FieldRow({
 }) {
   return (
     <div className="border-b border-border/50 py-3 last:border-b-0">
-      <Label className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-        {label}
-      </Label>
+      <Label className="text-sm font-medium text-ink-muted">{label}</Label>
       <div className="mt-1.5">{children}</div>
     </div>
   )
+}
+
+function isProfileCategory(id: SettingsCategory): id is ProfileCategory {
+  return id !== 'compte'
 }
 
 export function ProfileSettingsModal({
@@ -43,17 +99,14 @@ export function ProfileSettingsModal({
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
-  const { profile, setProfile, reset, saving, error } = useProfileStore()
-  const resetAll = useEvidenceStore((s) => s.resetAll)
-  const [category, setCategory] = useState<SettingsCategory>('portefeuille')
-  const [editWizard, setEditWizard] = useState(false)
+  const { profile, setProfile, saving, error } = useProfileStore()
+  const [category, setCategory] = useState<SettingsCategory>('identite')
   const [persistError, setPersistError] = useState<string | null>(null)
   const [persistBusy, setPersistBusy] = useState(false)
 
   useEffect(() => {
     if (!open) {
-      setCategory('portefeuille')
-      setEditWizard(false)
+      setCategory('identite')
       setPersistError(null)
     }
   }, [open])
@@ -73,6 +126,8 @@ export function ProfileSettingsModal({
     }
   }
 
+  const showProfileForm = isProfileCategory(category)
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -84,7 +139,7 @@ export function ProfileSettingsModal({
           )}
           data-testid="profile-settings-modal"
         >
-          <aside className="flex w-[13.5rem] shrink-0 flex-col border-r border-border/70 bg-[#faf8f3]">
+          <aside className="flex w-[14.5rem] shrink-0 flex-col border-r border-border/70 bg-[#faf8f3]">
             <div className="flex items-center gap-2 border-b border-border/50 px-3 py-3">
               <Dialog.Close
                 className="rounded-full p-2 text-ink-muted hover:bg-sand-deep"
@@ -103,7 +158,6 @@ export function ProfileSettingsModal({
                   type="button"
                   onClick={() => {
                     setCategory(id)
-                    setEditWizard(false)
                   }}
                   className={cn(
                     'flex w-full items-center gap-2.5 rounded-[var(--radius-labas)] px-3 py-2.5 text-left text-sm font-semibold transition-colors',
@@ -114,7 +168,7 @@ export function ProfileSettingsModal({
                   data-testid={`settings-cat-${id}`}
                 >
                   <LabasIcon
-                    name={id === 'portefeuille' ? 'clipboard' : 'user'}
+                    name={CATEGORY_ICON[id]}
                     className="h-5 w-5 shrink-0"
                     tone="onSand"
                     aria-hidden
@@ -131,104 +185,44 @@ export function ProfileSettingsModal({
               bodyClassName="p-5"
               footerClassName="border-border/60 bg-sand/30 px-5"
             >
-              {category === 'portefeuille' && !editWizard ? (
+              {showProfileForm ? (
                 <>
                   <h2 className="font-display text-xl font-bold text-ink">
-                    {t('home.walletTitle')}
+                    {t(`motorist.settingsCat.${category}`)}
                   </h2>
-                  <p className="mt-1 text-sm text-ink-muted">{t('motorist.settingsLocalNote')}</p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {t(`motorist.settingsCatHint.${category}`)}
+                  </p>
 
                   <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
-                    <FieldRow label={t('onboarding.name')}>
-                      <Input
-                        value={profile.name}
-                        onChange={(e) => setProfile({ name: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.phone')}>
-                      <Input
-                        value={profile.phone}
-                        onChange={(e) => setProfile({ phone: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.cin')}>
-                      <Input
-                        value={profile.cin}
-                        onChange={(e) => setProfile({ cin: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.plate')}>
-                      <Input
-                        value={profile.plate}
-                        onChange={(e) => setProfile({ plate: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.vehicle')}>
-                      <Input
-                        value={profile.vehicle}
-                        onChange={(e) => setProfile({ vehicle: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.insurer')}>
-                      <Input
-                        value={profile.insurer}
-                        onChange={(e) => setProfile({ insurer: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.policy')}>
-                      <Input
-                        value={profile.policy}
-                        onChange={(e) => setProfile({ policy: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.broker')}>
-                      <Input
-                        value={profile.broker}
-                        onChange={(e) => setProfile({ broker: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.brokerPhone')}>
-                      <Input
-                        value={profile.brokerPhone}
-                        onChange={(e) => setProfile({ brokerPhone: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.assistance')}>
-                      <Input
-                        value={profile.assistanceNumber}
-                        onChange={(e) => setProfile({ assistanceNumber: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.city')}>
-                      <Input
-                        value={profile.city}
-                        onChange={(e) => setProfile({ city: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.attestationValidUntil')}>
-                      <Input
-                        type="date"
-                        value={profile.attestationValidUntil}
-                        onChange={(e) => setProfile({ attestationValidUntil: e.target.value })}
-                        className="min-h-10 border-border px-3 py-2 text-base"
-                      />
-                    </FieldRow>
+                    {CATEGORY_FIELDS[category].map((key) => (
+                      <FieldRow key={key} label={t(FIELD_LABEL[key])}>
+                        <Input
+                          type={key === 'attestationValidUntil' ? 'date' : 'text'}
+                          value={profile[key]}
+                          onChange={(e) => setProfile({ [key]: e.target.value })}
+                          className="min-h-10 border-border px-3 py-2 text-base"
+                        />
+                      </FieldRow>
+                    ))}
                   </div>
 
-                  {days !== null && days < 0 ? (
+                  {category === 'contrat' && days !== null && days < 0 ? (
                     <p className="mt-3 text-sm text-alert">
-                      {t('onboarding.attestationExpired', { date: profile.attestationValidUntil })}
+                      {t('onboarding.attestationExpired', {
+                        date: profile.attestationValidUntil,
+                      })}
+                    </p>
+                  ) : null}
+                  {category === 'contrat' &&
+                  days !== null &&
+                  days >= 0 &&
+                  days <= 45 ? (
+                    <p className="mt-3 text-sm text-ink-muted">
+                      {t('onboarding.attestationExpiryReminder', {
+                        date: profile.attestationValidUntil,
+                        days,
+                      })}
                     </p>
                   ) : null}
 
@@ -237,45 +231,15 @@ export function ProfileSettingsModal({
                   )}
 
                   <StickyActions>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        disabled={persistBusy || saving}
-                        onClick={() => void persist()}
-                        data-testid="settings-save"
-                      >
-                        {t('app.save')}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setEditWizard(true)}
-                        data-testid="settings-edit"
-                      >
-                        {t('motorist.settingsEdit')}
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      disabled={persistBusy || saving}
+                      onClick={() => void persist()}
+                      data-testid="settings-save"
+                    >
+                      {t('app.save')}
+                    </Button>
                   </StickyActions>
-                </>
-              ) : null}
-
-              {category === 'portefeuille' && editWizard ? (
-                <>
-                  <button
-                    type="button"
-                    className="mb-3 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
-                    onClick={() => setEditWizard(false)}
-                  >
-                    ← {t('app.back')}
-                  </button>
-                  <OnboardingWizardBody
-                    onClose={() => setEditWizard(false)}
-                    onFinished={() => {
-                      setEditWizard(false)
-                      onOpenChange(false)
-                    }}
-                    showStepTitle
-                  />
                 </>
               ) : null}
 
@@ -284,23 +248,10 @@ export function ProfileSettingsModal({
                   <h2 className="font-display text-xl font-bold text-ink">
                     {t('motorist.settingsCat.compte')}
                   </h2>
-                  <p className="mt-1 text-sm text-ink-muted">{t('motorist.settingsAccountHint')}</p>
-                  <StickyActions>
-                    <Button
-                      variant="outline"
-                      type="button"
-                      data-testid="settings-reset"
-                      onClick={() => {
-                        if (confirm(t('app.resetProfile'))) {
-                          reset()
-                          resetAll()
-                          onOpenChange(false)
-                        }
-                      }}
-                    >
-                      {t('app.resetProfile')}
-                    </Button>
-                  </StickyActions>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {t('motorist.settingsCatHint.compte')}
+                  </p>
+                  <p className="mt-6 text-sm text-ink-muted">{t('motorist.settingsAccountHint')}</p>
                 </>
               ) : null}
             </StickyActionsProvider>

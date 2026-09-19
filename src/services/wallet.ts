@@ -105,6 +105,7 @@ export function migrateDeviceWallet(wallet: Wallet): Wallet {
     insurer: wallet.insurer,
     policy: wallet.policy,
     broker: wallet.broker,
+    brokerId: wallet.brokerId,
     brokerPhone: wallet.brokerPhone,
     assistanceNumber: wallet.assistanceNumber,
     assistanceOnContract: wallet.assistanceOnContract,
@@ -129,6 +130,39 @@ export function attestationDaysRemaining(validUntil: string, now = new Date()): 
   if (Number.isNaN(end.getTime())) return null
   const ms = end.getTime() - now.getTime()
   return Math.ceil(ms / (24 * 60 * 60 * 1000))
+}
+
+/** Profile fields required before declaring a sinistre to a broker. */
+export const CLAIM_READY_FIELDS = [
+  'name',
+  'phone',
+  'cin',
+  'city',
+  'plate',
+  'vehicle',
+  'insurer',
+  'policy',
+  'brokerId',
+] as const satisfies ReadonlyArray<keyof Wallet>
+
+export function walletFieldFilled(profile: Wallet, key: keyof Wallet): boolean {
+  return String(profile[key] ?? '').trim().length > 0
+}
+
+/** Share of claim-ready fields still missing (0–100). */
+export function walletRemainingPercent(profile: Wallet): number {
+  const filled = CLAIM_READY_FIELDS.filter((key) => walletFieldFilled(profile, key)).length
+  const done = filled / CLAIM_READY_FIELDS.length
+  return Math.max(0, Math.round((1 - done) * 100))
+}
+
+export function walletEssentialsFilled(profile: Wallet): boolean {
+  return walletRemainingPercent(profile) === 0
+}
+
+/** True when profile + courtier are complete enough to open LATER / send claim. */
+export function walletClaimReady(profile: Wallet): boolean {
+  return walletEssentialsFilled(profile)
 }
 
 export function walletToDomain(wallet: Wallet): DomainProfile {

@@ -20,6 +20,7 @@ import type { Contact } from '@/domain/types.ts'
 import { pickFromGallery, takePhoto } from '@/platform/camera'
 import { savePhotoBlob } from '@/platform/photos'
 import { api } from '@/services/api.ts'
+import { walletClaimReady } from '@/services/wallet.ts'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
 import { CarDamageMap } from './CarDamageMap'
@@ -106,6 +107,7 @@ export function NowPage() {
 
   const alert = step === 'stop'
   const assistPhone = profile.assistanceNumber.trim() || assistContacts[0]?.phone || null
+  const claimReady = walletClaimReady(profile)
 
   const stepFooter =
     step === 'constat' ? (
@@ -415,9 +417,15 @@ export function NowPage() {
           </Card>
           <StickyActions>
             <div className="space-y-2">
-              <Button asChild className="w-full" variant="moss">
-                <Link to="/later">{t('now.declareLater')}</Link>
-              </Button>
+              {claimReady ? (
+                <Button asChild className="w-full" variant="moss">
+                  <Link to="/later">{t('now.declareLater')}</Link>
+                </Button>
+              ) : (
+                <Button asChild className="w-full" variant="moss">
+                  <Link to="/">{t('later.completeProfile')}</Link>
+                </Button>
+              )}
               <Button asChild variant="ghost" className="w-full">
                 <Link to="/">{t('now.backHome')}</Link>
               </Button>

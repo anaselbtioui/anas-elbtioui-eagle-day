@@ -11,7 +11,7 @@ import { attestationDaysRemaining } from '@/services/wallet.ts'
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="border-b border-border/50 py-3 last:border-b-0">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
+      <p className="text-sm font-medium text-ink-muted">{label}</p>
       <p className="mt-1 text-base text-ink">{value.trim() || '—'}</p>
     </div>
   )

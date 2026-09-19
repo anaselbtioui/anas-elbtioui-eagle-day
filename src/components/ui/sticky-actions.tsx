@@ -45,6 +45,8 @@ export function StickyActionsProvider({
           className={cn(
             'labas-scroll min-h-0 flex-1 overflow-y-auto',
             bodyClassName,
+            /* Space before sticky footer divider — avoid flush content. */
+            hasActions && 'pb-5',
           )}
         >
           {children}

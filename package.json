@@ -8,6 +8,7 @@
     "server": "tsx server/index.ts",
     "build": "tsc -p tsconfig.app.json --noEmit && vite build && node scripts/bundle-vercel-api.mjs",
     "build:api": "node scripts/bundle-vercel-api.mjs",
+    "reset:db": "node scripts/reset-db.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",

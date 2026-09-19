@@ -1,14 +1,17 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
 import { LabasIcon } from '@/components/LabasIcon'
+import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import type { EvidencePack, EvidencePackStatus } from '@/domain/evidence'
 import type { Dossier } from '@/domain/types.ts'
 import { api } from '@/services/api.ts'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
+import { showToast } from '@/store/toast'
+import { walletClaimReady } from '@/services/wallet.ts'
 import { cn } from '@/lib/utils'
 
 function statusTone(status: EvidencePackStatus): string {
@@ -22,7 +25,8 @@ function statusTone(status: EvidencePackStatus): string {
   }
 }
 
-function isOpenSinistre(status: EvidencePackStatus): boolean {
+/** Open accidents — not yet a declared sinistre. */
+function isOpenAccident(status: EvidencePackStatus): boolean {
   return status === 'draft' || status === 'saved'
 }
 
@@ -33,7 +37,11 @@ export function HomePage() {
   const history = useEvidenceStore((s) => s.history)
   const active = useEvidenceStore((s) => s.pack)
   const hydrateFromDomain = useEvidenceStore((s) => s.hydrateFromDomain)
+  const start = useEvidenceStore((s) => s.start)
+  const resume = useEvidenceStore((s) => s.resume)
+  const starting = useEvidenceStore((s) => s.starting)
   const [dossierById, setDossierById] = useState<Record<string, Dossier | null>>({})
+  const claimReady = walletClaimReady(profile)
 
   useEffect(() => {
     if (!profile.onboarded) return
@@ -45,7 +53,7 @@ export function HomePage() {
     for (const h of history) byId.set(h.id, h)
     if (active) byId.set(active.id, active)
     return [...byId.values()]
-      .filter((p) => isOpenSinistre(p.status))
+      .filter((p) => isOpenAccident(p.status))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   }, [history, active])
 
@@ -142,92 +150,88 @@ export function HomePage() {
     return <Navigate to="/onboarding" replace />
   }
 
+  async function onNewAccident() {
+    await start()
+    navigate('/now')
+  }
+
+  function openPack(row: EvidencePack) {
+    if (row.status === 'draft') {
+      resume(row.id)
+      navigate('/now')
+      return
+    }
+    if (row.status === 'saved') {
+      if (!claimReady) {
+        showToast(t('home.laterBlocked'), 'alert')
+        return
+      }
+      resume(row.id)
+      navigate('/later')
+      return
+    }
+    navigate(`/past/${row.id}`)
+  }
+
+  function goLater() {
+    if (!claimReady) {
+      showToast(t('home.laterBlocked'), 'alert')
+      return
+    }
+    navigate('/later')
+  }
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
-      <div className="home-doors">
-        <Door
-          to="/now"
-          icon={<LabasIcon name="warning" className="h-7 w-7" tone="onInk" aria-hidden />}
-          title={t('home.doorNow')}
-          hint={t('home.doorNowHint')}
-          primary
-          className="home-door-primary"
-        />
-        <Door
-          to="/later"
-          icon={<LabasIcon name="clipboard" className="h-7 w-7" tone="onSand" aria-hidden />}
-          title={t('home.doorLater')}
-          hint={t('home.doorLaterHint')}
-        />
-        <Door
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <button
+          type="button"
+          onClick={goLater}
+          className={cn(
+            'font-semibold underline-offset-4 hover:underline',
+            claimReady ? 'text-ink' : 'text-ink-muted',
+          )}
+          data-testid="home-door-later"
+          aria-disabled={!claimReady}
+        >
+          {t('home.doorLater')}
+        </button>
+        <Link
           to="/assist"
-          icon={<LabasIcon name="wrench" className="h-7 w-7" tone="onSand" aria-hidden />}
-          title={t('home.doorAssist')}
-          hint={t('home.doorAssistHint')}
-        />
+          className="font-semibold text-ink underline-offset-4 hover:underline"
+          data-testid="home-door-assist"
+        >
+          {t('home.doorAssist')}
+        </Link>
+        <span className="text-ink-muted">{t('app.notAClaim')}</span>
       </div>
 
-      <p className="flex items-center gap-2 text-sm text-ink-muted">
-        <LabasIcon name="car" className="h-5 w-5" aria-hidden />
-        {t('app.notAClaim')}
-      </p>
-
       <section>
-        <h2 className="font-display mb-4 text-xl font-bold text-ink md:text-2xl">
-          {t('motorist.navClaims')}
-        </h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-xl font-bold text-ink md:text-2xl">
+            {t('motorist.accidentsTitle')}
+          </h2>
+          <Button
+            className="h-11 min-h-11 shrink-0 gap-2 px-4 text-sm"
+            disabled={starting}
+            onClick={() => {
+              void onNewAccident()
+            }}
+            data-testid="home-new-accident"
+            title={t('home.doorNowHint')}
+          >
+            <LabasIcon name="warning" className="h-5 w-5 shrink-0" tone="onInk" aria-hidden />
+            {starting ? t('now.starting') : t('home.doorNow')}
+          </Button>
+        </div>
         <DataTable
           columns={columns}
           data={packs}
           emptyMessage={t('motorist.claimsEmpty')}
           getRowTestId={(row) => `sinistre-${row.id}`}
-          onRowClick={(row) => {
-            if (row.status === 'draft') navigate('/now')
-            else if (row.status === 'saved') navigate('/later')
-            else navigate(`/past/${row.id}`)
-          }}
+          onRowClick={openPack}
         />
       </section>
     </div>
-  )
-}
-
-function Door({
-  to,
-  icon,
-  title,
-  hint,
-  primary,
-  className,
-}: {
-  to: string
-  icon: ReactNode
-  title: string
-  hint: string
-  primary?: boolean
-  className?: string
-}) {
-  return (
-    <Link
-      to={to}
-      className={cn(
-        primary
-          ? 'flex min-h-20 items-start gap-4 rounded-[var(--radius-labas)] bg-ink p-5 text-sand transition-transform active:scale-[0.96]'
-          : 'flex min-h-20 items-start gap-4 rounded-[var(--radius-labas)] border-2 border-border bg-surface/90 p-5 text-ink surface-card transition-transform active:scale-[0.96]',
-        className,
-      )}
-    >
-      <span className={primary ? 'text-sand' : 'text-ink'}>{icon}</span>
-      <span>
-        <span className="block text-lg font-semibold">{title}</span>
-        <span
-          className={
-            primary ? 'mt-1 block text-sm text-sand/80' : 'mt-1 block text-sm text-ink-muted'
-          }
-        >
-          {hint}
-        </span>
-      </span>
-    </Link>
   )
 }

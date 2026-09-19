@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { AuthFormCard, AuthSplitLayout } from '@/app/AuthSplitLayout'
 import { MobileShell } from '@/app/MobileShell'
 import { BrandLogo } from '@/components/BrandLogo'
-import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
 import { LogoutButton } from '@/components/LogoutButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -144,18 +143,9 @@ function BrokerPickStep({
     setProfile({ brokerId: id, broker: displayName })
   }
 
-  function autoOrContinue() {
-    if (!profile.brokerId && brokers[0]) {
-      pick(brokers[0].id, brokers[0].displayName)
-    }
+  function continueWithBroker() {
+    if (!profile.brokerId) return
     onContinue()
-  }
-
-  function autoOrSkip() {
-    if (!profile.brokerId && brokers[0]) {
-      pick(brokers[0].id, brokers[0].displayName)
-    }
-    onSkip()
   }
 
   return (
@@ -204,9 +194,10 @@ function BrokerPickStep({
       </ul>
       <StepNav
         onBack={onBack}
-        onSkip={brokers.length > 0 ? autoOrSkip : onSkip}
-        onContinue={autoOrContinue}
+        onSkip={brokers.length === 0 ? onSkip : undefined}
+        onContinue={continueWithBroker}
         continueDisabled={brokers.length > 0 && !profile.brokerId}
+        showSkip={brokers.length === 0}
       />
     </div>
   )
@@ -258,46 +249,11 @@ function OnboardingSteps({
   const skip = () => next()
 
   if (id === 'welcome') {
-    const points: { icon: LabasIconName; titleKey: string; bodyKey: string }[] = [
-      {
-        icon: 'device',
-        titleKey: 'onboarding.welcomePoint1Title',
-        bodyKey: 'onboarding.welcomeBullet1',
-      },
-      {
-        icon: 'skip',
-        titleKey: 'onboarding.welcomePoint2Title',
-        bodyKey: 'onboarding.welcomeBullet2',
-      },
-      {
-        icon: 'later',
-        titleKey: 'onboarding.welcomePoint3Title',
-        bodyKey: 'onboarding.welcomeBullet3',
-      },
-    ]
     return (
       <div className="space-y-5">
         <p className="text-lg font-medium leading-snug text-ink md:text-xl">
           {t('onboarding.welcomeBody')}
         </p>
-        <ul className="space-y-2.5">
-          {points.map((point) => (
-            <li
-              key={point.icon}
-              className="flex items-start gap-3 rounded-[var(--radius-labas)] border border-border/80 bg-sand/50 px-3 py-3"
-            >
-              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface">
-                <LabasIcon name={point.icon} className="h-6 w-6" tone="onSand" aria-hidden />
-              </span>
-              <span className="min-w-0 pt-0.5">
-                <span className="block font-semibold text-ink">{t(point.titleKey)}</span>
-                <span className="mt-0.5 block text-sm leading-snug text-ink-muted">
-                  {t(point.bodyKey)}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
         <StepNav onBack={prev} onContinue={next} onSkip={skip} />
       </div>
     )
@@ -330,9 +286,11 @@ function OnboardingSteps({
             <Input
               id="otp-code"
               inputMode="numeric"
+              pattern="[0-9]*"
               autoComplete="one-time-code"
+              maxLength={6}
               value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value)}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="123456"
             />
             <p className="text-xs text-ink-muted">{t('onboarding.otpMockNote')}</p>

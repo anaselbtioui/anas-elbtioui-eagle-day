@@ -16,6 +16,7 @@ import { BrokerQueuePage } from '@/features/broker/BrokerQueuePage'
 import { BrokerDossierPage } from '@/features/broker/BrokerDossierPage'
 import { BrokerImportPage } from '@/features/broker/BrokerImportPage'
 import { BrokerClientsPage } from '@/features/broker/BrokerClientsPage'
+import { AppToast } from '@/components/ui/app-toast'
 import { useSessionStore } from '@/store/session'
 import type { AppRole } from '@/domain/auth.ts'
 
@@ -58,6 +59,7 @@ export function AppRouter() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <SessionExpiryWarning />
+        <AppToast />
         <Routes>
           <Route path="/" element={<RootEntry />}>
             <Route
