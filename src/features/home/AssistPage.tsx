@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { WizardFrame, WizardSection } from '@/app/WizardFrame'
 import { Button } from '@/components/ui/button'
@@ -7,12 +7,23 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { StickyActions } from '@/components/ui/sticky-actions'
 import type { Contact } from '@/domain/types.ts'
 import { api } from '@/services/api.ts'
+import { walletClaimReady } from '@/services/wallet.ts'
+import { showToast } from '@/store/toast'
 import { useProfileStore } from '@/store/profile.ts'
 
 export function AssistPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const profile = useProfileStore((s) => s.profile)
   const [contacts, setContacts] = useState<Contact[]>([])
+  const claimReady = walletClaimReady(profile)
+
+  useEffect(() => {
+    if (!claimReady) {
+      showToast(t('home.assistBlocked'), 'alert')
+      navigate('/', { replace: true })
+    }
+  }, [claimReady, navigate, t])
 
   useEffect(() => {
     void api.listContacts(profile.assistanceOnContract).then((list) => {
@@ -22,6 +33,14 @@ export function AssistPage() {
 
   const primary = contacts[0]
   const number = profile.assistanceNumber.trim() || primary?.phone || null
+
+  if (!claimReady) {
+    return (
+      <WizardFrame title={t('assist.title')}>
+        <p className="text-ink-muted">{t('home.assistBlocked')}</p>
+      </WizardFrame>
+    )
+  }
 
   return (
     <WizardFrame title={t('assist.title')}>
@@ -56,18 +75,16 @@ export function AssistPage() {
           </div>
         ) : null}
         <StickyActions>
-          <div className="space-y-2">
-            {number ? (
-              <Button asChild className="w-full" variant="moss" size="lg">
-                <a href={`tel:${number}`}>{t('now.assistCall')}</a>
-              </Button>
-            ) : (
-              <p className="text-sm text-ink-muted">{t('assist.none')}</p>
-            )}
-            <Button asChild variant="ghost" className="w-full">
-              <Link to="/">{t('now.backHome')}</Link>
+          {number ? (
+            <Button asChild className="w-full" variant="moss" size="lg">
+              <a href={`tel:${number}`}>{t('now.assistCall')}</a>
             </Button>
-          </div>
+          ) : (
+            <p className="text-sm text-ink-muted">{t('assist.none')}</p>
+          )}
+          <Button asChild variant="ghost" className="w-full">
+            <Link to="/">{t('now.backHome')}</Link>
+          </Button>
         </StickyActions>
       </WizardSection>
     </WizardFrame>

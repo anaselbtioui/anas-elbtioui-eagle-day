@@ -54,7 +54,7 @@ export function StickyActionsProvider({
         <div
           ref={setFooterEl}
           className={cn(
-            'shrink-0 border-t border-border/60 bg-surface px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]',
+            'relative z-10 shrink-0 border-t border-border/60 bg-surface px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]',
             !hasActions && 'hidden border-0 p-0',
             footerClassName,
           )}
@@ -76,9 +76,20 @@ export function StickyActions({ children }: { children: ReactNode }) {
     return () => ctx.setHasActions(false)
   }, [ctx])
 
-  if (!ctx) {
-    return <div className="space-y-2 pt-3">{children}</div>
-  }
+  const row = (
+    <div
+      className={cn(
+        'sticky-actions-row flex w-full flex-col gap-2',
+        'md:flex-row md:flex-wrap md:items-stretch md:gap-3',
+        'md:[&>*:not(.basis-full)]:min-w-0 md:[&>*:not(.basis-full)]:flex-1',
+        !ctx && 'pt-3',
+      )}
+    >
+      {children}
+    </div>
+  )
+
+  if (!ctx) return row
   if (!ctx.footerEl) return null
-  return createPortal(children, ctx.footerEl)
+  return createPortal(row, ctx.footerEl)
 }

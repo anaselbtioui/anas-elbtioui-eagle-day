@@ -23,14 +23,17 @@ interface SessionState {
 function syncProfile(user: AuthUser): void {
   const current = useProfileStore.getState().profile
   const sameMotorist = Boolean(current.motoristId && current.motoristId === (user.motoristId ?? ''))
+  // Prefer wallet broker link — auth JWT may lag behind PUT /api/profile until refresh.
+  const brokerId =
+    (sameMotorist && current.brokerId.trim()) || user.brokerId || ''
   useProfileStore.setState({
     profile: {
       ...(sameMotorist ? current : emptyWallet),
       motoristId: user.motoristId ?? '',
-      vehicleId: user.vehicleId ?? '',
-      insurerId: user.insurerId ?? '',
-      brokerId: user.brokerId ?? '',
-      policyId: user.policyId ?? '',
+      vehicleId: user.vehicleId ?? (sameMotorist ? current.vehicleId : '') ?? '',
+      insurerId: user.insurerId ?? (sameMotorist ? current.insurerId : '') ?? '',
+      brokerId,
+      policyId: user.policyId ?? (sameMotorist ? current.policyId : '') ?? '',
       name: sameMotorist && current.name ? current.name : user.displayName,
       onboarded:
         user.role === 'broker'

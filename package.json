@@ -47,6 +47,7 @@
     "hono": "^4.13.8",
     "i18next": "^26.4.2",
     "idb-keyval": "^6.3.0",
+    "jspdf": "^4.2.1",
     "libphonenumber-js": "^1.13.13",
     "lucide-react": "^1.47.0",
     "mx-icons": "^1.1.1",

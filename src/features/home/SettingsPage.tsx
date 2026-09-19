@@ -58,7 +58,6 @@ export function SettingsPage() {
           <Field label={t('onboarding.insurer')} value={profile.insurer} />
           <Field label={t('onboarding.policy')} value={profile.policy} />
           <Field label={t('onboarding.broker')} value={profile.broker} />
-          <Field label={t('onboarding.brokerPhone')} value={profile.brokerPhone} />
           <Field label={t('onboarding.assistance')} value={profile.assistanceNumber} />
           <Field label={t('onboarding.city')} value={profile.city} />
           <Field

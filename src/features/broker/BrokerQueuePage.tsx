@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
+import { ShellScroll } from '@/app/AppShell'
 import { DataTable } from '@/components/ui/data-table'
 import { filterDeskBundles, type DeskBundle } from '@/domain/desk.ts'
 import { useBrokerDeskStore } from '@/store/brokerDesk'
@@ -143,7 +144,7 @@ export function BrokerQueuePage() {
   )
 
   return (
-    <>
+    <ShellScroll>
       <div className="mb-6">
         <h1 className="font-display text-3xl font-bold">{t('broker.queueTitle')}</h1>
       </div>
@@ -184,6 +185,6 @@ export function BrokerQueuePage() {
           onRowClick={(row) => navigate(`/desk/${row.dossierId}`)}
         />
       ) : null}
-    </>
+    </ShellScroll>
   )
 }

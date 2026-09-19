@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { ShellScroll } from '@/app/AppShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { mappingBadge, type ImportFieldKey, type ImportOutcome, type ImportSource } from '@/domain/browser-import.ts'
@@ -162,7 +163,7 @@ export function BrokerImportPage() {
       : null
 
   return (
-    <>
+    <ShellScroll>
       <div className="mb-4">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-3xl font-bold">{t('broker.importTitle')}</h1>
@@ -401,6 +402,6 @@ export function BrokerImportPage() {
           </Link>
         </p>
       ) : null}
-    </>
+    </ShellScroll>
   )
 }

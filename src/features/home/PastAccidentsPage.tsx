@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
+import { ShellScroll } from '@/app/AppShell'
 import { DataTable } from '@/components/ui/data-table'
 import type { EvidencePack, EvidencePackStatus } from '@/domain/evidence'
 import type { Dossier } from '@/domain/types.ts'
@@ -150,6 +151,7 @@ export function PastAccidentsPage() {
   }
 
   return (
+    <ShellScroll>
     <div className="mx-auto w-full max-w-5xl space-y-5">
       <header>
         <h1 className="font-display text-2xl font-bold text-ink md:text-3xl">
@@ -165,5 +167,6 @@ export function PastAccidentsPage() {
         onRowClick={(row) => navigate(`/past/${row.id}`)}
       />
     </div>
+    </ShellScroll>
   )
 }

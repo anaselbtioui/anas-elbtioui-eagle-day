@@ -20,6 +20,10 @@ import type { Contact } from '@/domain/types.ts'
 import { pickFromGallery, takePhoto } from '@/platform/camera'
 import { savePhotoBlob } from '@/platform/photos'
 import { api } from '@/services/api.ts'
+import {
+  downloadAideMemoirePdf,
+  downloadConstatDraftPdf,
+} from '@/services/accident-docs.ts'
 import { walletClaimReady } from '@/services/wallet.ts'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
@@ -109,6 +113,18 @@ export function NowPage() {
   const assistPhone = profile.assistanceNumber.trim() || assistContacts[0]?.phone || null
   const claimReady = walletClaimReady(profile)
 
+  const partLabels = (pack?.damagedParts ?? []).map((p) => t(`now.part_${p}`))
+
+  function onDownloadAide() {
+    if (!pack) return
+    downloadAideMemoirePdf(profile, pack, partLabels)
+  }
+
+  function onDownloadConstat() {
+    if (!pack) return
+    downloadConstatDraftPdf(profile, pack, partLabels)
+  }
+
   const stepFooter =
     step === 'constat' ? (
       <Button className="w-full" onClick={() => setStep('car')}>
@@ -175,6 +191,18 @@ export function NowPage() {
                 ))}
               </div>
             ) : null}
+            <div className="rounded-[var(--radius-labas)] border border-border bg-surface/90 p-4">
+              <p className="text-sm text-ink-muted">{t('now.downloadAideMemoireHint')}</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 w-full"
+                onClick={onDownloadAide}
+                data-testid="download-aide-memoire"
+              >
+                {t('now.downloadAideMemoire')}
+              </Button>
+            </div>
             <Button
               variant="ghost"
               className="w-full"
@@ -260,6 +288,18 @@ export function NowPage() {
               />
               <span>{t('now.docsChecked')}</span>
             </label>
+            <div className="rounded-[var(--radius-labas)] border border-border bg-sand-deep/40 p-4">
+              <p className="text-sm text-ink-muted">{t('now.downloadConstatDraftHint')}</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 w-full"
+                onClick={onDownloadConstat}
+                data-testid="download-constat-draft"
+              >
+                {t('now.downloadConstatDraft')}
+              </Button>
+            </div>
           </div>
         </WizardSection>
       ) : null}
@@ -415,21 +455,31 @@ export function NowPage() {
               {pack.damagedParts.length} zone(s) · {Object.keys(pack.photos).length} photo(s)
             </CardDescription>
           </Card>
+          <div className="mb-4 rounded-[var(--radius-labas)] border border-border bg-surface p-4">
+            <p className="text-sm text-ink-muted">{t('now.downloadConstatDraftHint')}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3 w-full"
+              onClick={onDownloadConstat}
+              data-testid="download-constat-draft-saved"
+            >
+              {t('now.downloadConstatDraft')}
+            </Button>
+          </div>
           <StickyActions>
-            <div className="space-y-2">
-              {claimReady ? (
-                <Button asChild className="w-full" variant="moss">
-                  <Link to="/later">{t('now.declareLater')}</Link>
-                </Button>
-              ) : (
-                <Button asChild className="w-full" variant="moss">
-                  <Link to="/">{t('later.completeProfile')}</Link>
-                </Button>
-              )}
-              <Button asChild variant="ghost" className="w-full">
-                <Link to="/">{t('now.backHome')}</Link>
+            {claimReady ? (
+              <Button asChild className="w-full" variant="moss">
+                <Link to="/later">{t('now.declareLater')}</Link>
               </Button>
-            </div>
+            ) : (
+              <Button asChild className="w-full" variant="moss">
+                <Link to="/">{t('later.completeProfile')}</Link>
+              </Button>
+            )}
+            <Button asChild variant="ghost" className="w-full">
+              <Link to="/">{t('now.backHome')}</Link>
+            </Button>
           </StickyActions>
         </WizardSection>
       ) : null}

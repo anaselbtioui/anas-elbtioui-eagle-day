@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { AuthFormCard, AuthSplitLayout } from '@/app/AuthSplitLayout'
 import { MobileShell } from '@/app/MobileShell'
 import { BrandLogo } from '@/components/BrandLogo'
+import { InsurerSelect } from '@/components/InsurerSelect'
 import { LogoutButton } from '@/components/LogoutButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,30 +66,26 @@ function StepNav({
   const { t } = useTranslation()
   return (
     <StickyActions>
-      <div className="space-y-2">
-        <div className="flex gap-2">
-          <Button variant="ghost" className="flex-1" type="button" onClick={onBack}>
-            {t('app.back')}
-          </Button>
-          <Button
-            className="flex-1"
-            type="button"
-            onClick={onContinue}
-            disabled={continueDisabled}
-          >
-            {continueLabel ?? t('app.continue')}
-          </Button>
-        </div>
-        {showSkip && onSkip ? (
-          <button
-            type="button"
-            className="w-full text-center text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
-            onClick={onSkip}
-          >
-            {t('app.skip')}
-          </button>
-        ) : null}
-      </div>
+      <Button variant="ghost" className="w-full" type="button" onClick={onBack}>
+        {t('app.back')}
+      </Button>
+      <Button
+        className="min-w-0 w-full whitespace-normal text-center leading-snug"
+        type="button"
+        onClick={onContinue}
+        disabled={continueDisabled}
+      >
+        {continueLabel ?? t('app.continue')}
+      </Button>
+      {showSkip && onSkip ? (
+        <button
+          type="button"
+          className="w-full basis-full text-center text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
+          onClick={onSkip}
+        >
+          {t('app.skip')}
+        </button>
+      ) : null}
     </StickyActions>
   )
 }
@@ -406,10 +403,11 @@ function OnboardingSteps({
         />
         <div className="space-y-2">
           <Label htmlFor="insurer">{t('onboarding.insurer')}</Label>
-          <Input
+          <InsurerSelect
             id="insurer"
             value={profile.insurer}
-            onChange={(e) => setProfile({ insurer: e.target.value })}
+            onChange={(insurer) => setProfile({ insurer })}
+            placeholder={t('onboarding.insurerPick')}
           />
         </div>
         <div className="space-y-2">
@@ -529,15 +527,22 @@ export function useOnboardingWizard(opts: {
       motoristId: user.motoristId,
       vehicleId: user.vehicleId ?? '',
       insurerId: user.insurerId ?? '',
-      brokerId: user.brokerId ?? '',
+      // Keep a broker already picked in the wallet if auth claims lag.
+      brokerId: user.brokerId || profile.brokerId || '',
       policyId: user.policyId ?? '',
       name: profile.name || user.displayName,
     })
-  }, [user, profile.motoristId, profile.name, setProfile])
+  }, [user, profile.motoristId, profile.name, profile.brokerId, setProfile])
 
   async function finish() {
     try {
       await completeOnboarding()
+      try {
+        const session = await api.refresh()
+        useSessionStore.getState().applyAuth(session.token, session.user)
+      } catch {
+        /* wallet already saved; refresh is best-effort */
+      }
       opts.onFinished()
     } catch {
       /* error shown from store */

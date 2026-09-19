@@ -141,7 +141,6 @@ export const CLAIM_READY_FIELDS = [
   'plate',
   'vehicle',
   'insurer',
-  'policy',
   'brokerId',
 ] as const satisfies ReadonlyArray<keyof Wallet>
 
@@ -149,11 +148,15 @@ export function walletFieldFilled(profile: Wallet, key: keyof Wallet): boolean {
   return String(profile[key] ?? '').trim().length > 0
 }
 
+/** Fields still empty for claim-ready (for nudge / later gate). */
+export function walletMissingClaimFields(profile: Wallet): Array<(typeof CLAIM_READY_FIELDS)[number]> {
+  return CLAIM_READY_FIELDS.filter((key) => !walletFieldFilled(profile, key))
+}
+
 /** Share of claim-ready fields still missing (0–100). */
 export function walletRemainingPercent(profile: Wallet): number {
-  const filled = CLAIM_READY_FIELDS.filter((key) => walletFieldFilled(profile, key)).length
-  const done = filled / CLAIM_READY_FIELDS.length
-  return Math.max(0, Math.round((1 - done) * 100))
+  const missing = walletMissingClaimFields(profile).length
+  return Math.max(0, Math.round((missing / CLAIM_READY_FIELDS.length) * 100))
 }
 
 export function walletEssentialsFilled(profile: Wallet): boolean {

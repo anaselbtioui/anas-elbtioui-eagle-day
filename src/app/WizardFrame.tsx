@@ -23,12 +23,12 @@ export function WizardFrame({
   return (
     <div
       className={cn(
-        'mx-auto flex w-full max-w-2xl flex-col',
+        'flex min-h-0 w-full min-w-0 flex-1 flex-col',
         alert && 'rounded-[var(--radius-labas)] bg-alert-soft/40 p-4 md:p-5',
         className,
       )}
     >
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex shrink-0 items-center gap-3">
         <Link
           to={backTo}
           className="min-h-10 shrink-0 content-center text-sm font-medium text-ink-muted hover:text-ink"
@@ -38,9 +38,9 @@ export function WizardFrame({
         <h1 className="font-display truncate text-xl font-bold text-ink md:text-2xl">{title}</h1>
       </div>
       <StickyActionsProvider
-        className="min-h-0 max-h-[calc(100dvh-8.5rem)]"
+        className="min-h-0 flex-1"
         bodyClassName="pr-1"
-        footerClassName="px-0"
+        footerClassName="bg-sand px-0"
       >
         {children}
       </StickyActionsProvider>

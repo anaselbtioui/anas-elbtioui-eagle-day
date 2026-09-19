@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { ShellScroll } from '@/app/AppShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -121,7 +122,7 @@ export function BrokerDossierPage() {
   }
 
   return (
-    <>
+    <ShellScroll>
       <div className="mb-4">
         <h1 className="font-display text-3xl font-bold">{bundle.title}</h1>
         <p className="mt-1 text-ink-muted">
@@ -455,6 +456,6 @@ export function BrokerDossierPage() {
           ) : null}
         </SheetContent>
       </Sheet>
-    </>
+    </ShellScroll>
   )
 }

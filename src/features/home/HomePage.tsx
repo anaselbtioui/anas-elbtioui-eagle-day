@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
+import { ShellScroll } from '@/app/AppShell'
 import { LabasIcon } from '@/components/LabasIcon'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
@@ -181,7 +182,16 @@ export function HomePage() {
     navigate('/later')
   }
 
+  function goAssist() {
+    if (!claimReady) {
+      showToast(t('home.assistBlocked'), 'alert')
+      return
+    }
+    navigate('/assist')
+  }
+
   return (
+    <ShellScroll>
     <div className="mx-auto w-full max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
         <button
@@ -196,13 +206,18 @@ export function HomePage() {
         >
           {t('home.doorLater')}
         </button>
-        <Link
-          to="/assist"
-          className="font-semibold text-ink underline-offset-4 hover:underline"
+        <button
+          type="button"
+          onClick={goAssist}
+          className={cn(
+            'font-semibold underline-offset-4 hover:underline',
+            claimReady ? 'text-ink' : 'text-ink-muted',
+          )}
           data-testid="home-door-assist"
+          aria-disabled={!claimReady}
         >
           {t('home.doorAssist')}
-        </Link>
+        </button>
         <span className="text-ink-muted">{t('app.notAClaim')}</span>
       </div>
 
@@ -233,5 +248,6 @@ export function HomePage() {
         />
       </section>
     </div>
+    </ShellScroll>
   )
 }

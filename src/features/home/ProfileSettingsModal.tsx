@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import { Settings } from 'lucide-react'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
+import { InsurerSelect } from '@/components/InsurerSelect'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -49,11 +50,10 @@ type FieldKey = keyof Pick<
   | 'brokerPhone'
 >
 
-const CATEGORY_FIELDS: Record<ProfileCategory, FieldKey[]> = {
+const CATEGORY_FIELDS: Record<Exclude<ProfileCategory, 'courtier'>, FieldKey[]> = {
   identite: ['name', 'phone', 'cin', 'city', 'licenseNumber'],
   vehicule: ['plate', 'vehicle'],
   contrat: ['insurer', 'policy', 'attestationValidUntil', 'assistanceNumber'],
-  courtier: ['broker', 'brokerPhone'],
 }
 
 const FIELD_LABEL: Record<FieldKey, string> = {
@@ -72,6 +72,12 @@ const FIELD_LABEL: Record<FieldKey, string> = {
   brokerPhone: 'onboarding.brokerPhone',
 }
 
+function isEditableCategory(
+  category: SettingsCategory,
+): category is Exclude<ProfileCategory, 'courtier'> {
+  return category === 'identite' || category === 'vehicule' || category === 'contrat'
+}
+
 function FieldRow({
   label,
   children,
@@ -87,10 +93,6 @@ function FieldRow({
   )
 }
 
-function isProfileCategory(id: SettingsCategory): id is ProfileCategory {
-  return id !== 'compte'
-}
-
 export function ProfileSettingsModal({
   open,
   onOpenChange,
@@ -103,13 +105,36 @@ export function ProfileSettingsModal({
   const [category, setCategory] = useState<SettingsCategory>('identite')
   const [persistError, setPersistError] = useState<string | null>(null)
   const [persistBusy, setPersistBusy] = useState(false)
+  const [brokerEmail, setBrokerEmail] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) {
       setCategory('identite')
       setPersistError(null)
+      setBrokerEmail(null)
     }
   }, [open])
+
+  useEffect(() => {
+    if (!open || !profile.brokerId) {
+      setBrokerEmail(null)
+      return
+    }
+    let cancelled = false
+    void api
+      .listRegisteredBrokers()
+      .then((list) => {
+        if (cancelled) return
+        const match = list.find((b) => b.id === profile.brokerId)
+        setBrokerEmail(match?.email ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setBrokerEmail(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, profile.brokerId])
 
   const days = attestationDaysRemaining(profile.attestationValidUntil)
 
@@ -126,7 +151,7 @@ export function ProfileSettingsModal({
     }
   }
 
-  const showProfileForm = isProfileCategory(category)
+  const showEditableForm = isEditableCategory(category)
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -185,7 +210,7 @@ export function ProfileSettingsModal({
               bodyClassName="p-5"
               footerClassName="border-border/60 bg-sand/30 px-5"
             >
-              {showProfileForm ? (
+              {showEditableForm ? (
                 <>
                   <h2 className="font-display text-xl font-bold text-ink">
                     {t(`motorist.settingsCat.${category}`)}
@@ -197,12 +222,21 @@ export function ProfileSettingsModal({
                   <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
                     {CATEGORY_FIELDS[category].map((key) => (
                       <FieldRow key={key} label={t(FIELD_LABEL[key])}>
-                        <Input
-                          type={key === 'attestationValidUntil' ? 'date' : 'text'}
-                          value={profile[key]}
-                          onChange={(e) => setProfile({ [key]: e.target.value })}
-                          className="min-h-10 border-border px-3 py-2 text-base"
-                        />
+                        {key === 'insurer' ? (
+                          <InsurerSelect
+                            value={profile.insurer}
+                            onChange={(insurer) => setProfile({ insurer })}
+                            placeholder={t('onboarding.insurerPick')}
+                            className="min-h-10 border-border px-3 py-2 text-base"
+                          />
+                        ) : (
+                          <Input
+                            type={key === 'attestationValidUntil' ? 'date' : 'text'}
+                            value={profile[key]}
+                            onChange={(e) => setProfile({ [key]: e.target.value })}
+                            className="min-h-10 border-border px-3 py-2 text-base"
+                          />
+                        )}
                       </FieldRow>
                     ))}
                   </div>
@@ -240,6 +274,30 @@ export function ProfileSettingsModal({
                       {t('app.save')}
                     </Button>
                   </StickyActions>
+                </>
+              ) : null}
+
+              {category === 'courtier' ? (
+                <>
+                  <h2 className="font-display text-xl font-bold text-ink">
+                    {t('motorist.settingsCat.courtier')}
+                  </h2>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {t('motorist.settingsCatHint.courtier')}
+                  </p>
+                  <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
+                    <FieldRow label={t('onboarding.broker')}>
+                      <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-name">
+                        {profile.broker.trim() || t('motorist.brokerUnset')}
+                      </p>
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.brokerEmail')}>
+                      <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-email">
+                        {brokerEmail ?? '—'}
+                      </p>
+                    </FieldRow>
+                  </div>
+                  <p className="mt-3 text-sm text-ink-muted">{t('motorist.brokerContactHint')}</p>
                 </>
               ) : null}
 

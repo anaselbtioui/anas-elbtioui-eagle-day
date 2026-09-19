@@ -142,14 +142,12 @@ export function LaterPage() {
       <WizardFrame title={t('later.title')}>
         <WizardSection title={t('later.title')} hint={t('later.profileIncomplete')}>
           <StickyActions>
-            <div className="space-y-2">
-              <Button asChild className="w-full" variant="moss">
-                <Link to="/">{t('later.completeProfile')}</Link>
-              </Button>
-              <Button asChild variant="ghost" className="w-full">
-                <Link to="/">{t('app.back')}</Link>
-              </Button>
-            </div>
+            <Button asChild className="w-full" variant="moss">
+              <Link to="/">{t('later.completeProfile')}</Link>
+            </Button>
+            <Button asChild variant="ghost" className="w-full">
+              <Link to="/">{t('app.back')}</Link>
+            </Button>
           </StickyActions>
         </WizardSection>
       </WizardFrame>
@@ -284,19 +282,17 @@ export function LaterPage() {
               <span className="font-medium">{t('later.confirmSend')}</span>
             </label>
             <StickyActions>
-              <div className="flex flex-col gap-2">
-                <Button
-                  className="w-full"
-                  disabled={!ready || busy || !confirmSend}
-                  onClick={() => void send()}
-                  data-testid="later-submit"
-                >
-                  {busy ? t('later.sending') : t('later.send')}
-                </Button>
-                <Button variant="ghost" className="w-full" onClick={() => setStep('edit')}>
-                  {t('app.back')}
-                </Button>
-              </div>
+              <Button
+                className="w-full"
+                disabled={!ready || busy || !confirmSend}
+                onClick={() => void send()}
+                data-testid="later-submit"
+              >
+                {busy ? t('later.sending') : t('later.send')}
+              </Button>
+              <Button variant="ghost" className="w-full" onClick={() => setStep('edit')}>
+                {t('app.back')}
+              </Button>
             </StickyActions>
           </div>
         ) : (

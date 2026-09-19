@@ -8,6 +8,19 @@ import { cn } from '@/lib/utils'
 export const shellActiveEntry =
   'bg-ink-soft text-ink outline outline-1 outline-ink/20 font-semibold'
 
+/** Scrollable main pane for list/detail pages (wizards use StickyActionsProvider instead). */
+export function ShellScroll({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn('labas-scroll min-h-0 flex-1 overflow-y-auto', className)}>{children}</div>
+  )
+}
+
 export function ShellNavLink({
   to,
   end,
@@ -126,13 +139,18 @@ export function AppShell({
         </div>
       </aside>
 
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {toast}
-        <div className="labas-scroll min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6">
-          {children ?? <Outlet />}
+        {/* Height-locked pane so StickyActions footers pin to bottom; pages scroll inside. */}
+        <div className="flex min-h-0 flex-1 flex-col px-4 py-5 md:px-6">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {children ?? <Outlet />}
+          </div>
         </div>
         {bottomDock ? (
-          <div className="relative z-30 shrink-0 px-0 md:px-0">{bottomDock}</div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40">
+            <div className="pointer-events-auto">{bottomDock}</div>
+          </div>
         ) : null}
       </div>
     </div>
