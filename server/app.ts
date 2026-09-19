@@ -309,32 +309,37 @@ export function createApp(
     const chosenBrokerId = body.policy.brokerId?.trim() || body.broker.id?.trim() || ''
     if (!chosenBrokerId) return c.json({ error: 'broker_required' }, 400)
 
-    const db = await load()
-    const registered = listRegisteredBrokers(db)
-    const match = registered.find((b) => b.id === chosenBrokerId)
-    if (!match) return c.json({ error: 'broker_not_found' }, 400)
-
-    const broker = db.brokers.find((b) => b.id === chosenBrokerId)!
-    const policy = {
-      ...body.policy,
-      id: auth.policyId ?? body.policy.id,
-      brokerId: chosenBrokerId,
-    }
-    let next: Db = {
-      ...db,
-      motorists: upsert(db.motorists, body.motorist),
-      vehicles: upsert(db.vehicles, body.vehicle),
-      insurers: upsert(db.insurers, body.insurer),
-      policies: upsert(db.policies, policy),
-    }
-    next = assignMotoristBroker(next, auth.id, policy.id, chosenBrokerId)
-    await persist(next)
-
-    const saved: Profile = {
-      ...body,
-      broker: { id: broker.id, displayName: broker.displayName },
-      policy,
-    }
+    let saved: Profile | null = null
+    let err: 'broker_not_found' | null = null
+    await write((db) => {
+      const registered = listRegisteredBrokers(db)
+      const match = registered.find((b) => b.id === chosenBrokerId)
+      if (!match) {
+        err = 'broker_not_found'
+        return db
+      }
+      const broker = db.brokers.find((b) => b.id === chosenBrokerId)!
+      const policy = {
+        ...body.policy,
+        id: auth.policyId ?? body.policy.id,
+        brokerId: chosenBrokerId,
+      }
+      let next: Db = {
+        ...db,
+        motorists: upsert(db.motorists, body.motorist),
+        vehicles: upsert(db.vehicles, body.vehicle),
+        insurers: upsert(db.insurers, body.insurer),
+        policies: upsert(db.policies, policy),
+      }
+      next = assignMotoristBroker(next, auth.id, policy.id, chosenBrokerId)
+      saved = {
+        ...body,
+        broker: { id: broker.id, displayName: broker.displayName },
+        policy,
+      }
+      return next
+    })
+    if (err) return c.json({ error: err }, 400)
     return c.json(saved)
   })
 
