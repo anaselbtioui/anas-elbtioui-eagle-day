@@ -1,0 +1,104 @@
+.flipRoot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.flipRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.flipSr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.flipSep {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.35rem;
+  line-height: 1;
+  color: var(--color-ink);
+  opacity: 0.85;
+  padding: 0 2px;
+  user-select: none;
+}
+
+.flipDigit {
+  width: 2rem;
+  height: 2.65rem;
+  perspective: 320px;
+  flex-shrink: 0;
+}
+
+@media (min-width: 30em) {
+  .flipDigit {
+    width: 2.25rem;
+    height: 2.9rem;
+  }
+}
+
+.flipInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform: rotateX(0deg);
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.flipInnerFlipping {
+  transform: rotateX(-180deg);
+}
+
+.flipInnerInstant {
+  transition: none !important;
+}
+
+.flipFace {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-labas);
+  background: var(--color-sand-deep);
+  border: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 1px 2px rgba(16, 40, 96, 0.08);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--color-ink);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  user-select: none;
+}
+
+.flipFaceFront {
+  transform: rotateX(0deg);
+}
+
+.flipFaceBack {
+  transform: rotateX(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flipInner {
+    transition-duration: 0.05s;
+  }
+}

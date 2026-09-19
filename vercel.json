@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/[[...route]].ts": {
+      "maxDuration": 30,
+      "includeFiles": "src/domain/**,server/**"
+    }
+  }
+}

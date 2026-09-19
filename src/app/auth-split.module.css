@@ -1,0 +1,379 @@
+/* Med Assurance auth split — pattern from wa-pharma / hamssah AdminAuthLayout */
+
+.authRoot {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--color-sand);
+  scrollbar-gutter: stable;
+}
+
+@media (min-width: 48em) {
+  .authRoot {
+    flex-direction: row;
+  }
+}
+
+.brandPanel {
+  display: none;
+  flex: 0 0 clamp(320px, 46vw, 540px);
+  min-height: 100%;
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1.75rem, 4vw, 3rem);
+}
+
+@media (min-width: 48em) {
+  .brandPanel {
+    display: flex;
+  }
+}
+
+.brandAmbient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.brandBase {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(165deg, #163a7a 0%, #102860 48%, #0a1838 100%);
+}
+
+.brandPattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("/textures/pattern.svg");
+  background-repeat: repeat;
+  background-size: 420px auto;
+  opacity: 0.05;
+  mix-blend-mode: soft-light;
+  filter: invert(1) contrast(0.85) brightness(0.9);
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  filter: blur(52px);
+}
+
+@keyframes labasOrbA {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(5%, -5%, 0) scale(1.06);
+  }
+}
+
+@keyframes labasOrbB {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-6%, 4%, 0) scale(1.05);
+  }
+}
+
+@keyframes labasOrbC {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(4%, 5%, 0) scale(1.04);
+  }
+}
+
+.orbMoss {
+  width: min(135%, 520px);
+  height: min(95%, 420px);
+  right: -42%;
+  bottom: -28%;
+  background: radial-gradient(
+    circle at 38% 42%,
+    color-mix(in srgb, var(--color-moss) 55%, transparent) 0%,
+    color-mix(in srgb, var(--color-moss) 16%, transparent) 42%,
+    transparent 72%
+  );
+  animation: labasOrbA 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+}
+
+.orbBlush {
+  width: min(110%, 440px);
+  height: min(78%, 360px);
+  left: -38%;
+  top: -22%;
+  background: radial-gradient(
+    circle at 58% 55%,
+    color-mix(in srgb, var(--color-brand-blush) 45%, transparent) 0%,
+    color-mix(in srgb, var(--color-moss) 14%, transparent) 48%,
+    transparent 74%
+  );
+  animation: labasOrbB 5.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  animation-delay: -1.3s;
+}
+
+.orbInk {
+  width: min(75%, 340px);
+  height: min(58%, 280px);
+  left: -8%;
+  bottom: 8%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, #0a1838 55%, transparent) 0%,
+    transparent 65%
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+  animation: labasOrbC 5.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  animation-delay: -0.6s;
+}
+
+.brandGrain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.48;
+  mix-blend-mode: overlay;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.52' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.22' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+  background-size:
+    200px 200px,
+    96px 96px;
+  background-repeat: repeat;
+}
+
+.brandContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.brandLockup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.brandMark {
+  height: 5.5rem !important;
+  width: 5.5rem !important;
+  margin-bottom: 0.5rem;
+}
+
+.brandWordmark {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  font-weight: 800;
+  line-height: 1.1;
+  color: #f4efe6;
+  letter-spacing: -0.02em;
+}
+
+.brandArabic {
+  font-family: var(--font-arabic);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-brand-blush);
+}
+
+.brandCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 20rem;
+}
+
+.brandTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 2.5vw, 2.125rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: #f4efe6;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 28px rgba(0, 0, 0, 0.22);
+}
+
+.brandBody {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: color-mix(in srgb, #f4efe6 88%, var(--color-brand-blush));
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.18);
+}
+
+.brandCopyright {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, #f4efe6 72%, var(--color-brand-blush));
+}
+
+.formColumn {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  min-height: 100dvh;
+  overflow-y: auto;
+  background: transparent;
+}
+
+@media (min-width: 48em) {
+  .formColumn {
+    align-self: stretch;
+    align-items: center;
+    justify-content: center;
+    margin-left: -28px;
+    overflow-x: clip;
+    overflow-y: auto;
+    padding: 2.5rem 2rem 3rem calc(2rem + 28px);
+    border-top-left-radius: 22px;
+    border-bottom-left-radius: 22px;
+    background: var(--color-sand);
+    box-shadow: -8px 0 32px -12px rgba(16, 40, 96, 0.12);
+  }
+}
+
+.formWrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+@media (min-width: 48em) {
+  .formWrap {
+    max-width: 26rem;
+    margin-block: 0.75rem;
+  }
+}
+
+.authFormCard {
+  width: 100%;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  border: none;
+  border-radius: 0 0 1rem 1rem;
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.04),
+    0 8px 24px -12px rgba(0, 0, 0, 0.14);
+}
+
+@media (min-width: 48em) {
+  .authFormCard {
+    border-radius: var(--radius-labas);
+    border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+    box-shadow:
+      0 0 0 1px rgba(16, 40, 96, 0.04),
+      0 1px 2px -1px rgba(0, 0, 0, 0.06),
+      0 2px 4px 0 rgba(0, 0, 0, 0.04);
+    overflow: clip;
+  }
+}
+
+.formHeaderBand {
+  position: relative;
+  isolation: isolate;
+  margin: 0;
+  padding: 1.25rem 1.5rem 1rem;
+  overflow: clip;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-sand-deep) 55%, var(--color-surface)) 0%,
+    var(--color-surface) 100%
+  );
+}
+
+.formHeaderBand::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: color-mix(in srgb, var(--color-ink) 55%, var(--color-moss));
+  background-image: url("/textures/pattern.svg");
+  background-repeat: repeat;
+  background-size: 420px auto;
+  background-position: center top;
+  background-blend-mode: lighten;
+  mix-blend-mode: soft-light;
+  opacity: 0.35;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.5) 42%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.5) 42%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.formHeaderBand > * {
+  position: relative;
+  z-index: 1;
+}
+
+.formBody {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.formTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-ink);
+}
+
+.formLead {
+  margin: 0.35rem 0 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbMoss,
+  .orbBlush,
+  .orbInk {
+    animation: none;
+    will-change: auto;
+  }
+}
+
+/* Mobile-only helpers used by onboarding hero */
+.mobileOnly {
+  display: block;
+}
+
+.desktopOnly {
+  display: none;
+}
+
+@media (min-width: 48em) {
+  .mobileOnly {
+    display: none;
+  }
+
+  .desktopOnly {
+    display: block;
+  }
+}
