@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { MobileShell, QuestionPage } from '@/app/MobileShell'
+import { WizardFrame, WizardSection } from '@/app/WizardFrame'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { StickyActions } from '@/components/ui/sticky-actions'
 import { canSubmit } from '@/domain/rules.ts'
 import type { DeskEvent } from '@/domain/desk.ts'
 import type { Contact, Dossier, EvidencePack as DomainPack } from '@/domain/types.ts'
@@ -54,9 +55,7 @@ export function LaterPage() {
           try {
             const bundle = await api.getBrokerDossier(file.dossier.id)
             if (!cancelled) {
-              setEvents(
-                (bundle.events ?? []).filter((e) => e.motoristVisible),
-              )
+              setEvents((bundle.events ?? []).filter((e) => e.motoristVisible))
             }
           } catch {
             /* desk may not exist yet */
@@ -137,21 +136,23 @@ export function LaterPage() {
 
   if (loading) {
     return (
-      <MobileShell title={t('later.title')} backTo="/">
+      <WizardFrame title={t('later.title')}>
         <p className="text-ink-muted">{t('later.loading')}</p>
-      </MobileShell>
+      </WizardFrame>
     )
   }
 
   if (!pack) {
     return (
-      <MobileShell title={t('later.title')} backTo="/">
-        <QuestionPage title={t('later.title')} hint={t('later.noPack')}>
-          <Button asChild className="w-full">
-            <Link to="/now">{t('home.doorNow')}</Link>
-          </Button>
-        </QuestionPage>
-      </MobileShell>
+      <WizardFrame title={t('later.title')}>
+        <WizardSection title={t('later.title')} hint={t('later.noPack')}>
+          <StickyActions>
+            <Button asChild className="w-full">
+              <Link to="/now">{t('home.doorNow')}</Link>
+            </Button>
+          </StickyActions>
+        </WizardSection>
+      </WizardFrame>
     )
   }
 
@@ -160,8 +161,8 @@ export function LaterPage() {
   const displayBroker = brokerName || brokerContact?.displayName || t('onboarding.broker')
 
   return (
-    <MobileShell title={t('later.title')} backTo="/">
-      <QuestionPage title={t('later.title')} hint={t('later.body')}>
+    <WizardFrame title={t('later.title')}>
+      <WizardSection title={t('later.title')} hint={t('later.body')}>
         {error ? (
           <p className="mb-4 rounded-[var(--radius-labas)] bg-alert-soft px-3 py-2 text-sm text-alert">
             {error}
@@ -260,19 +261,21 @@ export function LaterPage() {
               />
               <span className="font-medium">{t('later.confirmSend')}</span>
             </label>
-            <div className="flex flex-col gap-2">
-              <Button
-                className="w-full"
-                disabled={!ready || busy || !confirmSend}
-                onClick={() => void send()}
-                data-testid="later-submit"
-              >
-                {busy ? t('later.sending') : t('later.send')}
-              </Button>
-              <Button variant="ghost" className="w-full" onClick={() => setStep('edit')}>
-                {t('app.back')}
-              </Button>
-            </div>
+            <StickyActions>
+              <div className="flex flex-col gap-2">
+                <Button
+                  className="w-full"
+                  disabled={!ready || busy || !confirmSend}
+                  onClick={() => void send()}
+                  data-testid="later-submit"
+                >
+                  {busy ? t('later.sending') : t('later.send')}
+                </Button>
+                <Button variant="ghost" className="w-full" onClick={() => setStep('edit')}>
+                  {t('app.back')}
+                </Button>
+              </div>
+            </StickyActions>
           </div>
         ) : (
           <>
@@ -331,20 +334,22 @@ export function LaterPage() {
                 <p className="text-xs text-moss">{t('later.savedDraft')}</p>
               ) : null}
             </div>
-            <Button
-              className="w-full"
-              disabled={!ready || busy}
-              onClick={() => {
-                setConfirmSend(false)
-                setStep('review')
-              }}
-              data-testid="later-to-review"
-            >
-              {t('later.send')}
-            </Button>
+            <StickyActions>
+              <Button
+                className="w-full"
+                disabled={!ready || busy}
+                onClick={() => {
+                  setConfirmSend(false)
+                  setStep('review')
+                }}
+                data-testid="later-to-review"
+              >
+                {t('later.send')}
+              </Button>
+            </StickyActions>
           </>
         )}
-      </QuestionPage>
-    </MobileShell>
+      </WizardSection>
+    </WizardFrame>
   )
 }

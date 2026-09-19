@@ -71,6 +71,12 @@ export function DeskShell({ children }: { children?: ReactNode }) {
             testId="nav-desk-queue"
           />
           <ShellNavLink
+            to="/desk/clients"
+            icon="user"
+            label={t('broker.navClients')}
+            testId="nav-desk-clients"
+          />
+          <ShellNavLink
             to="/desk/import"
             icon="briefcase"
             label={t('broker.navImport')}

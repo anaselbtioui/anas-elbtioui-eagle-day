@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
-import { Card, CardDescription, CardTitle } from '@/components/ui/card'
+import type { ColumnDef } from '@tanstack/table-core'
+import { DataTable } from '@/components/ui/data-table'
 import type { EvidencePack, EvidencePackStatus } from '@/domain/evidence'
 import type { Dossier } from '@/domain/types.ts'
 import { api } from '@/services/api.ts'
@@ -21,14 +21,13 @@ function statusTone(status: EvidencePackStatus): string {
   }
 }
 
-function nextStepForPack(status: EvidencePackStatus): { to: string; labelKey: string } | null {
-  if (status === 'draft') return { to: '/now', labelKey: 'motorist.pastContinueNow' }
-  if (status === 'saved') return { to: '/later', labelKey: 'motorist.pastOpenLater' }
-  return null
+function isPasse(status: EvidencePackStatus): boolean {
+  return status === 'stopped'
 }
 
 export function PastAccidentsPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { packId } = useParams()
   const profile = useProfileStore((s) => s.profile)
   const history = useEvidenceStore((s) => s.history)
@@ -45,7 +44,9 @@ export function PastAccidentsPage() {
     const byId = new Map<string, EvidencePack>()
     for (const h of history) byId.set(h.id, h)
     if (active) byId.set(active.id, active)
-    return [...byId.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    return [...byId.values()]
+      .filter((p) => isPasse(p.status))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   }, [history, active])
 
   const savedIds = useMemo(
@@ -74,82 +75,95 @@ export function PastAccidentsPage() {
     }
   }, [savedIds])
 
+  const columns = useMemo<ColumnDef<EvidencePack>[]>(
+    () => [
+      {
+        id: 'ref',
+        accessorFn: (row) => row.id,
+        header: t('motorist.colRef'),
+        cell: ({ row }) => (
+          <p
+            className={cn(
+              'font-mono text-sm font-semibold text-ink',
+              packId === row.original.id && 'underline decoration-ink/40',
+            )}
+          >
+            {row.original.id.slice(0, 14)}
+          </p>
+        ),
+      },
+      {
+        id: 'updated',
+        accessorFn: (row) => row.updatedAt,
+        header: t('motorist.colUpdated'),
+        cell: ({ row }) => (
+          <span className="tabular-nums text-sm text-ink-muted">
+            {row.original.updatedAt.slice(0, 10)}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        accessorFn: (row) => row.status,
+        header: t('motorist.colStatus'),
+        cell: ({ row }) => (
+          <span
+            className={cn(
+              'inline-flex rounded-[var(--radius-labas)] px-2.5 py-1 text-xs font-semibold',
+              statusTone(row.original.status),
+            )}
+          >
+            {t(`motorist.packStatus.${row.original.status}`)}
+          </span>
+        ),
+      },
+      {
+        id: 'dossier',
+        accessorFn: (row) => dossierById[row.id]?.status ?? '',
+        header: t('motorist.colDossier'),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const dossier = dossierById[row.original.id]
+          if (!dossier) return <span className="text-sm text-ink-muted">—</span>
+          return (
+            <span className="text-sm text-ink">{t(`broker.status.${dossier.status}`)}</span>
+          )
+        },
+      },
+      {
+        id: 'next',
+        accessorFn: (row) => row.status,
+        header: t('motorist.colNext'),
+        enableSorting: false,
+        cell: ({ row }) => (
+          <p className="max-w-xs truncate text-sm text-ink-muted">
+            {t(`motorist.packStatusHint.${row.original.status}`)}
+          </p>
+        ),
+      },
+    ],
+    [t, dossierById, packId],
+  )
+
   if (!profile.onboarded) {
     return <Navigate to="/onboarding" replace />
   }
 
-  const selected = packId ? packs.find((p) => p.id === packId) : null
-
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="mx-auto w-full max-w-5xl space-y-5">
       <header>
         <h1 className="font-display text-2xl font-bold text-ink md:text-3xl">
           {t('motorist.pastTitle')}
         </h1>
       </header>
 
-      {packs.length === 0 ? (
-        <Card className="border-border bg-surface/90">
-          <CardTitle className="text-base">{t('motorist.pastEmpty')}</CardTitle>
-          <Button asChild className="mt-4" variant="default">
-            <Link to="/">{t('motorist.pastGoClaims')}</Link>
-          </Button>
-        </Card>
-      ) : (
-        <ul className="space-y-3">
-          {packs.map((p) => {
-            const step = nextStepForPack(p.status)
-            const dossier = dossierById[p.id]
-            const highlighted = selected?.id === p.id || (!packId && packs[0]?.id === p.id)
-            return (
-              <li key={p.id}>
-                <Card
-                  className={cn(
-                    'border-border bg-surface/90 transition-colors',
-                    highlighted && 'outline outline-1 outline-ink/20',
-                  )}
-                  data-testid={`past-pack-${p.id}`}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="truncate text-base">{p.id}</CardTitle>
-                      <CardDescription>
-                        {t('motorist.pastUpdated', { date: p.updatedAt.slice(0, 10) })}
-                      </CardDescription>
-                    </div>
-                    <span
-                      className={cn(
-                        'rounded-[var(--radius-labas)] px-2.5 py-1 text-xs font-semibold',
-                        statusTone(p.status),
-                      )}
-                    >
-                      {t(`motorist.packStatus.${p.status}`)}
-                    </span>
-                  </div>
-
-                  <p className="mt-3 text-sm text-ink-muted">
-                    {t(`motorist.packStatusHint.${p.status}`)}
-                  </p>
-
-                  {dossier ? (
-                    <div className="mt-3 rounded-[var(--radius-labas)] bg-sand-deep px-3 py-2 text-sm">
-                      <p className="font-semibold">{t('home.dossierStatus')}</p>
-                      <p>{t(`broker.status.${dossier.status}`)}</p>
-                      <p className="text-ink-muted">{dossier.nextHumanStep}</p>
-                    </div>
-                  ) : null}
-
-                  {step ? (
-                    <Button asChild className="mt-4 w-full sm:w-auto" variant="moss">
-                      <Link to={step.to}>{t(step.labelKey)}</Link>
-                    </Button>
-                  ) : null}
-                </Card>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <DataTable
+        columns={columns}
+        data={packs}
+        emptyMessage={t('motorist.pastEmpty')}
+        getRowTestId={(row) => `past-pack-${row.id}`}
+        onRowClick={(row) => navigate(`/past/${row.id}`)}
+      />
     </div>
   )
 }

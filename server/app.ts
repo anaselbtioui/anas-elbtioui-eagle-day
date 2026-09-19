@@ -1,12 +1,14 @@
-import { randomUUID } from 'node:crypto'
+﻿import { randomUUID } from 'node:crypto'
 import { Hono, type Context } from 'hono'
 import { cors } from 'hono/cors'
 import type { AppUserRecord, AuthUser } from '../src/domain/auth.ts'
 import {
+  assignMotoristBroker,
   hashPassword,
   insertUser,
   isRole,
-  markOnboarded,
+  listBrokerClients,
+  listRegisteredBrokers,
   normalizeEmail,
   provisionBroker,
   provisionMotorist,
@@ -39,6 +41,8 @@ import {
   fileFromDb,
   filesForMotorist,
   listDeskBundles,
+  listDeskBundlesForBroker,
+  brokerOwnsBundle,
   mergePack,
   newEmptyPack,
   packFromDb,
@@ -99,9 +103,20 @@ function needBroker(c: Ctx) {
   return null
 }
 
-function canSeePack(auth: AuthUser, pack: EvidencePack): boolean {
-  if (auth.role === 'broker') return true
+function canSeePack(auth: AuthUser, pack: EvidencePack, db: Db): boolean {
+  if (auth.role === 'broker') {
+    if (!auth.brokerId) return false
+    const profile = profileFromDb(db, pack.incident.motoristId)
+    return profile?.policy.brokerId === auth.brokerId
+  }
   return pack.incident.motoristId === auth.motoristId
+}
+
+function needBrokerId(c: Ctx) {
+  const denied = needBroker(c)
+  if (denied) return denied
+  if (!c.get('auth')?.brokerId) return c.json({ error: 'broker_required' }, 403)
+  return null
 }
 
 async function readJson<T>(c: { req: { json: () => Promise<unknown> } }, fallback: T): Promise<T> {
@@ -195,10 +210,10 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
       const provisioned = provisionMotorist(next, displayName)
       next = provisioned.db
       motoristId = provisioned.motoristId
-      brokerId = provisioned.brokerId
       vehicleId = provisioned.vehicleId
       insurerId = provisioned.insurerId
       policyId = provisioned.policyId
+      brokerId = null
     } else {
       const provisioned = provisionBroker(next, displayName)
       next = provisioned.db
@@ -272,18 +287,45 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     const auth = c.get('auth')!
     const body = await c.req.json<Profile>()
     if (body.motorist.id !== auth.motoristId) return c.json({ error: 'forbidden' }, 403)
+
+    const chosenBrokerId = body.policy.brokerId?.trim() || body.broker.id?.trim() || ''
+    if (!chosenBrokerId) return c.json({ error: 'broker_required' }, 400)
+
     const db = await load()
+    const registered = listRegisteredBrokers(db)
+    const match = registered.find((b) => b.id === chosenBrokerId)
+    if (!match) return c.json({ error: 'broker_not_found' }, 400)
+
+    const broker = db.brokers.find((b) => b.id === chosenBrokerId)!
+    const policy = {
+      ...body.policy,
+      id: auth.policyId ?? body.policy.id,
+      brokerId: chosenBrokerId,
+    }
     let next: Db = {
       ...db,
       motorists: upsert(db.motorists, body.motorist),
       vehicles: upsert(db.vehicles, body.vehicle),
       insurers: upsert(db.insurers, body.insurer),
-      brokers: upsert(db.brokers, body.broker),
-      policies: upsert(db.policies, body.policy),
+      policies: upsert(db.policies, policy),
     }
-    next = markOnboarded(next, auth.id)
+    next = assignMotoristBroker(next, auth.id, policy.id, chosenBrokerId)
     await persist(next)
-    return c.json(body)
+
+    const saved: Profile = {
+      ...body,
+      broker: { id: broker.id, displayName: broker.displayName },
+      policy,
+    }
+    return c.json(saved)
+  })
+
+  /** Registered brokers for motorist picker (auth required). */
+  app.get('/api/brokers', async (c) => {
+    const denied = needAuth(c)
+    if (denied) return denied
+    const db = await load()
+    return c.json(listRegisteredBrokers(db))
   })
 
   app.post('/api/profile/demo', async (c) => {
@@ -322,7 +364,7 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     const db = await load()
     const pack = packFromDb(db, c.req.param('incidentId'))
     if (!pack) return c.json({ error: 'not_found' }, 404)
-    if (!canSeePack(c.get('auth')!, pack)) return c.json({ error: 'forbidden' }, 403)
+    if (!canSeePack(c.get('auth')!, pack, db)) return c.json({ error: 'forbidden' }, 403)
     return c.json(pack)
   })
 
@@ -350,7 +392,7 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     const db = await load()
     const existing = packFromDb(db, incidentId)
     if (!existing) return c.json({ error: 'not_found' }, 404)
-    if (!canSeePack(c.get('auth')!, existing)) return c.json({ error: 'forbidden' }, 403)
+    if (!canSeePack(c.get('auth')!, existing, db)) return c.json({ error: 'forbidden' }, 403)
     const patch = await c.req.json<PackPatch>()
     const next = writePackAndSync(db, mergePack(existing, patch))
     await persist(next)
@@ -364,7 +406,7 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     const db = await load()
     const existing = packFromDb(db, incidentId)
     if (!existing) return c.json({ error: 'not_found' }, 404)
-    if (!canSeePack(c.get('auth')!, existing)) return c.json({ error: 'forbidden' }, 403)
+    if (!canSeePack(c.get('auth')!, existing, db)) return c.json({ error: 'forbidden' }, 403)
     const pieces = await c.req.json<EvidencePieces>()
     const next = writePackAndSync(db, applyPieces(existing, pieces))
     await persist(next)
@@ -395,7 +437,7 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     const db = await load()
     const file = fileFromDb(db, c.req.param('incidentId'))
     if (!file) return c.json({ error: 'not_found' }, 404)
-    if (!canSeePack(c.get('auth')!, file.pack)) return c.json({ error: 'forbidden' }, 403)
+    if (!canSeePack(c.get('auth')!, file.pack, db)) return c.json({ error: 'forbidden' }, 403)
     return c.json(file)
   })
 
@@ -421,7 +463,7 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     const db = await load()
     const pack = packFromDb(db, incidentId)
     if (!pack) return c.json({ error: 'pack_not_found' }, 404)
-    if (!canSeePack(c.get('auth')!, pack)) return c.json({ error: 'forbidden' }, 403)
+    if (!canSeePack(c.get('auth')!, pack, db)) return c.json({ error: 'forbidden' }, 403)
     const existing = db.declarations.find((d) => d.incidentId === incidentId)
     if (existing?.submittedAt) return c.json({ error: 'already_submitted' }, 409)
     const declaration: Declaration = {
@@ -450,7 +492,7 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     const db = await load()
     const pack = packFromDb(db, incidentId)
     if (!pack) return c.json({ error: 'pack_not_found' }, 404)
-    if (!canSeePack(c.get('auth')!, pack)) return c.json({ error: 'forbidden' }, 403)
+    if (!canSeePack(c.get('auth')!, pack, db)) return c.json({ error: 'forbidden' }, 403)
     let declaration = db.declarations.find((d) => d.incidentId === incidentId)
     if (!declaration) {
       declaration = {
@@ -501,7 +543,7 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     }
     const file = fileFromDb(db, incidentId)
     if (!file?.dossier) return c.json({ error: 'not_found' }, 404)
-    if (!canSeePack(auth, file.pack)) return c.json({ error: 'forbidden' }, 403)
+    if (!canSeePack(auth, file.pack, db)) return c.json({ error: 'forbidden' }, 403)
     return c.json(file.dossier)
   })
 
@@ -513,7 +555,7 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     if (!dossier) return c.json({ error: 'not_found' }, 404)
     const declaration = db.declarations.find((d) => d.id === dossier.declarationId)
     const pack = declaration ? packFromDb(db, declaration.incidentId) : null
-    if (!pack || !canSeePack(c.get('auth')!, pack)) return c.json({ error: 'forbidden' }, 403)
+    if (!pack || !canSeePack(c.get('auth')!, pack, db)) return c.json({ error: 'forbidden' }, 403)
     return c.json(dossier)
   })
 
@@ -524,21 +566,42 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
   })
 
   app.get('/api/broker/queue', async (c) => {
+    const denied = needBrokerId(c)
+    if (denied) return denied
+    const auth = c.get('auth')!
     const db = await load()
-    return c.json(listDeskBundles(db))
+    return c.json(listDeskBundlesForBroker(db, auth.brokerId!))
+  })
+
+  app.get('/api/broker/clients', async (c) => {
+    const denied = needBrokerId(c)
+    if (denied) return denied
+    const auth = c.get('auth')!
+    const db = await load()
+    return c.json(listBrokerClients(db, auth.brokerId!))
   })
 
   app.get('/api/broker/dossiers/:dossierId', async (c) => {
+    const denied = needBrokerId(c)
+    if (denied) return denied
+    const auth = c.get('auth')!
     const db = await load()
     const bundle = assembleBundle(db, c.req.param('dossierId'))
     if (!bundle) return c.json({ error: 'not_found' }, 404)
+    if (!brokerOwnsBundle(bundle, auth.brokerId!)) return c.json({ error: 'forbidden' }, 403)
     return c.json(bundle)
   })
 
   app.post('/api/broker/dossiers/:dossierId/requests', async (c) => {
+    const denied = needBrokerId(c)
+    if (denied) return denied
     const body = await c.req.json<{ piece?: DocumentRequestPiece; note?: string }>()
     if (!body.piece) return c.json({ error: 'piece_required' }, 400)
+    const auth = c.get('auth')!
     const db = await load()
+    const existing = assembleBundle(db, c.req.param('dossierId'))
+    if (!existing) return c.json({ error: 'not_found' }, 404)
+    if (!brokerOwnsBundle(existing, auth.brokerId!)) return c.json({ error: 'forbidden' }, 403)
     const result = applyRequest(db, c.req.param('dossierId'), body.piece, body.note ?? '')
     if ('error' in result) return c.json({ error: result.error }, 404)
     await persist(result.db)
@@ -742,6 +805,7 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
       return c.json({ error: 'not_ready' }, 409)
     }
     const body = await readJson<{ resolutions?: FieldResolution[] }>(c, {})
+    const auth = c.get('auth')!
     const db = await load()
     const bundles = listDeskBundles(db)
     const result = mergeImport({
@@ -753,13 +817,30 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
       resolutions: body.resolutions ?? [],
     })
     if (!result.ok) return c.json({ error: result.reason }, 409)
-    const nextDb = persistDeskBundle(db, result.bundle)
+
+    let bundle = result.bundle
+    if (auth.brokerId) {
+      const brokerRow =
+        db.brokers.find((b) => b.id === auth.brokerId) ??
+        ({ id: auth.brokerId, displayName: auth.displayName } as const)
+      bundle = {
+        ...bundle,
+        profile: {
+          ...bundle.profile,
+          broker: brokerRow,
+          policy: { ...bundle.profile.policy, brokerId: auth.brokerId },
+        },
+        provenance: { ...bundle.provenance, owner: auth.displayName },
+      }
+    }
+
+    const nextDb = persistDeskBundle(db, bundle)
     await persist(nextDb)
     session.status = 'merged'
-    session.mergedDossierId = result.bundle.dossierId
-    pushStep(session, 'ok', `Fusion locale · ${result.bundle.dossierId}`)
+    session.mergedDossierId = bundle.dossierId
+    pushStep(session, 'ok', `Fusion locale · ${bundle.dossierId}`)
     notify(session)
-    return c.json({ bundle: result.bundle, created: result.created })
+    return c.json({ bundle, created: result.created })
   })
 
   app.post('/api/broker/import/sessions/:id/cancel', async (c) => {

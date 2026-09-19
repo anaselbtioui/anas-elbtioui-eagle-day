@@ -92,19 +92,16 @@ export function provisionMotorist(db: Db, displayName: string): {
   motoristId: string
   vehicleId: string
   insurerId: string
-  brokerId: string
   policyId: string
 } {
   const motoristId = randomUUID()
   const vehicleId = randomUUID()
   const insurerId = randomUUID()
-  const brokerId = randomUUID()
   const policyId = randomUUID()
   return {
     motoristId,
     vehicleId,
     insurerId,
-    brokerId,
     policyId,
     db: {
       ...db,
@@ -116,12 +113,11 @@ export function provisionMotorist(db: Db, displayName: string): {
       }),
       vehicles: upsert(db.vehicles, { id: vehicleId, plate: null, makeModel: null }),
       insurers: upsert(db.insurers, { id: insurerId, displayName: 'Assureur' }),
-      brokers: upsert(db.brokers, { id: brokerId, displayName: 'Courtier' }),
       policies: upsert(db.policies, {
         id: policyId,
         number: null,
         insurerId,
-        brokerId,
+        brokerId: null,
         vehicleId,
         assistanceOnContract: 'unknown',
       }),
@@ -148,6 +144,97 @@ export function markOnboarded(db: Db, userId: string): Db {
   const row = db.users.find((u) => u.id === userId)
   if (!row) return db
   return insertUser(db, { ...row, onboarded: true })
+}
+
+/** Bind motorist account + policy to a registered broker. */
+export function assignMotoristBroker(
+  db: Db,
+  userId: string,
+  policyId: string,
+  brokerId: string,
+): Db {
+  const user = db.users.find((u) => u.id === userId)
+  const policy = db.policies.find((p) => p.id === policyId)
+  const broker = db.brokers.find((b) => b.id === brokerId)
+  if (!user || user.role !== 'motorist' || !policy || !broker) return db
+  const registered = db.users.some((u) => u.role === 'broker' && u.brokerId === brokerId)
+  if (!registered) return db
+  return {
+    ...db,
+    policies: upsert(db.policies, { ...policy, brokerId }),
+    users: upsert(db.users, { ...user, brokerId, onboarded: true }),
+  }
+}
+
+/** Brokers that have a real app account (not orphan stubs). */
+export function listRegisteredBrokers(db: Db): Array<{
+  id: string
+  displayName: string
+  email: string
+}> {
+  return db.users
+    .filter((u) => u.role === 'broker' && u.brokerId)
+    .map((u) => {
+      const row = db.brokers.find((b) => b.id === u.brokerId)
+      return {
+        id: u.brokerId!,
+        displayName: row?.displayName || u.displayName,
+        email: u.email,
+      }
+    })
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr'))
+}
+
+export function listBrokerClients(db: Db, brokerId: string) {
+  const clients: Array<{
+    motoristId: string
+    name: string
+    phone: string | null
+    email: string | null
+    policyNumber: string | null
+    plate: string | null
+  }> = []
+  const seen = new Set<string>()
+
+  for (const u of db.users) {
+    if (u.role !== 'motorist' || !u.motoristId) continue
+    const policy = u.policyId ? db.policies.find((p) => p.id === u.policyId) : null
+    if (u.brokerId !== brokerId && policy?.brokerId !== brokerId) continue
+    const motorist = db.motorists.find((m) => m.id === u.motoristId)
+    if (!motorist) continue
+    seen.add(motorist.id)
+    const vehicle = policy ? db.vehicles.find((v) => v.id === policy.vehicleId) : undefined
+    clients.push({
+      motoristId: motorist.id,
+      name: motorist.name,
+      phone: motorist.phone,
+      email: u.email,
+      policyNumber: policy?.number ?? null,
+      plate: vehicle?.plate ?? null,
+    })
+  }
+
+  // Policies linked without matching user.brokerId yet
+  for (const p of db.policies) {
+    if (p.brokerId !== brokerId) continue
+    const user = db.users.find((u) => u.role === 'motorist' && u.policyId === p.id)
+    if (user?.motoristId && seen.has(user.motoristId)) continue
+    if (!user?.motoristId) continue
+    const motorist = db.motorists.find((m) => m.id === user.motoristId)
+    if (!motorist || seen.has(motorist.id)) continue
+    seen.add(motorist.id)
+    const vehicle = db.vehicles.find((v) => v.id === p.vehicleId)
+    clients.push({
+      motoristId: motorist.id,
+      name: motorist.name,
+      phone: motorist.phone,
+      email: user.email,
+      policyNumber: p.number,
+      plate: vehicle?.plate ?? null,
+    })
+  }
+
+  return clients.sort((a, b) => a.name.localeCompare(b.name, 'fr'))
 }
 
 export function isRole(value: string | undefined): value is AppRole {

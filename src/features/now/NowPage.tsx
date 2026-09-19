@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { MobileShell, QuestionPage } from '@/app/MobileShell'
+import { WizardFrame, WizardSection } from '@/app/WizardFrame'
 import { Button } from '@/components/ui/button'
+import { StickyActions } from '@/components/ui/sticky-actions'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,24 +54,26 @@ export function NowPage() {
 
   if (!pack) {
     return (
-      <MobileShell title={t('now.title')} backTo="/">
-        <QuestionPage title={t('now.title')} hint={t('app.notAClaim')}>
+      <WizardFrame title={t('now.title')}>
+        <WizardSection title={t('now.title')} hint={t('app.notAClaim')}>
           {error ? (
             <p className="mb-3 rounded-[var(--radius-labas)] bg-alert-soft px-3 py-2 text-sm text-alert">
               {error}
             </p>
           ) : null}
-          <Button
-            className="w-full"
-            disabled={starting}
-            onClick={() => {
-              void start().then(() => setStep('injury'))
-            }}
-          >
-            {starting ? t('now.starting') : t('home.doorNow')}
-          </Button>
-        </QuestionPage>
-      </MobileShell>
+          <StickyActions>
+            <Button
+              className="w-full"
+              disabled={starting}
+              onClick={() => {
+                void start().then(() => setStep('injury'))
+              }}
+            >
+              {starting ? t('now.starting') : t('home.doorNow')}
+            </Button>
+          </StickyActions>
+        </WizardSection>
+      </WizardFrame>
     )
   }
 
@@ -104,39 +107,37 @@ export function NowPage() {
   const alert = step === 'stop'
   const assistPhone = profile.assistanceNumber.trim() || assistContacts[0]?.phone || null
 
+  const stepFooter =
+    step === 'constat' ? (
+      <Button className="w-full" onClick={() => setStep('car')}>
+        {t('app.continue')}
+      </Button>
+    ) : step === 'car' ? (
+      <Button
+        className="w-full"
+        onClick={() => setStep('photos')}
+        disabled={pack.damagedParts.length === 0}
+      >
+        {t('app.continue')}
+      </Button>
+    ) : step === 'photos' ? (
+      <Button className="w-full" onClick={() => setStep('drive')}>
+        {t('app.continue')}
+      </Button>
+    ) : null
+
   return (
-    <MobileShell
-      title={t('now.title')}
-      backTo="/"
-      alert={alert}
-      footer={
-        step === 'constat' ? (
-          <Button className="w-full" onClick={() => setStep('car')}>
-            {t('app.continue')}
-          </Button>
-        ) : step === 'car' ? (
-          <Button
-            className="w-full"
-            onClick={() => setStep('photos')}
-            disabled={pack.damagedParts.length === 0}
-          >
-            {t('app.continue')}
-          </Button>
-        ) : step === 'photos' ? (
-          <Button className="w-full" onClick={() => setStep('drive')}>
-            {t('app.continue')}
-          </Button>
-        ) : null
-      }
-    >
+    <WizardFrame title={t('now.title')} alert={alert}>
+      {stepFooter ? <StickyActions>{stepFooter}</StickyActions> : null}
+
       {step === 'injury' ? (
-        <QuestionPage title={t('now.safetyTitle')} hint={t('now.safetyHint')}>
+        <WizardSection title={t('now.safetyTitle')} hint={t('now.safetyHint')}>
           <RadioGroup onValueChange={onInjury}>
             <RadioChoice value="no" label={t('now.injuryNo')} />
             <RadioChoice value="yes" label={t('now.injuryYes')} />
             <RadioChoice value="unknown" label={t('now.injuryUnknown')} />
           </RadioGroup>
-        </QuestionPage>
+        </WizardSection>
       ) : null}
 
       {step === 'stop' ? (
@@ -187,7 +188,7 @@ export function NowPage() {
       ) : null}
 
       {step === 'other' ? (
-        <QuestionPage title={t('now.otherTitle')}>
+        <WizardSection title={t('now.otherTitle')}>
           <RadioGroup onValueChange={onOther}>
             <RadioChoice value="cooperates" label={t('now.otherCooperates')} />
             <RadioChoice value="alone" label={t('now.otherAlone')} />
@@ -195,11 +196,11 @@ export function NowPage() {
             <RadioChoice value="fled" label={t('now.otherFled')} />
             <RadioChoice value="unknown" label={t('now.otherUnknown')} />
           </RadioGroup>
-        </QuestionPage>
+        </WizardSection>
       ) : null}
 
       {step === 'constat' ? (
-        <QuestionPage title={t('now.constatTitle')} hint={t('now.constatHint')}>
+        <WizardSection title={t('now.constatTitle')} hint={t('now.constatHint')}>
           <Card className="mb-4 bg-moss-soft border-moss/30">
             <CardTitle className="text-sm">{t('now.attestationCard')}</CardTitle>
             <CardDescription>
@@ -258,11 +259,11 @@ export function NowPage() {
               <span>{t('now.docsChecked')}</span>
             </label>
           </div>
-        </QuestionPage>
+        </WizardSection>
       ) : null}
 
       {step === 'car' ? (
-        <QuestionPage title={t('now.carTitle')} hint={t('now.carHint')}>
+        <WizardSection title={t('now.carTitle')} hint={t('now.carHint')}>
           <CarDamageMap
             selected={pack.damagedParts}
             onToggle={(part) => dispatch({ type: 'TOGGLE_PART', part })}
@@ -270,11 +271,11 @@ export function NowPage() {
               CAR_PARTS.map((p) => [p, t(`now.part_${p}`)]),
             ) as Record<CarPart, string>}
           />
-        </QuestionPage>
+        </WizardSection>
       ) : null}
 
       {step === 'photos' ? (
-        <QuestionPage title={t('now.photosTitle')} hint={t('now.photosHint')}>
+        <WizardSection title={t('now.photosTitle')} hint={t('now.photosHint')}>
           <ul className="space-y-3">
             {slots.map((slot) => {
               const label =
@@ -325,11 +326,11 @@ export function NowPage() {
               )
             })}
           </ul>
-        </QuestionPage>
+        </WizardSection>
       ) : null}
 
       {step === 'drive' ? (
-        <QuestionPage title={t('now.driveTitle')}>
+        <WizardSection title={t('now.driveTitle')}>
           <div className="space-y-3">
             <Button
               className="w-full"
@@ -353,11 +354,11 @@ export function NowPage() {
               {t('now.driveNo')}
             </Button>
           </div>
-        </QuestionPage>
+        </WizardSection>
       ) : null}
 
       {step === 'assist' ? (
-        <QuestionPage title={t('now.assistTitle')} hint={t('now.assistHint')}>
+        <WizardSection title={t('now.assistTitle')} hint={t('now.assistHint')}>
           <Card className="mb-4">
             <CardTitle>{assistPhone || '—'}</CardTitle>
             <CardDescription>
@@ -390,37 +391,41 @@ export function NowPage() {
               ))}
             </div>
           ) : null}
-          <Button
-            className="w-full"
-            onClick={() => {
-              dispatch({ type: 'SAVE' })
-              setStep('saved')
-            }}
-          >
-            {t('app.continue')}
-          </Button>
-        </QuestionPage>
+          <StickyActions>
+            <Button
+              className="w-full"
+              onClick={() => {
+                dispatch({ type: 'SAVE' })
+                setStep('saved')
+              }}
+            >
+              {t('app.continue')}
+            </Button>
+          </StickyActions>
+        </WizardSection>
       ) : null}
 
       {step === 'saved' ? (
-        <QuestionPage title={t('now.packTitle')} hint={t('now.packBody')}>
+        <WizardSection title={t('now.packTitle')} hint={t('now.packBody')}>
           <Card className="mb-4 border-moss bg-moss-soft">
             <CardTitle className="text-base">{pack.id}</CardTitle>
             <CardDescription>
               {pack.damagedParts.length} zone(s) · {Object.keys(pack.photos).length} photo(s)
             </CardDescription>
           </Card>
-          <div className="space-y-3">
-            <Button asChild className="w-full" variant="moss">
-              <Link to="/later">{t('now.declareLater')}</Link>
-            </Button>
-            <Button asChild variant="ghost" className="w-full">
-              <Link to="/">{t('now.backHome')}</Link>
-            </Button>
-          </div>
-        </QuestionPage>
+          <StickyActions>
+            <div className="space-y-2">
+              <Button asChild className="w-full" variant="moss">
+                <Link to="/later">{t('now.declareLater')}</Link>
+              </Button>
+              <Button asChild variant="ghost" className="w-full">
+                <Link to="/">{t('now.backHome')}</Link>
+              </Button>
+            </div>
+          </StickyActions>
+        </WizardSection>
       ) : null}
-    </MobileShell>
+    </WizardFrame>
   )
 }
 

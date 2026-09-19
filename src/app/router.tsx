@@ -15,6 +15,7 @@ import { LaterPage } from '@/features/later/LaterPage'
 import { BrokerQueuePage } from '@/features/broker/BrokerQueuePage'
 import { BrokerDossierPage } from '@/features/broker/BrokerDossierPage'
 import { BrokerImportPage } from '@/features/broker/BrokerImportPage'
+import { BrokerClientsPage } from '@/features/broker/BrokerClientsPage'
 import { useSessionStore } from '@/store/session'
 import type { AppRole } from '@/domain/auth.ts'
 
@@ -83,6 +84,30 @@ export function AppRouter() {
                 </RequireMotoristPage>
               }
             />
+            <Route
+              path="now"
+              element={
+                <RequireMotoristPage>
+                  <NowPage />
+                </RequireMotoristPage>
+              }
+            />
+            <Route
+              path="later"
+              element={
+                <RequireMotoristPage>
+                  <LaterPage />
+                </RequireMotoristPage>
+              }
+            />
+            <Route
+              path="assist"
+              element={
+                <RequireMotoristPage>
+                  <AssistPage />
+                </RequireMotoristPage>
+              }
+            />
           </Route>
           <Route path="/settings" element={<Navigate to="/" replace />} />
           <Route path="/auth" element={<AuthPage />} />
@@ -95,30 +120,6 @@ export function AppRouter() {
             }
           />
           <Route
-            path="/now"
-            element={
-              <RequireAuth role="motorist">
-                <NowPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/later"
-            element={
-              <RequireAuth role="motorist">
-                <LaterPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/assist"
-            element={
-              <RequireAuth role="motorist">
-                <AssistPage />
-              </RequireAuth>
-            }
-          />
-          <Route
             path="/desk"
             element={
               <RequireAuth role="broker">
@@ -127,6 +128,7 @@ export function AppRouter() {
             }
           >
             <Route index element={<BrokerQueuePage />} />
+            <Route path="clients" element={<BrokerClientsPage />} />
             <Route path="import" element={<BrokerImportPage />} />
             <Route path=":dossierId" element={<BrokerDossierPage />} />
           </Route>

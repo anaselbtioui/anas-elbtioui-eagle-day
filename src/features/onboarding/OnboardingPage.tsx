@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { Progress } from '@/components/ui/progress'
 import { isValidMoroccanPhone } from '@/lib/phone'
+import { StickyActions } from '@/components/ui/sticky-actions'
 import {
   Sheet,
   SheetContent,
@@ -20,6 +21,8 @@ import {
 } from '@/components/ui/sheet'
 import { LocalPhotoField } from '@/features/onboarding/LocalPhotoField'
 import { useMediaQuery } from '@/lib/useMediaQuery'
+import { cn } from '@/lib/utils'
+import { api } from '@/services/api.ts'
 import { attestationDaysRemaining } from '@/services/wallet.ts'
 import { useProfileStore } from '@/store/profile'
 import { useSessionStore } from '@/store/session'
@@ -62,29 +65,149 @@ function StepNav({
 }) {
   const { t } = useTranslation()
   return (
-    <div className="space-y-2 pt-1">
-      <div className="flex gap-2">
-        <Button variant="ghost" className="flex-1" type="button" onClick={onBack}>
-          {t('app.back')}
-        </Button>
-        <Button
-          className="flex-1"
-          type="button"
-          onClick={onContinue}
-          disabled={continueDisabled}
-        >
-          {continueLabel ?? t('app.continue')}
-        </Button>
+    <StickyActions>
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <Button variant="ghost" className="flex-1" type="button" onClick={onBack}>
+            {t('app.back')}
+          </Button>
+          <Button
+            className="flex-1"
+            type="button"
+            onClick={onContinue}
+            disabled={continueDisabled}
+          >
+            {continueLabel ?? t('app.continue')}
+          </Button>
+        </div>
+        {showSkip && onSkip ? (
+          <button
+            type="button"
+            className="w-full text-center text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
+            onClick={onSkip}
+          >
+            {t('app.skip')}
+          </button>
+        ) : null}
       </div>
-      {showSkip && onSkip ? (
-        <button
-          type="button"
-          className="w-full text-center text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
-          onClick={onSkip}
-        >
-          {t('app.skip')}
-        </button>
+    </StickyActions>
+  )
+}
+
+function BrokerPickStep({
+  onBack,
+  onSkip,
+  onContinue,
+}: {
+  onBack: () => void
+  onSkip: () => void
+  onContinue: () => void
+}) {
+  const { t } = useTranslation()
+  const { profile, setProfile } = useProfileStore()
+  const [brokers, setBrokers] = useState<
+    Array<{ id: string; displayName: string; email: string }>
+  >([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void api
+      .listRegisteredBrokers()
+      .then((list) => {
+        if (cancelled) return
+        setBrokers(list)
+        setLoading(false)
+        const current = useProfileStore.getState().profile
+        if (list.length === 1 && !current.brokerId) {
+          const only = list[0]!
+          setProfile({ brokerId: only.id, broker: only.displayName })
+        } else if (
+          current.brokerId &&
+          !list.some((b) => b.id === current.brokerId)
+        ) {
+          setProfile({ brokerId: '', broker: '' })
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(err instanceof Error ? err.message : 'load_failed')
+        setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [setProfile])
+
+  function pick(id: string, displayName: string) {
+    setProfile({ brokerId: id, broker: displayName })
+  }
+
+  function autoOrContinue() {
+    if (!profile.brokerId && brokers[0]) {
+      pick(brokers[0].id, brokers[0].displayName)
+    }
+    onContinue()
+  }
+
+  function autoOrSkip() {
+    if (!profile.brokerId && brokers[0]) {
+      pick(brokers[0].id, brokers[0].displayName)
+    }
+    onSkip()
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-ink-muted">{t('onboarding.brokerPickHint')}</p>
+      {loading ? <p className="text-sm text-ink-muted">{t('later.loading')}</p> : null}
+      {loadError ? <p className="text-sm text-alert">{t('onboarding.brokerPickError')}</p> : null}
+      {!loading && brokers.length === 0 ? (
+        <p className="rounded-[var(--radius-labas)] bg-sand-deep px-3 py-3 text-sm text-ink-muted">
+          {t('onboarding.brokerPickEmpty')}
+        </p>
       ) : null}
+      <ul className="space-y-2" data-testid="broker-pick-list">
+        {brokers.map((b) => {
+          const selected = profile.brokerId === b.id
+          return (
+            <li key={b.id}>
+              <button
+                type="button"
+                data-testid={`broker-pick-${b.id}`}
+                onClick={() => pick(b.id, b.displayName)}
+                className={cn(
+                  'flex w-full items-start gap-3 rounded-[var(--radius-labas)] border px-3 py-3 text-left transition-colors',
+                  selected
+                    ? 'border-ink bg-ink-soft outline outline-1 outline-ink/20'
+                    : 'border-border bg-surface/90 hover:bg-sand-deep/70',
+                )}
+              >
+                <span
+                  className={cn(
+                    'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
+                    selected ? 'border-ink bg-ink' : 'border-border',
+                  )}
+                  aria-hidden
+                >
+                  {selected ? <span className="h-2 w-2 rounded-full bg-sand" /> : null}
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-semibold text-ink">{b.displayName}</span>
+                  <span className="mt-0.5 block truncate text-sm text-ink-muted">{b.email}</span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+      <StepNav
+        onBack={onBack}
+        onSkip={brokers.length > 0 ? autoOrSkip : onSkip}
+        onContinue={autoOrContinue}
+        continueDisabled={brokers.length > 0 && !profile.brokerId}
+      />
     </div>
   )
 }
@@ -355,27 +478,7 @@ function OnboardingSteps({
   }
 
   if (id === 'broker') {
-    return (
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="broker">{t('onboarding.broker')}</Label>
-          <Input
-            id="broker"
-            value={profile.broker}
-            onChange={(e) => setProfile({ broker: e.target.value })}
-          />
-        </div>
-        <div className="space-y-2">
-          <PhoneInput
-            id="brokerPhone"
-            label={t('onboarding.brokerPhone')}
-            value={profile.brokerPhone}
-            onChange={(e164) => setProfile({ brokerPhone: e164 })}
-          />
-        </div>
-        <StepNav onBack={prev} onSkip={skip} onContinue={next} />
-      </div>
-    )
+    return <BrokerPickStep onBack={prev} onSkip={skip} onContinue={next} />
   }
 
   if (id === 'assistance') {

@@ -17,6 +17,14 @@ test('capture motorist + desk screenshots', async ({ page, request, browser }) =
   await page.goto('/')
   await page.screenshot({ path: path.join(shotDir, '00-role-picker.png'), fullPage: true })
 
+  // Broker account first so onboarding can associate the motorist.
+  const desk = await browser.newContext({
+    viewport: { width: 1280, height: 800 },
+  })
+  const deskPage = await desk.newPage()
+  await signUpAs(deskPage, 'broker', 'Salma Desk')
+  await expect(deskPage.getByRole('heading', { name: /^Dossiers$/i })).toBeVisible()
+
   const email = await signUpAs(page, 'motorist', 'Amine Alaoui')
   await page.goto('/onboarding')
   await page.screenshot({ path: path.join(shotDir, '01-onboarding.png'), fullPage: true })
@@ -72,11 +80,7 @@ test('capture motorist + desk screenshots', async ({ page, request, browser }) =
   const dossierId = dossier.id
   expect(dossierId).toBeTruthy()
 
-  const desk = await browser.newContext({
-    viewport: { width: 1280, height: 800 },
-  })
-  const deskPage = await desk.newPage()
-  await signUpAs(deskPage, 'broker', 'Salma Desk')
+  await deskPage.goto('/desk')
   await expect(deskPage.getByRole('heading', { name: /^Dossiers$/i })).toBeVisible()
   const row = deskPage.getByTestId(`dossier-${dossierId}`)
   await expect(row).toBeVisible({ timeout: 15_000 })

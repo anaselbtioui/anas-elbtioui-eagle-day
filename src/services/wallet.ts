@@ -75,7 +75,7 @@ export function createDeviceWallet(): Wallet {
     motoristId: `M-${uuidSuffix()}`,
     vehicleId: `V-${uuidSuffix()}`,
     insurerId: `I-${uuidSuffix()}`,
-    brokerId: `B-${uuidSuffix()}`,
+    brokerId: '',
     policyId: `P-${uuidSuffix()}`,
   }
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LabasIcon } from '@/components/LabasIcon'
+import { StickyActionsProvider } from '@/components/ui/sticky-actions'
 import { OnboardingWizardBody } from '@/features/onboarding/OnboardingPage'
 import { attestationDaysRemaining, type Wallet } from '@/services/wallet.ts'
 import { cn } from '@/lib/utils'
@@ -61,7 +62,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
         className={cn(
           'relative w-full max-w-md border border-b-0 border-border bg-surface shadow-[0_-8px_40px_rgba(16,40,96,0.12)]',
           'rounded-t-[1.25rem]',
-          expanded && 'max-h-[min(88dvh,40rem)]',
+          expanded && 'flex max-h-[min(88dvh,40rem)] flex-col',
         )}
         data-testid="wallet-nudge-drawer"
         role="dialog"
@@ -110,13 +111,17 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
         </button>
 
         {expanded ? (
-          <div className="labas-scroll max-h-[min(70dvh,32rem)] overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <StickyActionsProvider
+            className="min-h-0 max-h-[min(70dvh,32rem)]"
+            bodyClassName="px-5"
+            footerClassName="px-5"
+          >
             <OnboardingWizardBody
               onClose={() => setExpanded(false)}
               onFinished={() => setExpanded(false)}
               showStepTitle={false}
             />
-          </div>
+          </StickyActionsProvider>
         ) : null}
       </div>
     </div>

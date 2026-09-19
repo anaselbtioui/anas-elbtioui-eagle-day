@@ -19,10 +19,43 @@ function memory() {
   return {
     app,
     getDb: () => db,
-    seedDesk: () => {
+    seedDesk: (brokerId?: string) => {
       db = seedDeskDb(db)
+      if (brokerId) {
+        db = {
+          ...db,
+          policies: db.policies.map((p) => ({ ...p, brokerId })),
+        }
+      }
     },
   }
+}
+
+async function linkMotoristToBroker(
+  app: ReturnType<typeof createApp>,
+  motorist: Awaited<ReturnType<typeof signup>>,
+  brokerId: string,
+  getDb: () => Db,
+) {
+  const db = getDb()
+  const policy = db.policies.find((p) => p.id === motorist.user.policyId)
+  const motoristRow = db.motorists.find((m) => m.id === motorist.user.motoristId)
+  const vehicle = policy ? db.vehicles.find((v) => v.id === policy.vehicleId) : null
+  const insurer = policy ? db.insurers.find((i) => i.id === policy.insurerId) : null
+  const broker = db.brokers.find((b) => b.id === brokerId)
+  expect(policy && motoristRow && vehicle && insurer && broker).toBeTruthy()
+  const res = await app.request('/api/profile', {
+    method: 'PUT',
+    headers: motorist.headers,
+    body: JSON.stringify({
+      motorist: motoristRow,
+      vehicle,
+      insurer,
+      broker,
+      policy: { ...policy!, brokerId },
+    }),
+  })
+  expect(res.status).toBe(200)
 }
 
 async function signup(
@@ -247,8 +280,10 @@ describe('API feature coverage', () => {
   })
 
   it('adding photos after submit clears waiting_motorist', async () => {
-    const { app } = memory()
+    const { app, getDb } = memory()
+    const broker = await signup(app, 'broker', 'Salma')
     const motorist = await signup(app, 'motorist', 'Nadia El Mansouri')
+    await linkMotoristToBroker(app, motorist, broker.user.brokerId!, getDb)
     const pack = bindPack(applyEvidenceRules(nadiaMissingConstatPack()), motorist.user)
     pack.evidence.constat = 'complete'
     await app.request(`/api/packs/${pack.incident.id}`, {
@@ -276,7 +311,6 @@ describe('API feature coverage', () => {
     expect(file.dossier.status).toBe('with_broker')
     expect(file.dossier.missingPieces).not.toContain('photos')
 
-    const broker = await signup(app, 'broker', 'Salma')
     const queue = await app.request('/api/broker/queue', { headers: broker.headers })
     const items = (await queue.json()) as {
       pack: { incident: { id: string } }
@@ -292,7 +326,7 @@ describe('API broker desk', () => {
   it('loads fixture dossiers and request sets waiting_motorist', async () => {
     const { app, seedDesk } = memory()
     const broker = await signup(app, 'broker', 'Salma')
-    seedDesk()
+    seedDesk(broker.user.brokerId!)
     const queue = await app.request('/api/broker/queue', { headers: broker.headers })
     const bundles = (await queue.json()) as { dossierId: string; dossier: { status: string } }[]
     expect(bundles.map((b) => b.dossierId).sort()).toEqual(['DOS-1', 'DOS-2', 'DOS-3'])
@@ -316,7 +350,7 @@ describe('API broker desk', () => {
   it('blocks draft approve without human checkbox then accepts', async () => {
     const { app, seedDesk } = memory()
     const broker = await signup(app, 'broker', 'Salma')
-    seedDesk()
+    seedDesk(broker.user.brokerId!)
     const created = await app.request('/api/broker/dossiers/DOS-1/drafts', {
       method: 'POST',
       headers: broker.headers,
@@ -350,7 +384,7 @@ describe('API broker desk', () => {
   it('toggles task and refuses handoff on blocked Nadia', async () => {
     const { app, seedDesk } = memory()
     const broker = await signup(app, 'broker', 'Salma')
-    seedDesk()
+    seedDesk(broker.user.brokerId!)
     const toggled = await app.request('/api/broker/dossiers/DOS-1/tasks/T-N1/toggle', {
       method: 'POST',
       headers: broker.headers,
@@ -374,7 +408,7 @@ describe('API broker desk', () => {
   it('handoff returns 409 has_gaps while pieces missing', async () => {
     const { app, seedDesk } = memory()
     const broker = await signup(app, 'broker', 'Salma')
-    seedDesk()
+    seedDesk(broker.user.brokerId!)
     const handoff = await app.request('/api/broker/dossiers/DOS-1/handoff', {
       method: 'POST',
       headers: broker.headers,

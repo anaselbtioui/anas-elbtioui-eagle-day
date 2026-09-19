@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import { filterDeskBundles, type DeskBundle } from '@/domain/desk.ts'
 import { useBrokerDeskStore } from '@/store/brokerDesk'
-import { useSessionStore } from '@/store/session'
 import type { DossierStatus } from '@/domain/types.ts'
 import { cn } from '@/lib/utils'
 
@@ -43,9 +42,7 @@ export function BrokerQueuePage() {
   const error = useBrokerDeskStore((s) => s.error)
   const loadQueue = useBrokerDeskStore((s) => s.loadQueue)
   const searchQuery = useBrokerDeskStore((s) => s.searchQuery)
-  const brokerName = useSessionStore((s) => s.brokerName)
   const [statusFilter, setStatusFilter] = useState<DossierStatus | 'all'>('all')
-  const [mineOnly, setMineOnly] = useState(false)
 
   useEffect(() => {
     void loadQueue()
@@ -56,10 +53,10 @@ export function BrokerQueuePage() {
       filterDeskBundles(bundles, {
         query: searchQuery,
         status: statusFilter,
-        mineOnly,
-        brokerName,
+        mineOnly: false,
+        brokerName: null,
       }),
-    [bundles, searchQuery, statusFilter, mineOnly, brokerName],
+    [bundles, searchQuery, statusFilter],
   )
 
   const columns = useMemo<ColumnDef<DeskBundle>[]>(
@@ -69,10 +66,7 @@ export function BrokerQueuePage() {
         accessorFn: (row) => row.title,
         header: t('broker.colTitle'),
         cell: ({ row }) => (
-          <div className="min-w-[10rem]">
-            <p className="font-semibold text-ink">{row.original.title}</p>
-            <p className="mt-0.5 text-xs text-ink-muted">{row.original.dossierId}</p>
-          </div>
+          <p className="font-semibold text-ink">{row.original.title}</p>
         ),
       },
       {
@@ -154,20 +148,6 @@ export function BrokerQueuePage() {
       <div className="mb-6">
         <h1 className="font-display text-3xl font-bold">{t('broker.queueTitle')}</h1>
       </div>
-
-      {brokerName ? (
-        <div className="mb-4">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={mineOnly}
-              onChange={(e) => setMineOnly(e.target.checked)}
-              className="h-4 w-4 accent-ink"
-            />
-            {t('broker.mineOnly')}
-          </label>
-        </div>
-      ) : null}
 
       <div className="mb-5 flex flex-wrap gap-2">
         {STATUS_FILTERS.map((s) => (

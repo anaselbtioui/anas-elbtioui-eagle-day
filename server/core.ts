@@ -102,11 +102,28 @@ export function profileFromDb(db: Db, motoristId: string): Profile | null {
   if (!policy) return null
   const vehicle = db.vehicles.find((v) => v.id === policy.vehicleId)
   const insurer = db.insurers.find((i) => i.id === policy.insurerId)
+  if (!vehicle || !insurer) return null
   const broker = policy.brokerId
     ? db.brokers.find((b) => b.id === policy.brokerId)
-    : db.brokers[0]
-  if (!vehicle || !insurer || !broker) return null
+    : undefined
+  if (!broker) {
+    return {
+      motorist,
+      vehicle,
+      insurer,
+      broker: { id: '', displayName: '—' },
+      policy: { ...policy, brokerId: null },
+    }
+  }
   return { motorist, vehicle, insurer, broker, policy }
+}
+
+export function listDeskBundlesForBroker(db: Db, brokerId: string): DeskBundle[] {
+  return listDeskBundles(db).filter((b) => b.profile.policy.brokerId === brokerId)
+}
+
+export function brokerOwnsBundle(bundle: DeskBundle, brokerId: string): boolean {
+  return bundle.profile.policy.brokerId === brokerId
 }
 
 export function upsertProfile(db: Db, profile: Profile): Db {

@@ -274,29 +274,45 @@
 .authFormCard {
   width: 100%;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 1rem);
+  min-height: 0;
   background: color-mix(in srgb, var(--color-surface) 94%, transparent);
   border: none;
   border-radius: 0 0 1rem 1rem;
   box-shadow:
     0 1px 0 rgba(0, 0, 0, 0.04),
     0 8px 24px -12px rgba(0, 0, 0, 0.14);
+  overflow: clip;
 }
 
 @media (min-width: 48em) {
   .authFormCard {
+    max-height: min(40rem, calc(100dvh - 4rem));
     border-radius: var(--radius-labas);
     border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
     box-shadow:
       0 0 0 1px rgba(16, 40, 96, 0.04),
       0 1px 2px -1px rgba(0, 0, 0, 0.06),
       0 2px 4px 0 rgba(0, 0, 0, 0.04);
-    overflow: clip;
   }
+}
+
+.formStickyRegion {
+  min-height: 0;
+  flex: 1;
+}
+
+.formStickyFooter {
+  padding-inline: 1.5rem;
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
 }
 
 .formHeaderBand {
   position: relative;
   isolation: isolate;
+  flex-shrink: 0;
   margin: 0;
   padding: 1.25rem 1.5rem 1rem;
   overflow: clip;

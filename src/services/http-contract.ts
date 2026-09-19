@@ -63,6 +63,21 @@ export type SigninInput = {
   password: string
 }
 
+export type RegisteredBroker = {
+  id: string
+  displayName: string
+  email: string
+}
+
+export type BrokerClient = {
+  motoristId: string
+  name: string
+  phone: string | null
+  email: string | null
+  policyNumber: string | null
+  plate: string | null
+}
+
 /** Contract shared with `server/` Hono API. */
 export type LabasHttpApi = {
   signUp: (input: SignupInput) => Promise<AuthSession>
@@ -91,6 +106,8 @@ export type LabasHttpApi = {
   getDossier: (declarationId: string) => Promise<Dossier>
   getDossierByIncident: (incidentId: string) => Promise<Dossier>
   listBrokerQueue: () => Promise<DeskBundle[]>
+  listBrokerClients: () => Promise<BrokerClient[]>
+  listRegisteredBrokers: () => Promise<RegisteredBroker[]>
   getBrokerDossier: (dossierId: string) => Promise<DeskBundle>
   requestBrokerPiece: (
     dossierId: string,

@@ -16,12 +16,14 @@ import type { AuthSession, AuthUser } from '@/domain/auth.ts'
 import type { Dossier, EvidencePack, Profile } from '@/domain/types.ts'
 import type { DeskBundle } from '@/domain/desk.ts'
 import type {
+  BrokerClient,
   CreatePackInput,
   DeclarationBundle,
   EvidencePieces,
   IncidentFile,
   LabasHttpApi,
   PackPatch,
+  RegisteredBroker,
   SessionSnapshot,
 } from './http-contract.ts'
 
@@ -103,6 +105,8 @@ export const httpApi: LabasHttpApi = {
   getDossierByIncident: (incidentId) =>
     req<Dossier>(`/api/dossiers?incidentId=${encodeURIComponent(incidentId)}`),
   listBrokerQueue: () => req<DeskBundle[]>('/api/broker/queue'),
+  listBrokerClients: () => req<BrokerClient[]>('/api/broker/clients'),
+  listRegisteredBrokers: () => req<RegisteredBroker[]>('/api/brokers'),
   getBrokerDossier: (dossierId) => req<DeskBundle>(`/api/broker/dossiers/${dossierId}`),
   requestBrokerPiece: (dossierId, piece, note) =>
     req(`/api/broker/dossiers/${dossierId}/requests`, {

@@ -1,115 +1,192 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import type { ColumnDef } from '@tanstack/table-core'
 import { LabasIcon } from '@/components/LabasIcon'
-import { Button } from '@/components/ui/button'
-import { Card, CardDescription, CardTitle } from '@/components/ui/card'
+import { DataTable } from '@/components/ui/data-table'
+import type { EvidencePack, EvidencePackStatus } from '@/domain/evidence'
+import type { Dossier } from '@/domain/types.ts'
+import { api } from '@/services/api.ts'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
-import { api } from '@/services/api.ts'
-import type { Dossier } from '@/domain/types.ts'
 import { cn } from '@/lib/utils'
+
+function statusTone(status: EvidencePackStatus): string {
+  switch (status) {
+    case 'saved':
+      return 'bg-moss-soft text-moss'
+    case 'stopped':
+      return 'bg-alert-soft text-alert'
+    default:
+      return 'bg-sand-deep text-ink-muted'
+  }
+}
+
+function isOpenSinistre(status: EvidencePackStatus): boolean {
+  return status === 'draft' || status === 'saved'
+}
 
 export function HomePage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const profile = useProfileStore((s) => s.profile)
-  const { history, hydrateFromDomain } = useEvidenceStore()
-  const [dossierStatus, setDossierStatus] = useState<Dossier | null>(null)
+  const history = useEvidenceStore((s) => s.history)
+  const active = useEvidenceStore((s) => s.pack)
+  const hydrateFromDomain = useEvidenceStore((s) => s.hydrateFromDomain)
+  const [dossierById, setDossierById] = useState<Record<string, Dossier | null>>({})
 
   useEffect(() => {
     if (!profile.onboarded) return
     void api.listPacks(profile.motoristId).then(hydrateFromDomain).catch(() => undefined)
   }, [profile.onboarded, profile.motoristId, hydrateFromDomain])
 
-  const lastSaved = history.find((h) => h.status === 'saved')
+  const packs = useMemo(() => {
+    const byId = new Map<string, EvidencePack>()
+    for (const h of history) byId.set(h.id, h)
+    if (active) byId.set(active.id, active)
+    return [...byId.values()]
+      .filter((p) => isOpenSinistre(p.status))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }, [history, active])
+
+  const savedIds = useMemo(
+    () => packs.filter((p) => p.status === 'saved').map((p) => p.id),
+    [packs],
+  )
 
   useEffect(() => {
-    if (!lastSaved) {
-      setDossierStatus(null)
-      return
-    }
     let cancelled = false
-    void api
-      .getFile(lastSaved.id)
-      .then((file) => {
-        if (!cancelled) setDossierStatus(file.dossier)
-      })
-      .catch(() => {
-        if (!cancelled) setDossierStatus(null)
-      })
+    for (const id of savedIds) {
+      void api
+        .getFile(id)
+        .then((file) => {
+          if (!cancelled) {
+            setDossierById((prev) => ({ ...prev, [id]: file.dossier }))
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setDossierById((prev) => ({ ...prev, [id]: null }))
+          }
+        })
+    }
     return () => {
       cancelled = true
     }
-  }, [lastSaved?.id])
+  }, [savedIds])
+
+  const columns = useMemo<ColumnDef<EvidencePack>[]>(
+    () => [
+      {
+        id: 'ref',
+        accessorFn: (row) => row.id,
+        header: t('motorist.colRef'),
+        cell: ({ row }) => (
+          <p className="font-mono text-sm font-semibold text-ink">{row.original.id.slice(0, 14)}</p>
+        ),
+      },
+      {
+        id: 'updated',
+        accessorFn: (row) => row.updatedAt,
+        header: t('motorist.colUpdated'),
+        cell: ({ row }) => (
+          <span className="tabular-nums text-sm text-ink-muted">
+            {row.original.updatedAt.slice(0, 10)}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        accessorFn: (row) => row.status,
+        header: t('motorist.colStatus'),
+        cell: ({ row }) => (
+          <span
+            className={cn(
+              'inline-flex rounded-[var(--radius-labas)] px-2.5 py-1 text-xs font-semibold',
+              statusTone(row.original.status),
+            )}
+          >
+            {t(`motorist.packStatus.${row.original.status}`)}
+          </span>
+        ),
+      },
+      {
+        id: 'dossier',
+        accessorFn: (row) => dossierById[row.id]?.status ?? '',
+        header: t('motorist.colDossier'),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const dossier = dossierById[row.original.id]
+          if (!dossier) return <span className="text-sm text-ink-muted">—</span>
+          return (
+            <span className="text-sm text-ink">{t(`broker.status.${dossier.status}`)}</span>
+          )
+        },
+      },
+      {
+        id: 'next',
+        accessorFn: (row) => row.status,
+        header: t('motorist.colNext'),
+        enableSorting: false,
+        cell: ({ row }) => (
+          <p className="max-w-xs truncate text-sm text-ink-muted">
+            {t(`motorist.packStatusHint.${row.original.status}`)}
+          </p>
+        ),
+      },
+    ],
+    [t, dossierById],
+  )
 
   if (!profile.onboarded) {
     return <Navigate to="/onboarding" replace />
   }
 
-  const firstName = profile.name ? profile.name.split(' ')[0] : ''
-
   return (
-    <div className="home-layout">
-      <section className="home-hero" aria-label="Med Assurance">
-        <h1 className="font-display mt-1 text-3xl font-bold text-ink md:text-4xl">
-          {t('home.hello', { name: firstName ? `, ${firstName}` : '' })}
-        </h1>
-        <p className="mt-3 max-w-sm text-base text-ink-muted md:text-lg">{t('app.tagline')}</p>
-      </section>
+    <div className="mx-auto w-full max-w-5xl space-y-6">
+      <div className="home-doors">
+        <Door
+          to="/now"
+          icon={<LabasIcon name="warning" className="h-7 w-7" tone="onInk" aria-hidden />}
+          title={t('home.doorNow')}
+          hint={t('home.doorNowHint')}
+          primary
+          className="home-door-primary"
+        />
+        <Door
+          to="/later"
+          icon={<LabasIcon name="clipboard" className="h-7 w-7" tone="onSand" aria-hidden />}
+          title={t('home.doorLater')}
+          hint={t('home.doorLaterHint')}
+        />
+        <Door
+          to="/assist"
+          icon={<LabasIcon name="wrench" className="h-7 w-7" tone="onSand" aria-hidden />}
+          title={t('home.doorAssist')}
+          hint={t('home.doorAssistHint')}
+        />
+      </div>
 
-      <section className="home-actions">
-        {lastSaved ? (
-          <Card className="mb-5 border-moss bg-surface">
-            <CardTitle className="text-base">{t('home.packSaved')}</CardTitle>
-            <CardDescription>{lastSaved.id}</CardDescription>
-            {dossierStatus ? (
-              <div
-                className="mt-3 rounded-[var(--radius-labas)] bg-sand-deep px-3 py-2 text-sm"
-                data-testid="home-dossier-status"
-              >
-                <p className="font-semibold">{t('home.dossierStatus')}</p>
-                <p>{t(`broker.status.${dossierStatus.status}`)}</p>
-                <p className="text-ink-muted">{dossierStatus.nextHumanStep}</p>
-              </div>
-            ) : null}
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <Button asChild className="w-full sm:flex-1" variant="moss">
-                <Link to="/later">{t('home.openLater')}</Link>
-              </Button>
-              <Button asChild className="w-full sm:flex-1" variant="outline">
-                <Link to={`/past/${lastSaved.id}`}>{t('motorist.pastView')}</Link>
-              </Button>
-            </div>
-          </Card>
-        ) : null}
+      <p className="flex items-center gap-2 text-sm text-ink-muted">
+        <LabasIcon name="car" className="h-5 w-5" aria-hidden />
+        {t('app.notAClaim')}
+      </p>
 
-        <div className="home-doors">
-          <Door
-            to="/now"
-            icon={<LabasIcon name="warning" className="h-7 w-7" tone="onInk" aria-hidden />}
-            title={t('home.doorNow')}
-            hint={t('home.doorNowHint')}
-            primary
-            className="home-door-primary"
-          />
-          <Door
-            to="/later"
-            icon={<LabasIcon name="clipboard" className="h-7 w-7" tone="onSand" aria-hidden />}
-            title={t('home.doorLater')}
-            hint={t('home.doorLaterHint')}
-          />
-          <Door
-            to="/assist"
-            icon={<LabasIcon name="wrench" className="h-7 w-7" tone="onSand" aria-hidden />}
-            title={t('home.doorAssist')}
-            hint={t('home.doorAssistHint')}
-          />
-        </div>
-
-        <p className="mt-6 flex items-center gap-2 text-sm text-ink-muted">
-          <LabasIcon name="car" className="h-5 w-5" aria-hidden />
-          {t('app.notAClaim')}
-        </p>
+      <section>
+        <h2 className="font-display mb-4 text-xl font-bold text-ink md:text-2xl">
+          {t('motorist.navClaims')}
+        </h2>
+        <DataTable
+          columns={columns}
+          data={packs}
+          emptyMessage={t('motorist.claimsEmpty')}
+          getRowTestId={(row) => `sinistre-${row.id}`}
+          onRowClick={(row) => {
+            if (row.status === 'draft') navigate('/now')
+            else if (row.status === 'saved') navigate('/later')
+            else navigate(`/past/${row.id}`)
+          }}
+        />
       </section>
     </div>
   )

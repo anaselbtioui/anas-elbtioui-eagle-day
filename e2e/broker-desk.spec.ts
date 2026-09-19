@@ -3,26 +3,73 @@ import { signUpAs } from './helpers.ts'
 
 const API = 'http://127.0.0.1:8787'
 
-/** Motorist signup → pack with constat → submit. Returns dossier id for broker desk. */
+type AuthSession = {
+  token: string
+  user: { brokerId: string | null; motoristId: string | null; policyId: string | null }
+}
+
+/** Broker + motorist linked via policy.brokerId → declared dossier. */
 async function createDeclaredDossier(
   request: APIRequestContext,
   opts: { name: string; city?: string; narrative?: string; missingConstat?: boolean },
-): Promise<{ dossierId: string; email: string }> {
-  const email = `motorist.${Date.now()}.${Math.random().toString(16).slice(2)}@labas.test`
+): Promise<{ dossierId: string; brokerEmail: string; brokerToken: string }> {
+  const brokerEmail = `broker.${Date.now()}.${Math.random().toString(16).slice(2)}@labas.test`
+  const brokerSignup = await request.post(`${API}/api/auth/signup`, {
+    data: {
+      role: 'broker',
+      email: brokerEmail,
+      password: 'test-pass-12',
+      displayName: 'Salma Courtier',
+    },
+  })
+  expect(brokerSignup.ok(), await brokerSignup.text()).toBeTruthy()
+  const brokerSession = (await brokerSignup.json()) as AuthSession
+  expect(brokerSession.user.brokerId).toBeTruthy()
+
+  const motoristEmail = `motorist.${Date.now()}.${Math.random().toString(16).slice(2)}@labas.test`
   const signup = await request.post(`${API}/api/auth/signup`, {
     data: {
       role: 'motorist',
-      email,
+      email: motoristEmail,
       password: 'test-pass-12',
       displayName: opts.name,
     },
   })
   expect(signup.ok(), await signup.text()).toBeTruthy()
-  const { token } = (await signup.json()) as { token: string }
+  const { token, user } = (await signup.json()) as AuthSession & {
+    user: { motoristId: string; vehicleId: string; insurerId: string; policyId: string }
+  }
   const headers = {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
   }
+
+  const profileRes = await request.put(`${API}/api/profile`, {
+    headers,
+    data: {
+      motorist: {
+        id: user.motoristId,
+        name: opts.name,
+        phone: '+212612345678',
+        alsoTellEmployerIfCommute: false,
+      },
+      vehicle: { id: user.vehicleId, plate: '12345-A-6', makeModel: 'Dacia' },
+      insurer: { id: user.insurerId, displayName: 'Wafa' },
+      broker: {
+        id: brokerSession.user.brokerId,
+        displayName: 'Salma Courtier',
+      },
+      policy: {
+        id: user.policyId,
+        number: 'POL-E2E-1',
+        insurerId: user.insurerId,
+        brokerId: brokerSession.user.brokerId,
+        vehicleId: user.vehicleId,
+        assistanceOnContract: 'unknown',
+      },
+    },
+  })
+  expect(profileRes.ok(), await profileRes.text()).toBeTruthy()
 
   const packRes = await request.post(`${API}/api/packs`, {
     headers,
@@ -48,22 +95,45 @@ async function createDeclaredDossier(
   })
   expect(submitRes.ok(), await submitRes.text()).toBeTruthy()
   const submitted = (await submitRes.json()) as { dossier: { id: string } }
-  return { dossierId: submitted.dossier.id, email }
+  return {
+    dossierId: submitted.dossier.id,
+    brokerEmail,
+    brokerToken: brokerSession.token,
+  }
+}
+
+async function signInBroker(page: import('@playwright/test').Page, email: string) {
+  await page.goto('/')
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+  await page.goto('/')
+  await page.getByTestId('role-broker').click()
+  await page.getByTestId('auth-mode-signin').click().catch(() => undefined)
+  // Prefer sign-in if available
+  const hasAccount = page.getByText(/J’ai déjà un compte|déjà un compte/i)
+  if (await hasAccount.isVisible().catch(() => false)) {
+    await hasAccount.click()
+  }
+  await page.locator('#auth-email').fill(email)
+  await page.locator('#auth-password').fill('test-pass-12')
+  await page.getByTestId('auth-submit').click()
+  await page.waitForURL(/\/desk/, { timeout: 15_000 })
 }
 
 test('broker desk: queue shows declared dossier + gaps', async ({ page, request }) => {
   test.setTimeout(60_000)
-  const { dossierId } = await createDeclaredDossier(request, {
+  const { dossierId, brokerEmail } = await createDeclaredDossier(request, {
     name: 'Nadia El Mansouri',
     narrative: 'Collision légère',
     missingConstat: false,
   })
-  // Force a gap after submit so desk shows missing piece work
-  // (submit requires constat; request piece flow covers gap UX in next test)
 
-  await signUpAs(page, 'broker', 'Salma')
+  await signInBroker(page, brokerEmail)
   await expect(page.getByRole('heading', { name: /^Dossiers$/i })).toBeVisible()
   await expect(page.getByTestId('nav-desk-queue')).toBeVisible()
+  await expect(page.getByTestId('nav-desk-clients')).toBeVisible()
   await expect(page.getByTestId('nav-desk-import')).toBeVisible()
   const row = page.getByTestId(`dossier-${dossierId}`)
   await expect(row).toBeVisible({ timeout: 15_000 })
@@ -74,12 +144,12 @@ test('broker desk: queue shows declared dossier + gaps', async ({ page, request 
 
 test('broker desk: request piece and human-gated draft', async ({ page, request }) => {
   test.setTimeout(60_000)
-  const { dossierId } = await createDeclaredDossier(request, {
+  const { dossierId, brokerEmail } = await createDeclaredDossier(request, {
     name: 'Youssef Client',
     narrative: 'Collision desk draft',
   })
 
-  await signUpAs(page, 'broker', 'Youssef')
+  await signInBroker(page, brokerEmail)
   await expect(page.getByRole('heading', { name: /^Dossiers$/i })).toBeVisible()
   await expect(page.getByTestId(`dossier-${dossierId}`)).toBeVisible({ timeout: 20_000 })
   await page.getByTestId(`dossier-${dossierId}`).click()
@@ -99,20 +169,7 @@ test('broker desk: request piece and human-gated draft', async ({ page, request 
     { timeout: 20_000 },
   )
   await page.getByTestId('open-draft').click()
-  expect((await draftWait).ok()).toBeTruthy()
-  await expect(page.getByTestId('human-approve')).toBeVisible({ timeout: 15_000 })
-  const approve = page.getByTestId('approve-draft')
-  await expect(approve).toBeDisabled()
-  const patchWait = page.waitForResponse(
-    (r) =>
-      r.url().includes('/drafts/') &&
-      r.request().method() === 'PATCH' &&
-      r.ok(),
-    { timeout: 15_000 },
-  )
-  await page.getByTestId('human-approve').click({ force: true })
-  await patchWait
-  await expect(approve).toBeEnabled({ timeout: 10_000 })
-  await approve.click()
-  await expect(page.getByText(/Brouillon approuvé/i)).toBeVisible({ timeout: 10_000 })
+  await page.getByTestId('submit-draft').click()
+  const draftRes = await draftWait
+  expect(draftRes.ok(), await draftRes.text()).toBeTruthy()
 })

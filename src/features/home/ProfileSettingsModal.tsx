@@ -6,6 +6,7 @@ import { LabasIcon } from '@/components/LabasIcon'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { StickyActions, StickyActionsProvider } from '@/components/ui/sticky-actions'
 import { OnboardingWizardBody } from '@/features/onboarding/OnboardingPage'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
@@ -124,176 +125,185 @@ export function ProfileSettingsModal({
             </nav>
           </aside>
 
-          <div className="labas-scroll flex min-w-0 flex-1 flex-col overflow-y-auto bg-sand/30 p-5">
-            {category === 'portefeuille' && !editWizard ? (
-              <>
-                <h2 className="font-display text-xl font-bold text-ink">
-                  {t('home.walletTitle')}
-                </h2>
-                <p className="mt-1 text-sm text-ink-muted">{t('motorist.settingsLocalNote')}</p>
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-sand/30">
+            <StickyActionsProvider
+              className="min-h-0 flex-1"
+              bodyClassName="p-5"
+              footerClassName="border-border/60 bg-sand/30 px-5"
+            >
+              {category === 'portefeuille' && !editWizard ? (
+                <>
+                  <h2 className="font-display text-xl font-bold text-ink">
+                    {t('home.walletTitle')}
+                  </h2>
+                  <p className="mt-1 text-sm text-ink-muted">{t('motorist.settingsLocalNote')}</p>
 
-                <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
-                  <FieldRow label={t('onboarding.name')}>
-                    <Input
-                      value={profile.name}
-                      onChange={(e) => setProfile({ name: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.phone')}>
-                    <Input
-                      value={profile.phone}
-                      onChange={(e) => setProfile({ phone: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.cin')}>
-                    <Input
-                      value={profile.cin}
-                      onChange={(e) => setProfile({ cin: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.plate')}>
-                    <Input
-                      value={profile.plate}
-                      onChange={(e) => setProfile({ plate: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.vehicle')}>
-                    <Input
-                      value={profile.vehicle}
-                      onChange={(e) => setProfile({ vehicle: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.insurer')}>
-                    <Input
-                      value={profile.insurer}
-                      onChange={(e) => setProfile({ insurer: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.policy')}>
-                    <Input
-                      value={profile.policy}
-                      onChange={(e) => setProfile({ policy: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.broker')}>
-                    <Input
-                      value={profile.broker}
-                      onChange={(e) => setProfile({ broker: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.brokerPhone')}>
-                    <Input
-                      value={profile.brokerPhone}
-                      onChange={(e) => setProfile({ brokerPhone: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.assistance')}>
-                    <Input
-                      value={profile.assistanceNumber}
-                      onChange={(e) => setProfile({ assistanceNumber: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.city')}>
-                    <Input
-                      value={profile.city}
-                      onChange={(e) => setProfile({ city: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                  <FieldRow label={t('onboarding.attestationValidUntil')}>
-                    <Input
-                      type="date"
-                      value={profile.attestationValidUntil}
-                      onChange={(e) => setProfile({ attestationValidUntil: e.target.value })}
-                      className="min-h-10 border-border px-3 py-2 text-base"
-                    />
-                  </FieldRow>
-                </div>
+                  <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
+                    <FieldRow label={t('onboarding.name')}>
+                      <Input
+                        value={profile.name}
+                        onChange={(e) => setProfile({ name: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.phone')}>
+                      <Input
+                        value={profile.phone}
+                        onChange={(e) => setProfile({ phone: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.cin')}>
+                      <Input
+                        value={profile.cin}
+                        onChange={(e) => setProfile({ cin: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.plate')}>
+                      <Input
+                        value={profile.plate}
+                        onChange={(e) => setProfile({ plate: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.vehicle')}>
+                      <Input
+                        value={profile.vehicle}
+                        onChange={(e) => setProfile({ vehicle: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.insurer')}>
+                      <Input
+                        value={profile.insurer}
+                        onChange={(e) => setProfile({ insurer: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.policy')}>
+                      <Input
+                        value={profile.policy}
+                        onChange={(e) => setProfile({ policy: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.broker')}>
+                      <Input
+                        value={profile.broker}
+                        onChange={(e) => setProfile({ broker: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.brokerPhone')}>
+                      <Input
+                        value={profile.brokerPhone}
+                        onChange={(e) => setProfile({ brokerPhone: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.assistance')}>
+                      <Input
+                        value={profile.assistanceNumber}
+                        onChange={(e) => setProfile({ assistanceNumber: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.city')}>
+                      <Input
+                        value={profile.city}
+                        onChange={(e) => setProfile({ city: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                    <FieldRow label={t('onboarding.attestationValidUntil')}>
+                      <Input
+                        type="date"
+                        value={profile.attestationValidUntil}
+                        onChange={(e) => setProfile({ attestationValidUntil: e.target.value })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    </FieldRow>
+                  </div>
 
-                {days !== null && days < 0 ? (
-                  <p className="mt-3 text-sm text-alert">
-                    {t('onboarding.attestationExpired', { date: profile.attestationValidUntil })}
-                  </p>
-                ) : null}
+                  {days !== null && days < 0 ? (
+                    <p className="mt-3 text-sm text-alert">
+                      {t('onboarding.attestationExpired', { date: profile.attestationValidUntil })}
+                    </p>
+                  ) : null}
 
-                {(persistError || error) && (
-                  <p className="mt-3 text-sm text-alert">{persistError || error}</p>
-                )}
+                  {(persistError || error) && (
+                    <p className="mt-3 text-sm text-alert">{persistError || error}</p>
+                  )}
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Button
+                  <StickyActions>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        disabled={persistBusy || saving}
+                        onClick={() => void persist()}
+                        data-testid="settings-save"
+                      >
+                        {t('app.save')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setEditWizard(true)}
+                        data-testid="settings-edit"
+                      >
+                        {t('motorist.settingsEdit')}
+                      </Button>
+                    </div>
+                  </StickyActions>
+                </>
+              ) : null}
+
+              {category === 'portefeuille' && editWizard ? (
+                <>
+                  <button
                     type="button"
-                    disabled={persistBusy || saving}
-                    onClick={() => void persist()}
-                    data-testid="settings-save"
+                    className="mb-3 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
+                    onClick={() => setEditWizard(false)}
                   >
-                    {t('app.save')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setEditWizard(true)}
-                    data-testid="settings-edit"
-                  >
-                    {t('motorist.settingsEdit')}
-                  </Button>
-                </div>
-              </>
-            ) : null}
-
-            {category === 'portefeuille' && editWizard ? (
-              <div>
-                <button
-                  type="button"
-                  className="mb-3 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
-                  onClick={() => setEditWizard(false)}
-                >
-                  ← {t('app.back')}
-                </button>
-                <OnboardingWizardBody
-                  onClose={() => setEditWizard(false)}
-                  onFinished={() => {
-                    setEditWizard(false)
-                    onOpenChange(false)
-                  }}
-                  showStepTitle
-                />
-              </div>
-            ) : null}
-
-            {category === 'compte' ? (
-              <>
-                <h2 className="font-display text-xl font-bold text-ink">
-                  {t('motorist.settingsCat.compte')}
-                </h2>
-                <p className="mt-1 text-sm text-ink-muted">{t('motorist.settingsAccountHint')}</p>
-                <Button
-                  className="mt-6"
-                  variant="outline"
-                  type="button"
-                  data-testid="settings-reset"
-                  onClick={() => {
-                    if (confirm(t('app.resetProfile'))) {
-                      reset()
-                      resetAll()
+                    ← {t('app.back')}
+                  </button>
+                  <OnboardingWizardBody
+                    onClose={() => setEditWizard(false)}
+                    onFinished={() => {
+                      setEditWizard(false)
                       onOpenChange(false)
-                    }
-                  }}
-                >
-                  {t('app.resetProfile')}
-                </Button>
-              </>
-            ) : null}
+                    }}
+                    showStepTitle
+                  />
+                </>
+              ) : null}
+
+              {category === 'compte' ? (
+                <>
+                  <h2 className="font-display text-xl font-bold text-ink">
+                    {t('motorist.settingsCat.compte')}
+                  </h2>
+                  <p className="mt-1 text-sm text-ink-muted">{t('motorist.settingsAccountHint')}</p>
+                  <StickyActions>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      data-testid="settings-reset"
+                      onClick={() => {
+                        if (confirm(t('app.resetProfile'))) {
+                          reset()
+                          resetAll()
+                          onOpenChange(false)
+                        }
+                      }}
+                    >
+                      {t('app.resetProfile')}
+                    </Button>
+                  </StickyActions>
+                </>
+              ) : null}
+            </StickyActionsProvider>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

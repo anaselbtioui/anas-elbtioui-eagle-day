@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { StickyActions } from '@/components/ui/sticky-actions'
 import {
   Sheet,
   SheetContent,
@@ -366,10 +367,12 @@ export function BrokerDossierPage() {
                 placeholder={t('broker.requestNotePh')}
               />
             </div>
+          </div>
+          <StickyActions>
             <Button className="w-full" onClick={submitRequest} data-testid="submit-request">
               {t('broker.requestSubmit')}
             </Button>
-          </div>
+          </StickyActions>
         </SheetContent>
       </Sheet>
 
@@ -431,21 +434,25 @@ export function BrokerDossierPage() {
                   />
                   <span className="text-sm font-medium">{t('broker.humanCheck')}</span>
                 </label>
-                <Button
-                  className="w-full"
-                  disabled={!activeDraft.humanApproved}
-                  onClick={() => {
-                    void approveMessage(dossierId, activeDraft.id).then((ok) => {
-                      if (ok) setDraftOpen(false)
-                    })
-                  }}
-                  data-testid="approve-draft"
-                >
-                  {t('broker.approveLocal')}
-                </Button>
               </>
             ) : null}
           </div>
+          {activeDraft ? (
+            <StickyActions>
+              <Button
+                className="w-full"
+                disabled={!activeDraft.humanApproved}
+                onClick={() => {
+                  void approveMessage(dossierId, activeDraft.id).then((ok) => {
+                    if (ok) setDraftOpen(false)
+                  })
+                }}
+                data-testid="approve-draft"
+              >
+                {t('broker.approveLocal')}
+              </Button>
+            </StickyActions>
+          ) : null}
         </SheetContent>
       </Sheet>
     </>

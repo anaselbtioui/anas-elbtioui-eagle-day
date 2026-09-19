@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { BrandMark } from '@/components/BrandLogo'
+import { StickyActionsProvider } from '@/components/ui/sticky-actions'
 import styles from './auth-split.module.css'
 
 type AuthSplitLayoutProps = {
@@ -71,7 +72,13 @@ export function AuthFormCard({
         <h1 className={styles.formTitle}>{title}</h1>
         {lead ? <p className={styles.formLead}>{lead}</p> : null}
       </div>
-      <div className={styles.formBody}>{children}</div>
+      <StickyActionsProvider
+        className={styles.formStickyRegion}
+        bodyClassName={styles.formBody}
+        footerClassName={styles.formStickyFooter}
+      >
+        {children}
+      </StickyActionsProvider>
     </div>
   )
 }

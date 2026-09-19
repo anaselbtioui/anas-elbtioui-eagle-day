@@ -9,6 +9,10 @@ node_modules/
 server/data/
 .DS_Store
 dist/
+api/[...route].js
+api/[...route].js.map
+api/[[...route]].js
+api/[[...route]].js.map
 .tmp-pdf/
 playwright-report/
 test-results/

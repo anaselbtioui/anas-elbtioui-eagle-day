@@ -1,10 +1,9 @@
-import { handle } from 'hono/vercel'
-import { createApp } from '../server/app.ts'
+import { createApp } from './app.ts'
 import {
   loadDb as loadSupabase,
   saveDb as saveSupabase,
   supabaseConfigured,
-} from '../server/supabase-store.ts'
+} from './supabase-store.ts'
 
 export const config = {
   runtime: 'nodejs',
@@ -24,11 +23,25 @@ function createServerlessApp() {
     app.get('/health', (c) =>
       c.json({ ok: false, service: 'labas-api', store: 'missing_env' }, 503),
     )
+    app.get('/api/health', (c) =>
+      c.json({ ok: false, service: 'labas-api', store: 'missing_env' }, 503),
+    )
     return app
   }
-  return createApp(loadSupabase, saveSupabase)
+  const app = createApp(loadSupabase, saveSupabase)
+  app.get('/api/health', (c) =>
+    c.json({
+      ok: true,
+      service: 'labas-api',
+      store: 'supabase',
+    }),
+  )
+  return app
 }
 
 const app = createServerlessApp()
 
-export default handle(app)
+/** Web Handler API — Vercel Node runtime expects `{ fetch }` / Hono `.fetch`, not hono/vercel `handle`. */
+export default {
+  fetch: (request: Request) => app.fetch(request),
+}
