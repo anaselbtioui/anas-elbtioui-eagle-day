@@ -359,7 +359,7 @@ async function syncUpsertTable(
 }
 
 export async function saveDb(db: Db): Promise<void> {
-  await withWriteLock(() => persistAll(db))
+  await persistAll(db)
 }
 
 async function persistAll(db: Db): Promise<void> {

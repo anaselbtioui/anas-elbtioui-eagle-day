@@ -17,7 +17,6 @@ import type {
 import type { AppUserRecord } from '../src/domain/auth.ts'
 import { contacts, nadiaProfile } from '../src/domain/fixtures.ts'
 import { emptyDeskFiles, type DeskFile } from './desk.ts'
-import { withWriteLock } from './write-lock.ts'
 
 export type Db = {
   motorists: Motorist[]
@@ -77,10 +76,8 @@ export async function loadDb(): Promise<Db> {
 }
 
 export async function saveDb(db: Db): Promise<void> {
-  await withWriteLock(async () => {
-    await mkdir(dataDir, { recursive: true })
-    await writeFile(dbPath, JSON.stringify(db, null, 2), 'utf8')
-  })
+  await mkdir(dataDir, { recursive: true })
+  await writeFile(dbPath, JSON.stringify(db, null, 2), 'utf8')
 }
 
 export function upsert<T extends { id: string }>(list: T[], item: T): T[] {

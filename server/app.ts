@@ -58,6 +58,7 @@ import {
   type IncidentFile,
 } from './core.ts'
 import { emptyDb, loadDb, saveDb, upsert, type Db } from './store.ts'
+import { exclusiveDbWrite } from './write-lock.ts'
 import { mergeImport, type FieldResolution, type ImportOutcome, type ImportSource } from '../src/domain/browser-import.ts'
 import {
   closeBrowser,
@@ -144,7 +145,16 @@ function writeDossier(
   )
 }
 
-export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) => Promise<void> = saveDb) {
+export function createApp(
+  loadFn: () => Promise<Db> = loadDb,
+  persistFn: (db: Db) => Promise<void> = saveDb,
+) {
+  const load = loadFn
+  /** Serialize load→mutate→persist so full-table wipe cannot drop concurrent writes. */
+  async function write(mutator: (db: Db) => Db | Promise<Db>): Promise<Db> {
+    return exclusiveDbWrite(loadFn, persistFn, mutator)
+  }
+  const persist = persistFn
   const app = new Hono<AppEnv>()
   app.use(
     '/*',
@@ -198,43 +208,51 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     if (!email.includes('@')) return c.json({ error: 'invalid_email' }, 400)
     if (password.length < 8) return c.json({ error: 'weak_password' }, 400)
     if (!displayName) return c.json({ error: 'name_required' }, 400)
-    const db = await load()
-    if (db.users.some((u) => u.email === email)) return c.json({ error: 'email_taken' }, 409)
-    let next = db
-    let motoristId: string | null = null
-    let brokerId: string | null = null
-    let vehicleId: string | null = null
-    let insurerId: string | null = null
-    let policyId: string | null = null
-    if (body.role === 'motorist') {
-      const provisioned = provisionMotorist(next, displayName)
-      next = provisioned.db
-      motoristId = provisioned.motoristId
-      vehicleId = provisioned.vehicleId
-      insurerId = provisioned.insurerId
-      policyId = provisioned.policyId
-      brokerId = null
-    } else {
-      const provisioned = provisionBroker(next, displayName)
-      next = provisioned.db
-      brokerId = provisioned.brokerId
-    }
-    const row: AppUserRecord = {
-      id: randomUUID(),
-      email,
-      passwordHash: await hashPassword(password),
-      role: body.role,
-      displayName,
-      onboarded: body.role === 'broker',
-      motoristId,
-      brokerId,
-      vehicleId,
-      insurerId,
-      policyId,
-    }
-    next = insertUser(next, row)
-    await persist(next)
-    const user = publicUser(row)
+    let created: AppUserRecord | null = null
+    let taken = false
+    await write(async (db) => {
+      if (db.users.some((u) => u.email === email)) {
+        taken = true
+        return db
+      }
+      let next = db
+      let motoristId: string | null = null
+      let brokerId: string | null = null
+      let vehicleId: string | null = null
+      let insurerId: string | null = null
+      let policyId: string | null = null
+      if (body.role === 'motorist') {
+        const provisioned = provisionMotorist(next, displayName)
+        next = provisioned.db
+        motoristId = provisioned.motoristId
+        vehicleId = provisioned.vehicleId
+        insurerId = provisioned.insurerId
+        policyId = provisioned.policyId
+        brokerId = null
+      } else {
+        const provisioned = provisionBroker(next, displayName)
+        next = provisioned.db
+        brokerId = provisioned.brokerId
+      }
+      const row: AppUserRecord = {
+        id: randomUUID(),
+        email,
+        passwordHash: await hashPassword(password),
+        role: body.role!,
+        displayName,
+        onboarded: body.role === 'broker',
+        motoristId,
+        brokerId,
+        vehicleId,
+        insurerId,
+        policyId,
+      }
+      created = row
+      return insertUser(next, row)
+    })
+    if (taken) return c.json({ error: 'email_taken' }, 409)
+    if (!created) return c.json({ error: 'signup_failed' }, 500)
+    const user = publicUser(created)
     return c.json({ token: await signToken(user), user }, 201)
   })
 
@@ -379,9 +397,7 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     if (body.incident.motoristId !== c.get('auth')!.motoristId) {
       return c.json({ error: 'forbidden' }, 403)
     }
-    const db = await load()
-    const next = writePackAndSync(db, body)
-    await persist(next)
+    const next = await write((db) => writePackAndSync(db, body))
     return c.json(packFromDb(next, incidentId))
   })
 
@@ -389,13 +405,21 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     const denied = needMotorist(c)
     if (denied) return denied
     const incidentId = c.req.param('incidentId')
-    const db = await load()
-    const existing = packFromDb(db, incidentId)
-    if (!existing) return c.json({ error: 'not_found' }, 404)
-    if (!canSeePack(c.get('auth')!, existing, db)) return c.json({ error: 'forbidden' }, 403)
     const patch = await c.req.json<PackPatch>()
-    const next = writePackAndSync(db, mergePack(existing, patch))
-    await persist(next)
+    let err: { error: string; status: 404 | 403 } | null = null
+    const next = await write((db) => {
+      const existing = packFromDb(db, incidentId)
+      if (!existing) {
+        err = { error: 'not_found', status: 404 }
+        return db
+      }
+      if (!canSeePack(c.get('auth')!, existing, db)) {
+        err = { error: 'forbidden', status: 403 }
+        return db
+      }
+      return writePackAndSync(db, mergePack(existing, patch))
+    })
+    if (err) return c.json({ error: err.error }, err.status)
     return c.json(packFromDb(next, incidentId))
   })
 
@@ -403,32 +427,46 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     const denied = needMotorist(c)
     if (denied) return denied
     const incidentId = c.req.param('incidentId')
-    const db = await load()
-    const existing = packFromDb(db, incidentId)
-    if (!existing) return c.json({ error: 'not_found' }, 404)
-    if (!canSeePack(c.get('auth')!, existing, db)) return c.json({ error: 'forbidden' }, 403)
     const pieces = await c.req.json<EvidencePieces>()
-    const next = writePackAndSync(db, applyPieces(existing, pieces))
-    await persist(next)
-    const file = fileFromDb(next, incidentId)
-    return c.json(file)
+    let err: { error: string; status: 404 | 403 } | null = null
+    const next = await write((db) => {
+      const existing = packFromDb(db, incidentId)
+      if (!existing) {
+        err = { error: 'not_found', status: 404 }
+        return db
+      }
+      if (!canSeePack(c.get('auth')!, existing, db)) {
+        err = { error: 'forbidden', status: 403 }
+        return db
+      }
+      return writePackAndSync(db, applyPieces(existing, pieces))
+    })
+    if (err) return c.json({ error: err.error }, err.status)
+    return c.json(fileFromDb(next, incidentId))
   })
 
   app.post('/api/packs', async (c) => {
     const denied = needMotorist(c)
     if (denied) return denied
     const auth = c.get('auth')!
-    const db = await load()
     const body = await readJson<CreatePackInput>(c, {})
-    const pack = newEmptyPack(db, {
-      ...body,
-      motoristId: auth.motoristId!,
-      policyId: auth.policyId ?? body.policyId,
+    let created: EvidencePack | null = null
+    let err: string | null = null
+    await write((db) => {
+      const pack = newEmptyPack(db, {
+        ...body,
+        motoristId: auth.motoristId!,
+        policyId: auth.policyId ?? body.policyId,
+      })
+      if ('error' in pack) {
+        err = pack.error
+        return db
+      }
+      created = pack
+      return writePackAndSync(db, pack)
     })
-    if ('error' in pack) return c.json({ error: pack.error }, 404)
-    const next = writePackAndSync(db, pack)
-    await persist(next)
-    return c.json(pack, 201)
+    if (err || !created) return c.json({ error: err ?? 'pack_failed' }, 404)
+    return c.json(created, 201)
   })
 
   app.get('/api/files/:incidentId', async (c) => {
@@ -460,75 +498,111 @@ export function createApp(load: () => Promise<Db> = loadDb, persist: (db: Db) =>
     if (denied) return denied
     const incidentId = c.req.param('incidentId')
     const body = await c.req.json<Partial<Declaration>>()
-    const db = await load()
-    const pack = packFromDb(db, incidentId)
-    if (!pack) return c.json({ error: 'pack_not_found' }, 404)
-    if (!canSeePack(c.get('auth')!, pack, db)) return c.json({ error: 'forbidden' }, 403)
-    const existing = db.declarations.find((d) => d.incidentId === incidentId)
-    if (existing?.submittedAt) return c.json({ error: 'already_submitted' }, 409)
-    const declaration: Declaration = {
-      id: existing?.id ?? randomUUID(),
-      incidentId,
-      narrative: body.narrative ?? existing?.narrative ?? '',
-      documentRefs: body.documentRefs ?? existing?.documentRefs ?? [],
-      channel: body.channel ?? existing?.channel ?? 'broker',
-      submittedAt: null,
-    }
-    const policy = db.policies.find((p) => p.id === pack.incident.policyId)
-    const draft = dossierAfterDraft(declaration.id, pack, policy?.number ?? null)
-    const dossier = {
-      id: db.dossiers.find((d) => d.declarationId === declaration.id)?.id ?? randomUUID(),
-      ...draft,
-    }
-    const next = writeDossier(db, pack, declaration, dossier)
-    await persist(next)
-    return c.json({ declaration, dossier })
-  })
-
-  app.post('/api/declarations/:incidentId/submit', async (c) => {
-    const denied = needMotorist(c)
-    if (denied) return denied
-    const incidentId = c.req.param('incidentId')
-    const db = await load()
-    const pack = packFromDb(db, incidentId)
-    if (!pack) return c.json({ error: 'pack_not_found' }, 404)
-    if (!canSeePack(c.get('auth')!, pack, db)) return c.json({ error: 'forbidden' }, 403)
-    let declaration = db.declarations.find((d) => d.incidentId === incidentId)
-    if (!declaration) {
-      declaration = {
-        id: randomUUID(),
+    let out: { declaration: Declaration; dossier: Db['dossiers'][number] } | null = null
+    let err: { error: string; status: 404 | 403 | 409 } | null = null
+    await write((db) => {
+      const pack = packFromDb(db, incidentId)
+      if (!pack) {
+        err = { error: 'pack_not_found', status: 404 }
+        return db
+      }
+      if (!canSeePack(c.get('auth')!, pack, db)) {
+        err = { error: 'forbidden', status: 403 }
+        return db
+      }
+      const existing = db.declarations.find((d) => d.incidentId === incidentId)
+      if (existing?.submittedAt) {
+        err = { error: 'already_submitted', status: 409 }
+        return db
+      }
+      const declaration: Declaration = {
+        id: existing?.id ?? randomUUID(),
         incidentId,
-        narrative: '',
-        documentRefs: [],
-        channel: 'broker',
+        narrative: body.narrative ?? existing?.narrative ?? '',
+        documentRefs: body.documentRefs ?? existing?.documentRefs ?? [],
+        channel: body.channel ?? existing?.channel ?? 'broker',
         submittedAt: null,
       }
-    }
-    if (declaration.submittedAt) return c.json({ error: 'already_submitted' }, 409)
-    if (!canSubmit(pack.evidence)) {
       const policy = db.policies.find((p) => p.id === pack.incident.policyId)
       const draft = dossierAfterDraft(declaration.id, pack, policy?.number ?? null)
       const dossier = {
         id: db.dossiers.find((d) => d.declarationId === declaration.id)?.id ?? randomUUID(),
         ...draft,
       }
-      const next = writeDossier(db, pack, declaration, dossier)
-      await persist(next)
-      return c.json({ error: 'blocked_missing_evidence', declaration, dossier }, 409)
+      out = { declaration, dossier }
+      return writeDossier(db, pack, declaration, dossier)
+    })
+    if (err) return c.json({ error: err.error }, err.status)
+    return c.json(out)
+  })
+
+  app.post('/api/declarations/:incidentId/submit', async (c) => {
+    const denied = needMotorist(c)
+    if (denied) return denied
+    const incidentId = c.req.param('incidentId')
+    let out: {
+      declaration: Declaration
+      dossier: Db['dossiers'][number]
+      blocked?: boolean
+    } | null = null
+    let err: { error: string; status: 404 | 403 | 409 } | null = null
+    await write((db) => {
+      const pack = packFromDb(db, incidentId)
+      if (!pack) {
+        err = { error: 'pack_not_found', status: 404 }
+        return db
+      }
+      if (!canSeePack(c.get('auth')!, pack, db)) {
+        err = { error: 'forbidden', status: 403 }
+        return db
+      }
+      let declaration = db.declarations.find((d) => d.incidentId === incidentId)
+      if (!declaration) {
+        declaration = {
+          id: randomUUID(),
+          incidentId,
+          narrative: '',
+          documentRefs: [],
+          channel: 'broker',
+          submittedAt: null,
+        }
+      }
+      if (declaration.submittedAt) {
+        err = { error: 'already_submitted', status: 409 }
+        return db
+      }
+      if (!canSubmit(pack.evidence)) {
+        const policy = db.policies.find((p) => p.id === pack.incident.policyId)
+        const draft = dossierAfterDraft(declaration.id, pack, policy?.number ?? null)
+        const dossier = {
+          id: db.dossiers.find((d) => d.declarationId === declaration.id)?.id ?? randomUUID(),
+          ...draft,
+        }
+        out = { declaration, dossier, blocked: true }
+        return writeDossier(db, pack, declaration, dossier)
+      }
+      const submitted: Declaration = {
+        ...declaration,
+        submittedAt: new Date().toISOString(),
+      }
+      const policy = db.policies.find((p) => p.id === pack.incident.policyId)
+      const after = dossierAfterSubmit(submitted, pack, policy?.number ?? null)
+      const dossier = {
+        id: db.dossiers.find((d) => d.declarationId === submitted.id)?.id ?? randomUUID(),
+        ...after,
+      }
+      out = { declaration: submitted, dossier }
+      return writeDossier(db, pack, submitted, dossier)
+    })
+    if (err) return c.json({ error: err.error }, err.status)
+    if (!out) return c.json({ error: 'submit_failed' }, 500)
+    if (out.blocked) {
+      return c.json(
+        { error: 'blocked_missing_evidence', declaration: out.declaration, dossier: out.dossier },
+        409,
+      )
     }
-    const submitted: Declaration = {
-      ...declaration,
-      submittedAt: new Date().toISOString(),
-    }
-    const policy = db.policies.find((p) => p.id === pack.incident.policyId)
-    const after = dossierAfterSubmit(submitted, pack, policy?.number ?? null)
-    const dossier = {
-      id: db.dossiers.find((d) => d.declarationId === submitted.id)?.id ?? randomUUID(),
-      ...after,
-    }
-    const next = writeDossier(db, pack, submitted, dossier)
-    await persist(next)
-    return c.json({ declaration: submitted, dossier })
+    return c.json({ declaration: out.declaration, dossier: out.dossier })
   })
 
   app.get('/api/dossiers', async (c) => {

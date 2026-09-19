@@ -186,13 +186,27 @@ export function ensureDesk(db: Db, dossier: Db['dossiers'][number], pack: Eviden
 
 export function syncDossier(db: Db, incidentId: string): Db {
   const pack = packFromDb(db, incidentId)
-  const declaration = db.declarations.find((d) => d.incidentId === incidentId)
-  if (!pack || !declaration) return db
+  if (!pack) return db
   const policy = db.policies.find((p) => p.id === pack.incident.policyId)
+  let working = db
+  let declaration = working.declarations.find((d) => d.incidentId === incidentId)
+  // Open desk draft as soon as pack exists for a linked broker — queue must see client work.
+  if (!declaration) {
+    if (!policy?.brokerId) return db
+    declaration = {
+      id: randomUUID(),
+      incidentId,
+      narrative: '',
+      documentRefs: [],
+      channel: 'broker',
+      submittedAt: null,
+    }
+    working = { ...working, declarations: upsert(working.declarations, declaration) }
+  }
   const fields = declaration.submittedAt
     ? dossierAfterSubmit(declaration, pack, policy?.number ?? null)
     : dossierAfterDraft(declaration.id, pack, policy?.number ?? null)
-  const existing = db.dossiers.find((d) => d.declarationId === declaration.id)
+  const existing = working.dossiers.find((d) => d.declarationId === declaration.id)
   let status = fields.status
   let nextHumanStep = fields.nextHumanStep
   const pieceAdded =
@@ -215,7 +229,7 @@ export function syncDossier(db: Db, incidentId: string): Db {
     status,
     nextHumanStep,
   }
-  let next: Db = { ...db, dossiers: upsert(db.dossiers, dossier) }
+  let next: Db = { ...working, dossiers: upsert(working.dossiers, dossier) }
   next = ensureDesk(next, dossier, pack)
   if (pieceAdded) {
     const file =
