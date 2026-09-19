@@ -1,0 +1,7 @@
+_old
+resources
+*.key.txt
+.env
+.env.*
+node_modules
+.DS_Store
