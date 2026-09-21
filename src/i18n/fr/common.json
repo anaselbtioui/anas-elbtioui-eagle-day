@@ -17,14 +17,15 @@
     "resetProfileConfirm": "Effacer définitivement"
   },
   "role": {
-    "title": "Med Assurance",
-    "body": "",
+    "title": "Après l’accident, avant l’assureur",
+    "body": "Guide automobiliste sur place + desk courtier. Même dossier des deux côtés — sans décision de garantie.",
     "choose": "Je suis…",
-    "lead": "",
+    "lead": "Choisissez un rôle pour explorer la démo.",
     "motorist": "Automobiliste",
     "motoristHint": "Sur place et déclaration",
     "broker": "Courtier",
-    "brokerHint": "Dossiers et import"
+    "brokerHint": "Dossiers et clients",
+    "demoNote": "Démo ouverte — créez un compte pour parcourir."
   },
   "auth": {
     "logout": "Se déconnecter",
@@ -32,8 +33,8 @@
     "logoutConfirmBody": "Confirmer la déconnexion.",
     "signinTitle": "Connexion",
     "signupTitle": "Créer mon espace",
-    "motoristBody": "",
-    "brokerBody": "",
+    "motoristBody": "Préparez preuves et déclaration. Votre courtier reçoit le dossier.",
+    "brokerBody": "File de dossiers clients, pièces manquantes, brouillons validés par vous.",
     "email": "E-mail",
     "password": "Mot de passe",
     "name": "Votre nom",
@@ -94,9 +95,9 @@
     "accidentsTitle": "Accidents en cours",
     "claimsEmpty": "Aucun accident en cours",
     "pastTitle": "Passés",
-    "pastHint": "",
+    "pastHint": "Accidents déjà traités ou archivés.",
     "pastEmpty": "Aucun dossier passé",
-    "pastEmptyHint": "",
+    "pastEmptyHint": "Les accidents terminés apparaîtront ici.",
     "pastGoClaims": "Ouvrir un sinistre",
     "pastUpdated": "{{date}}",
     "pastContinueNow": "Reprendre l’accident",

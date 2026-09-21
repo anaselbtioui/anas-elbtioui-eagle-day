@@ -165,9 +165,19 @@ export function AuthPage() {
   }
 
   const title = mode === 'signup' ? t('auth.signupTitle') : t('auth.signinTitle')
+  const brandBody = picked === 'broker' ? t('auth.brokerBody') : t('auth.motoristBody')
 
   return (
-    <AuthSplitLayout brandTitle={title}>
+    <AuthSplitLayout
+      brandTitle={t('app.tagline')}
+      brandBody={brandBody}
+      mobileHero={
+        <div className="mb-2 space-y-1 text-center">
+          <p className="font-display text-lg font-bold text-ink">{t('app.tagline')}</p>
+          <p className="text-sm text-ink-muted">{brandBody}</p>
+        </div>
+      }
+    >
       <AuthFormCard title={title}>
         <form className="space-y-4" noValidate onSubmit={(e) => void onSubmit(e)}>
           {mode === 'signup' ? (

@@ -1,49 +1,46 @@
 # Med Assurance
 
-Mobile-first PWA for Moroccan motor accidents + courtier desk. Same dossier ids across both sides. Prototype does **not** decide fault, coverage, or payout.
+**Guide après accident auto au Maroc** — sécurité et preuves sur place, déclaration plus tard via le courtier. Desk courtier sur les mêmes dossiers. Le prototype **ne décide pas** faute, garantie, ni indemnisation.
+
+> Eagle Day hackathon · 3ᵉ place
+
+**Live demo:** https://anas-elbtioui-eagle-day.vercel.app  
+**GitHub:** https://github.com/anaselbtioui/anas-elbtioui-eagle-day
+
+## What you built (two sides, one file)
+
+| Who | What |
+|---|---|
+| **Automobiliste** | NOW (roadside) → pack de preuves · LATER → déclaration au courtier · Assistance contrat |
+| **Courtier** | File de dossiers, demandes de pièces, brouillons humains, transmission assureur |
+
+Same dossier ids on both sides.
+
+## Try the demo (2 min)
+
+1. Open the live URL → pick **Automobiliste** or **Courtier**.
+2. Sign up (any email / password ≥ 8 chars).
+3. Motorist: short onboarding → home (accidents) → NOW or LATER.  
+   Broker: `/desk` queue → open a dossier after a motorist has sent one (pick the same broker in onboarding).
+
+Tip: use two browser profiles (or normal + private) for motorist + broker.
 
 ## Stack
 
-React 19 · Vite · TypeScript · Tailwind v4 · shadcn/ui · Zustand · i18next (FR) · Hono API · Supabase (optional) · PWA · Capacitor shells.
+React 19 · Vite · TypeScript · Tailwind v4 · Zustand · i18next (FR) · Hono · Supabase · PWA · Capacitor shells.
 
 ## Local
 
 ```bash
 npm install
-npm run server   # API on :8787 (JSON store without .env)
-npm run dev      # Vite on :5173 — set VITE_API_URL=http://127.0.0.1:8787 if needed
-npm test
-npm run lint:copy
-npm run test:e2e
-npm run build
+npm run server   # API :8787
+npm run dev      # Vite :5173
 ```
 
-Playwright starts API + Vite via `webServer`. `ALLOW_RESET=1` for local reset.
+Optional: `VITE_API_URL=http://127.0.0.1:8787`. `ALLOW_RESET=1` + `npm run reset:db` for a clean local store.
 
-## Walkthrough
+## Known limits (by design / prototype)
 
-1. **Role picker** — Automobiliste or Courtier, then sign up / sign in.
-2. **Auth** — signup / signin (JWT). Brokers land on `/desk`; motorists on Phase 1 onboarding then home.
-3. **Automobiliste home** — three doors: NOW / LATER / Assistance. Quiet *Changer de rôle*.
-4. **NOW** — Tout va bien ? → injury STOP (19) **or** other driver → constat → tap-car → photos → driveable → pack saved. Offline writes queue and replay.
-5. **LATER** — pieces + facts → check-answers → confirm → send to broker. Tracking timeline + add piece. Contacts for broker on send.
-6. **Courtier desk** — queue (search / status / mes dossiers) → fiche → request piece → editable human-gated draft → handoff to insurer. Timeline events. `/desk/import` simulated browser import.
-
-## Screenshots
-
-[`docs/screenshots/`](docs/screenshots/) — role picker, onboarding, home, NOW stop, LATER, desk queue/fiche (desktop).
-
-## Known gaps
-
-- OTP is mock; photos stay local (data URLs / IndexedDB); no real portal login for import.
-- Serverless whole-DB write still last-write-wins under heavy concurrency; row upserts for desk/dossiers/evidences mitigate part of it.
-- iOS Capacitor build needs macOS + Xcode; Android scaffold via `npm run cap:add:android` then `cap:sync`.
-- No coverage / fault / payout fields by design.
-
-## Backend
-
-`src/services/api.ts` → `httpApi`. Vercel: `api/[[...route]].ts` + env `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`. Docs: [`docs/api.md`](docs/api.md), [`docs/frontend-contract.md`](docs/frontend-contract.md).
-
-## Brand
-
-Med Assurance lockup `public/brand/med-assurance-logo.png`; icon unchanged. Fonts Baloo 2 / Baloo Bhaijaan 2.
+- Mock OTP; photos stay on-device; import portail = simulation.
+- No fault / coverage / payout fields.
+- See [`docs/`](docs/) for procedure notes and API contract.
