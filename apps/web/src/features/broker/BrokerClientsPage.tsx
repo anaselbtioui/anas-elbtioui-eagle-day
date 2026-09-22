@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ShellScroll } from '@/app/AppShell'
+import { ShellListFrame, ShellScroll } from '@/app/AppShell'
 import { DataTable } from '@/components/ui/data-table'
 import type { ColumnDef } from '@tanstack/table-core'
 import type { BrokerClient } from '@/services/http-contract.ts'
@@ -78,7 +78,8 @@ export function BrokerClientsPage() {
 
   return (
     <ShellScroll>
-      <div className="mb-6">
+      <ShellListFrame>
+      <div className="mb-5">
         <h1 className="font-display text-3xl font-bold">{t('broker.clientsTitle')}</h1>
         <p className="mt-2 max-w-xl text-base text-ink-muted">{t('broker.clientsHint')}</p>
       </div>
@@ -94,6 +95,7 @@ export function BrokerClientsPage() {
           getRowTestId={(row) => `client-${row.motoristId}`}
         />
       ) : null}
+      </ShellListFrame>
     </ShellScroll>
   )
 }

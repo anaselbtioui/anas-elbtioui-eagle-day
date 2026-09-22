@@ -6,10 +6,7 @@ import { LabasIcon } from '@/components/LabasIcon'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { displayAccidentRef } from '@/domain/accident-ref'
-import {
-  AvatarSettingsButton,
-  ProfileSettingsModal,
-} from '@/features/home/ProfileSettingsModal'
+import { ProfileSettingsModal } from '@/features/home/ProfileSettingsModal'
 import { WalletNudgeDrawer } from '@/features/home/WalletNudgeDrawer'
 import { openMotoristPack } from '@/features/home/openMotoristPack'
 import { useEvidenceStore } from '@/store/evidencePack'
@@ -113,7 +110,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
         navLabel={t('motorist.navLabel')}
         displayName={displayName}
         avatarTestId="motorist-avatar"
-        avatarAction={<AvatarSettingsButton onClick={() => setSettingsOpen(true)} />}
+        onSettings={() => setSettingsOpen(true)}
         sidebarPrimary={
           <Button
             className="h-11 w-full min-h-11 justify-start gap-2.5 pl-2.5 pr-3 text-sm"

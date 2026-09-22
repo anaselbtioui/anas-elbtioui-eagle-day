@@ -1,8 +1,8 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import type { ReactNode } from 'react'
+import { AccountMenu } from '@/components/AccountMenu'
 import { BrandMark } from '@/components/BrandLogo'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
-import { LogoutButton } from '@/components/LogoutButton'
 import { cn } from '@/lib/utils'
 
 export const shellActiveEntry =
@@ -19,6 +19,17 @@ export function ShellScroll({
   return (
     <div className={cn('labas-scroll min-h-0 flex-1 overflow-y-auto', className)}>{children}</div>
   )
+}
+
+/** Shared width/rhythm for automobiliste + courtier list pages (tables align). */
+export function ShellListFrame({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return <div className={cn('w-full', className)}>{children}</div>
 }
 
 export function ShellNavLink({
@@ -58,8 +69,8 @@ type AppShellProps = {
   navLabel: string
   displayName: string
   avatarTestId: string
-  /** Action beside avatar (e.g. settings gear). */
-  avatarAction?: ReactNode
+  /** Settings entry in the account menu. */
+  onSettings: () => void
   /** Primary CTA under logo (e.g. motorist “I had an accident”). */
   sidebarPrimary?: ReactNode
   search?: ReactNode
@@ -78,7 +89,7 @@ export function AppShell({
   navLabel,
   displayName,
   avatarTestId,
-  avatarAction,
+  onSettings,
   sidebarPrimary,
   search,
   nav,
@@ -127,29 +138,18 @@ export function AppShell({
         )}
 
         <div className="mt-3 border-t border-border/60 pt-3 md:mt-auto">
-          <div className="flex items-center gap-2 px-1">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink-soft outline outline-1 outline-ink/15"
-              aria-hidden
-              data-testid={avatarTestId}
-            >
-              <LabasIcon name="user" className="h-5 w-5" tone="onSand" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-ink" title={displayName}>
-                {displayName}
-              </p>
-              <LogoutButton className="mt-0.5 text-xs" />
-            </div>
-            {avatarAction}
-          </div>
+          <AccountMenu
+            displayName={displayName}
+            avatarTestId={avatarTestId}
+            onSettings={onSettings}
+          />
         </div>
       </aside>
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {toast}
         {/* Height-locked pane so StickyActions footers pin to bottom; pages scroll inside. */}
-        <div className="flex min-h-0 flex-1 flex-col px-4 py-5 md:px-6">
+        <div className="flex min-h-0 flex-1 flex-col px-5 py-6 md:px-8 md:py-8">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {children ?? <Outlet />}
           </div>

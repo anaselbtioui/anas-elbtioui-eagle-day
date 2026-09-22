@@ -98,7 +98,10 @@ export function DataTable<TData, TValue>({
           ))
         ) : (
           <TableRow className="hover:bg-transparent">
-            <TableCell colSpan={columns.length} className="h-24 text-center text-ink-muted">
+            <TableCell
+              colSpan={columns.length}
+              className="h-36 px-5 py-10 text-center text-sm text-ink-muted"
+            >
               {emptyMessage ?? '—'}
             </TableCell>
           </TableRow>

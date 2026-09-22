@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
-import { ShellScroll } from '@/app/AppShell'
+import { ShellListFrame, ShellScroll } from '@/app/AppShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
@@ -162,7 +162,7 @@ export function PastAccidentsPage() {
 
   return (
     <ShellScroll>
-      <div className="mx-auto w-full max-w-5xl space-y-5">
+      <ShellListFrame className="space-y-5">
         <header>
           <h1 className="font-display text-2xl font-bold text-ink md:text-3xl">
             {t('motorist.pastTitle')}
@@ -204,7 +204,7 @@ export function PastAccidentsPage() {
           getRowTestId={(row) => `past-pack-${row.id}`}
           onRowClick={(row) => navigate(`/past/${row.id}`)}
         />
-      </div>
+      </ShellListFrame>
     </ShellScroll>
   )
 }

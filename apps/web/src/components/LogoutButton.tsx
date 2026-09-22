@@ -10,32 +10,25 @@ type LogoutButtonProps = {
   className?: string
 }
 
-export function LogoutButton({ className }: LogoutButtonProps) {
+export function LogoutConfirmDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const signOut = useSessionStore((s) => s.signOut)
-  const [open, setOpen] = useState(false)
 
   function confirmLogout() {
     signOut()
-    setOpen(false)
+    onOpenChange(false)
     navigate('/', { replace: true })
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Trigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'text-sm font-medium text-ink-muted underline-offset-4 hover:underline',
-            className,
-          )}
-          data-testid="logout"
-        >
-          {t('auth.logout')}
-        </button>
-      </Dialog.Trigger>
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="labas-overlay fixed inset-0 z-50 bg-ink/40" />
         <Dialog.Content
@@ -57,7 +50,7 @@ export function LogoutButton({ className }: LogoutButtonProps) {
               type="button"
               variant="ghost"
               className="flex-1"
-              onClick={() => setOpen(false)}
+              onClick={() => onOpenChange(false)}
             >
               {t('app.close')}
             </Button>
@@ -74,5 +67,27 @@ export function LogoutButton({ className }: LogoutButtonProps) {
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  )
+}
+
+export function LogoutButton({ className }: LogoutButtonProps) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <button
+        type="button"
+        className={cn(
+          'text-sm font-medium text-ink-muted underline-offset-4 hover:underline',
+          className,
+        )}
+        data-testid="logout"
+        onClick={() => setOpen(true)}
+      >
+        {t('auth.logout')}
+      </button>
+      <LogoutConfirmDialog open={open} onOpenChange={setOpen} />
+    </>
   )
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
-import { ShellScroll } from '@/app/AppShell'
+import { ShellListFrame, ShellScroll } from '@/app/AppShell'
 import { LabasIcon } from '@/components/LabasIcon'
 import { LifecycleRing } from '@/components/LifecycleRing'
 import { Button } from '@/components/ui/button'
@@ -163,7 +163,7 @@ export function HomePage() {
 
   return (
     <ShellScroll>
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <ShellListFrame className="space-y-6">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
         <button
           type="button"
@@ -193,7 +193,7 @@ export function HomePage() {
       </div>
 
       <section>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-xl font-bold text-ink md:text-2xl">
             {t('motorist.accidentsTitle')}
           </h2>
@@ -218,7 +218,7 @@ export function HomePage() {
           onRowClick={openPack}
         />
       </section>
-    </div>
+    </ShellListFrame>
     </ShellScroll>
   )
 }

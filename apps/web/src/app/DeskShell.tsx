@@ -1,7 +1,9 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useEffect, useMemo, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
 import { AppShell, ShellNavLink, shellActiveEntry } from '@/app/AppShell'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { filterDeskBundles } from '@/domain/desk.ts'
 import { useBrokerDeskStore } from '@/store/brokerDesk'
@@ -19,6 +21,7 @@ export function DeskShell({ children }: { children?: ReactNode }) {
   const setSearchQuery = useBrokerDeskStore((s) => s.setSearchQuery)
   const user = useSessionStore((s) => s.user)
   const { dossierId } = useParams()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   useEffect(() => {
     void loadQueue()
@@ -45,11 +48,13 @@ export function DeskShell({ children }: { children?: ReactNode }) {
   }
 
   return (
+    <>
     <AppShell
       homeTo="/desk"
       navLabel={t('broker.navLabel')}
       displayName={displayName}
       avatarTestId="desk-avatar"
+      onSettings={() => setSettingsOpen(true)}
       search={
         <Input
           value={searchQuery}
@@ -127,5 +132,32 @@ export function DeskShell({ children }: { children?: ReactNode }) {
     >
       {children}
     </AppShell>
+    <Dialog.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="labas-overlay fixed inset-0 z-50 bg-ink/40" />
+        <Dialog.Content
+          className="labas-dialog-panel fixed left-1/2 top-1/2 z-50 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-labas)] border border-border bg-surface p-5 shadow-[0_12px_40px_-12px_rgba(16,40,96,0.28)] outline-none"
+          data-testid="broker-settings"
+        >
+          <Dialog.Title className="font-display text-xl font-bold text-ink">
+            {t('motorist.settingsTitle')}
+          </Dialog.Title>
+          <dl className="mt-4 space-y-3 text-sm">
+            <div>
+              <dt className="text-ink-muted">{t('onboarding.name')}</dt>
+              <dd className="mt-0.5 font-semibold text-ink">{displayName}</dd>
+            </div>
+            <div>
+              <dt className="text-ink-muted">{t('auth.email')}</dt>
+              <dd className="mt-0.5 font-semibold text-ink">{user?.email ?? '—'}</dd>
+            </div>
+          </dl>
+          <Button type="button" variant="ghost" className="mt-5 w-full" onClick={() => setSettingsOpen(false)}>
+            {t('app.close')}
+          </Button>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+    </>
   )
 }
