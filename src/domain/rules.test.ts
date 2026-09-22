@@ -37,6 +37,7 @@ describe('applyEvidenceRules', () => {
       pack({
         incident: {
           id: 'INC-2',
+          ref: 'ACC-INC20000',
           motoristId: 'M-2',
           policyId: null,
           occurredAt: null,
@@ -57,6 +58,7 @@ describe('applyEvidenceRules', () => {
       pack({
         incident: {
           id: 'INC-1',
+          ref: 'ACC-INC10000',
           motoristId: 'M-1',
           policyId: 'P-1',
           occurredAt: null,

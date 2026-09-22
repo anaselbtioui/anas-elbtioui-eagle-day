@@ -57,6 +57,8 @@ export type Policy = {
 
 export type Incident = {
   id: string
+  /** Human ref stored without `#`, e.g. `ACC-D791D49E`. */
+  ref: string
   motoristId: string
   policyId: string | null
   occurredAt: string | null

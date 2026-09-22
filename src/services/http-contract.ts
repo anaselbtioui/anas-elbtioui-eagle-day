@@ -23,6 +23,8 @@ export type CreatePackInput = {
   vehicleImmobilised?: boolean
   city?: string | null
   workCommute?: boolean | null
+  /** Preferred human ref (`ACC-…`). Server falls back to id-derived. */
+  ref?: string
 }
 
 export type PackPatch = {

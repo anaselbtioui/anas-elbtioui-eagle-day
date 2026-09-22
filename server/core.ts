@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { ensureAccidentRef } from '../src/domain/accident-ref.ts'
 import {
   applyEvidenceRules,
   canSubmit,
@@ -141,6 +142,13 @@ export function writePack(db: Db, pack: EvidencePack): Db {
   const next = applyEvidenceRules(pack)
   let otherParties = db.otherParties
   let incident = next.incident
+  const taken = new Set(
+    db.incidents.filter((i) => i.id !== incident.id).map((i) => i.ref).filter(Boolean),
+  )
+  incident = {
+    ...incident,
+    ref: ensureAccidentRef(incident.ref, incident.id, taken),
+  }
   if (next.otherParty) {
     otherParties = upsert(otherParties, next.otherParty)
     incident = { ...incident, otherPartyId: next.otherParty.id }
@@ -262,6 +270,7 @@ export function mergePack(existing: EvidencePack, patch: PackPatch): EvidencePac
     ...existing.incident,
     ...patch.incident,
     id: existing.incident.id,
+    ref: existing.incident.ref,
     motoristId: existing.incident.motoristId,
   }
   let otherParty = existing.otherParty
@@ -492,9 +501,11 @@ export function newEmptyPack(db: Db, body: CreatePackInput): EvidencePack | { er
     ? db.policies.find((p) => p.id === body.policyId)
     : policyForMotorist(db, motoristId)
   const id = randomUUID()
+  const taken = new Set(db.incidents.map((i) => i.ref).filter(Boolean))
   return applyEvidenceRules({
     incident: {
       id,
+      ref: ensureAccidentRef(body.ref, id, taken),
       motoristId,
       policyId: policy?.id ?? null,
       occurredAt: new Date().toISOString(),

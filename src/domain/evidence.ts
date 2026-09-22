@@ -1,3 +1,5 @@
+import { accidentRefFromId } from '@/domain/accident-ref'
+
 export type InjuryAnswer = 'no' | 'yes' | 'unknown'
 export type OtherDriverAnswer = 'cooperates' | 'alone' | 'refuses' | 'fled' | 'unknown'
 
@@ -66,10 +68,72 @@ export function photoSlotsForParts(parts: CarPart[]): PhotoSlotId[] {
   return [...corners, ...parts]
 }
 
-export type EvidencePackStatus = 'draft' | 'saved' | 'stopped'
+export type EvidencePackStatus = 'draft' | 'saved' | 'stopped' | 'expired'
+
+/** Scene window for unfinished NOW drafts (4h from createdAt). */
+export const NOW_DRAFT_TTL_MS = 4 * 60 * 60 * 1000
+
+export type NowWizardStep =
+  | 'injury'
+  | 'stop'
+  | 'other'
+  | 'constat'
+  | 'car'
+  | 'photos'
+  | 'drive'
+  | 'assist'
+  | 'saved'
+  | 'expired'
+
+export function isNowDraftExpired(
+  pack: Pick<EvidencePack, 'status' | 'createdAt'>,
+  now = Date.now(),
+): boolean {
+  if (pack.status !== 'draft') return false
+  const created = Date.parse(pack.createdAt)
+  if (Number.isNaN(created)) return false
+  return now > created + NOW_DRAFT_TTL_MS
+}
+
+/** Flip draft → expired when past TTL; otherwise unchanged. */
+export function expireDraftPack(pack: EvidencePack, now = Date.now()): EvidencePack {
+  if (!isNowDraftExpired(pack, now)) return pack
+  return {
+    ...pack,
+    status: 'expired',
+    updatedAt: new Date(now).toISOString(),
+  }
+}
+
+/** Resume wizard step from pack fields (avoids always restarting at injury). */
+export function deriveNowStep(pack: EvidencePack): NowWizardStep {
+  if (pack.status === 'expired') return 'expired'
+  if (pack.status === 'stopped' || pack.stopReason) return 'stop'
+  if (pack.status === 'saved') return 'saved'
+  if (pack.injury === null) return 'injury'
+  if (shouldStopForInjury(pack.injury)) return 'stop'
+  if (pack.otherDriver === null) return 'other'
+  if (shouldStopForOtherDriver(pack.otherDriver)) return 'stop'
+
+  const leftConstat =
+    pack.damagedParts.length > 0 ||
+    Object.keys(pack.photos).length > 0 ||
+    pack.driveable !== null ||
+    pack.assistanceShown
+  if (!leftConstat) return 'constat'
+  if (pack.damagedParts.length === 0) return 'car'
+
+  const slots = photoSlotsForParts(pack.damagedParts)
+  if (slots.some((slot) => !pack.photos[slot])) return 'photos'
+  if (pack.driveable === null) return 'drive'
+  if (pack.driveable === false) return 'assist'
+  return 'saved'
+}
 
 export interface EvidencePack {
   id: string
+  /** Human ref without `#` (`ACC-…`). UUID stays in `id`. */
+  ref: string
   status: EvidencePackStatus
   createdAt: string
   updatedAt: string
@@ -92,8 +156,10 @@ export interface EvidencePack {
 
 export function createEmptyPack(): EvidencePack {
   const now = new Date().toISOString()
+  const id = `PACK-${Date.now()}`
   return {
-    id: `PACK-${Date.now()}`,
+    id,
+    ref: accidentRefFromId(id),
     status: 'draft',
     createdAt: now,
     updatedAt: now,

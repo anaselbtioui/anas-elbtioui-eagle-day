@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
 import { ShellScroll } from '@/app/AppShell'
+import { Button } from '@/components/ui/button'
+import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
+import { displayAccidentRef } from '@/domain/accident-ref'
 import type { EvidencePack, EvidencePackStatus } from '@/domain/evidence'
 import type { Dossier } from '@/domain/types.ts'
+import { openMotoristPack } from '@/features/home/openMotoristPack'
 import { api } from '@/services/api.ts'
+import { walletClaimReady } from '@/services/wallet.ts'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
+import { showToast } from '@/store/toast'
+import { fullTimestampFr } from '@/lib/relative-time'
 import { cn } from '@/lib/utils'
 
 function statusTone(status: EvidencePackStatus): string {
@@ -17,13 +24,15 @@ function statusTone(status: EvidencePackStatus): string {
       return 'bg-moss-soft text-moss'
     case 'stopped':
       return 'bg-alert-soft text-alert'
+    case 'expired':
+      return 'bg-sand-deep text-ink-muted'
     default:
       return 'bg-sand-deep text-ink-muted'
   }
 }
 
 function isPasse(status: EvidencePackStatus): boolean {
-  return status === 'stopped'
+  return status === 'stopped' || status === 'expired'
 }
 
 export function PastAccidentsPage() {
@@ -34,6 +43,8 @@ export function PastAccidentsPage() {
   const history = useEvidenceStore((s) => s.history)
   const active = useEvidenceStore((s) => s.pack)
   const hydrateFromDomain = useEvidenceStore((s) => s.hydrateFromDomain)
+  const resume = useEvidenceStore((s) => s.resume)
+  const claimReady = walletClaimReady(profile)
   const [dossierById, setDossierById] = useState<Record<string, Dossier | null>>({})
 
   useEffect(() => {
@@ -41,14 +52,40 @@ export function PastAccidentsPage() {
     void api.listPacks(profile.motoristId).then(hydrateFromDomain).catch(() => undefined)
   }, [profile.onboarded, profile.motoristId, hydrateFromDomain])
 
-  const packs = useMemo(() => {
+  const allPacks = useMemo(() => {
     const byId = new Map<string, EvidencePack>()
     for (const h of history) byId.set(h.id, h)
     if (active) byId.set(active.id, active)
     return [...byId.values()]
-      .filter((p) => isPasse(p.status))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   }, [history, active])
+
+  const packs = useMemo(
+    () =>
+      allPacks
+        .filter((p) => isPasse(p.status))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    [allPacks],
+  )
+
+  const selected = useMemo(
+    () => (packId ? allPacks.find((p) => p.id === packId) : undefined),
+    [allPacks, packId],
+  )
+
+  /** Draft / saved → open the right flow instead of empty Passés highlight. */
+  useEffect(() => {
+    if (!packId || !selected) return
+    if (selected.status === 'stopped' || selected.status === 'expired') return
+    openMotoristPack({
+      pack: selected,
+      packId,
+      resume,
+      navigate,
+      claimReady,
+      onLaterBlocked: () => showToast(t('home.laterBlocked'), 'alert'),
+      onExpired: () => showToast(t('now.expiredToast'), 'alert'),
+    })
+  }, [packId, selected, resume, navigate, claimReady, t])
 
   const savedIds = useMemo(
     () => packs.filter((p) => p.status === 'saved').map((p) => p.id),
@@ -80,7 +117,7 @@ export function PastAccidentsPage() {
     () => [
       {
         id: 'ref',
-        accessorFn: (row) => row.id,
+        accessorFn: (row) => row.ref || row.id,
         header: t('motorist.colRef'),
         cell: ({ row }) => (
           <p
@@ -89,7 +126,7 @@ export function PastAccidentsPage() {
               packId === row.original.id && 'underline decoration-ink/40',
             )}
           >
-            {row.original.id.slice(0, 14)}
+            {displayAccidentRef(row.original.ref, row.original.id)}
           </p>
         ),
       },
@@ -150,23 +187,54 @@ export function PastAccidentsPage() {
     return <Navigate to="/onboarding" replace />
   }
 
+  const detail =
+    selected?.status === 'stopped' || selected?.status === 'expired' ? selected : undefined
+
   return (
     <ShellScroll>
-    <div className="mx-auto w-full max-w-5xl space-y-5">
-      <header>
-        <h1 className="font-display text-2xl font-bold text-ink md:text-3xl">
-          {t('motorist.pastTitle')}
-        </h1>
-      </header>
+      <div className="mx-auto w-full max-w-5xl space-y-5">
+        <header>
+          <h1 className="font-display text-2xl font-bold text-ink md:text-3xl">
+            {t('motorist.pastTitle')}
+          </h1>
+        </header>
 
-      <DataTable
-        columns={columns}
-        data={packs}
-        emptyMessage={t('motorist.pastEmpty')}
-        getRowTestId={(row) => `past-pack-${row.id}`}
-        onRowClick={(row) => navigate(`/past/${row.id}`)}
-      />
-    </div>
+        {detail ? (
+          <Card data-testid="past-pack-detail">
+            <CardTitle className="font-mono text-lg">
+              {displayAccidentRef(detail.ref, detail.id)}
+            </CardTitle>
+            <CardDescription className="mt-2 space-y-1 text-ink">
+              <p>
+                {t('motorist.colStatus')}: {t(`motorist.packStatus.${detail.status}`)}
+              </p>
+              <p>
+                {t('motorist.colUpdated')}: {fullTimestampFr(detail.updatedAt)}
+              </p>
+              <p className="text-ink-muted">{t(`motorist.packStatusHint.${detail.status}`)}</p>
+            </CardDescription>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button asChild variant="ghost">
+                <Link to="/past">{t('app.back')}</Link>
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        {packId && !selected ? (
+          <p className="text-sm text-ink-muted" data-testid="past-pack-missing">
+            {t('motorist.packMissing')}
+          </p>
+        ) : null}
+
+        <DataTable
+          columns={columns}
+          data={packs}
+          emptyMessage={t('motorist.pastEmpty')}
+          getRowTestId={(row) => `past-pack-${row.id}`}
+          onRowClick={(row) => navigate(`/past/${row.id}`)}
+        />
+      </div>
     </ShellScroll>
   )
 }

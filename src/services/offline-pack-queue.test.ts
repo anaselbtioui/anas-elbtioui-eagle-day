@@ -24,6 +24,7 @@ function domainPack(id: string, injury: EvidencePack['incident']['injury'] = 'no
   return {
     incident: {
       id,
+      ref: `ACC-${id.replace(/[^a-fA-F0-9]/g, '').slice(0, 8).toUpperCase().padEnd(8, '0')}`,
       motoristId: 'm1',
       policyId: 'p1',
       occurredAt: '2026-01-01T00:00:00.000Z',

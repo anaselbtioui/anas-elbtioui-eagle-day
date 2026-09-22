@@ -5,6 +5,8 @@ import {
   isLegacySharedWallet,
   LEGACY_SHARED_MOTORIST_ID,
   migrateDeviceWallet,
+  walletRemainingPercent,
+  type Wallet,
 } from './wallet.ts'
 
 describe('per-device id migration', () => {
@@ -42,5 +44,42 @@ describe('per-device id migration', () => {
     const device = createDeviceWallet()
     device.name = 'Karim'
     expect(migrateDeviceWallet(device)).toEqual(device)
+  })
+})
+
+describe('walletRemainingPercent', () => {
+  it('is 100 when empty', () => {
+    expect(walletRemainingPercent(emptyWallet)).toBe(100)
+  })
+
+  it('drops as portefeuille fields fill', () => {
+    const partial: Wallet = {
+      ...emptyWallet,
+      name: 'Nadia',
+      phone: '0612345678',
+      phoneVerified: true,
+      cin: 'AB123456',
+      city: 'Casablanca',
+      plate: '12345-A-50',
+      vehicle: 'Dacia',
+      insurer: 'Sanlam',
+      policy: 'MA-1',
+      brokerId: 'B-1',
+      licenseNumber: 'P-1',
+      attestationValidUntil: '2027-01-01',
+    }
+    expect(walletRemainingPercent(partial)).toBe(0)
+  })
+
+  it('counts missing progress fields', () => {
+    const partial: Wallet = {
+      ...emptyWallet,
+      name: 'Nadia',
+      phone: '0612345678',
+      phoneVerified: true,
+    }
+    const pct = walletRemainingPercent(partial)
+    expect(pct).toBeGreaterThan(0)
+    expect(pct).toBeLessThan(100)
   })
 })

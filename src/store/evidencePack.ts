@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware'
 import {
   createEmptyPack,
   evidenceReducer,
+  expireDraftPack,
+  isNowDraftExpired,
   type EvidenceAction,
   type EvidencePack,
 } from '@/domain/evidence'
@@ -17,6 +19,7 @@ import {
   type OfflineIdRemap,
 } from '@/services/offline-pack-queue.ts'
 import { fromDomainPack, packLooksStarted, toDomainPack } from '@/services/pack-map.ts'
+import { accidentRefFromId } from '@/domain/accident-ref'
 import { useProfileStore } from '@/store/profile.ts'
 
 interface EvidenceState {
@@ -27,6 +30,8 @@ interface EvidenceState {
   start: () => Promise<void>
   /** Park current active if needed, then make this pack the NOW active. */
   resume: (id: string) => boolean
+  /** Flip overdue drafts to expired (active kept as expired for NOW UI). */
+  sweepExpired: (now?: number) => void
   dispatch: (action: EvidenceAction) => void
   persistActive: () => Promise<void>
   hydrateFromDomain: (packs: DomainPack[]) => void
@@ -44,6 +49,20 @@ function ctx() {
     policyId: p.policyId,
     city: p.city.trim() || null,
   }
+}
+
+/** Expire drafts past TTL; keep expired active so NOW can show closed UI. */
+export function applyNowExpiry(
+  pack: EvidencePack | null,
+  history: EvidencePack[],
+  now = Date.now(),
+): { pack: EvidencePack | null; history: EvidencePack[] } {
+  let nextHistory = history.map((h) => expireDraftPack(h, now))
+  let nextPack = pack ? expireDraftPack(pack, now) : null
+  if (nextPack?.status === 'expired') {
+    nextHistory = [nextPack, ...nextHistory.filter((h) => h.id !== nextPack!.id)].slice(0, 20)
+  }
+  return { pack: nextPack, history: nextHistory }
 }
 
 function applyRemaps(remaps: OfflineIdRemap[]) {
@@ -83,17 +102,20 @@ function pushPack(ui: EvidencePack): Promise<void> {
 
 function startOfflinePack(): EvidencePack {
   const id = crypto.randomUUID()
+  const ref = accidentRefFromId(id)
   const createdAt = new Date().toISOString()
   enqueueCreatePack(
     {
       motoristId: ctx().motoristId,
       city: ctx().city,
+      ref,
     },
     id,
   )
   return {
     ...createEmptyPack(),
     id,
+    ref,
     createdAt,
   }
 }
@@ -115,6 +137,7 @@ let offlineReplayInstalled = false
 export function installEvidenceOfflineReplay() {
   if (offlineReplayInstalled || typeof window === 'undefined') return
   offlineReplayInstalled = true
+  useEvidenceStore.getState().sweepExpired()
   void flushEvidenceOfflineQueue().catch(() => undefined)
   window.addEventListener('online', () => {
     void flushEvidenceOfflineQueue().catch(() => undefined)
@@ -128,9 +151,14 @@ export const useEvidenceStore = create<EvidenceState>()(
       history: [],
       starting: false,
       error: null,
+      sweepExpired: (now = Date.now()) => {
+        const { pack, history } = applyNowExpiry(get().pack, get().history, now)
+        set({ pack, history })
+      },
       start: async () => {
         set({ starting: true, error: null })
         try {
+          get().sweepExpired()
           const current = get().pack
           if (current) {
             set({
@@ -158,6 +186,7 @@ export const useEvidenceStore = create<EvidenceState>()(
           const ui = {
             ...createEmptyPack(),
             id: created.incident.id,
+            ref: created.incident.ref || accidentRefFromId(created.incident.id),
             createdAt: created.incident.occurredAt ?? new Date().toISOString(),
           }
           set({ pack: ui, starting: false })
@@ -170,10 +199,15 @@ export const useEvidenceStore = create<EvidenceState>()(
         }
       },
       resume: (id) => {
+        get().sweepExpired()
         const { pack, history } = get()
-        if (pack?.id === id) return true
+        if (pack?.id === id) {
+          if (pack.status === 'expired' || isNowDraftExpired(pack)) return false
+          return true
+        }
         const found = history.find((h) => h.id === id)
         if (!found) return false
+        if (found.status === 'expired' || isNowDraftExpired(found)) return false
         let nextHistory = history.filter((h) => h.id !== id)
         if (pack) {
           nextHistory = [pack, ...nextHistory.filter((h) => h.id !== pack.id)]
@@ -184,6 +218,10 @@ export const useEvidenceStore = create<EvidenceState>()(
       dispatch: (action) => {
         const current = get().pack
         if (!current) return
+        if (current.status === 'expired' || isNowDraftExpired(current)) {
+          get().sweepExpired()
+          return
+        }
         const next = evidenceReducer(current, action)
         if (next.status === 'saved' || next.status === 'stopped') {
           set({
@@ -203,15 +241,21 @@ export const useEvidenceStore = create<EvidenceState>()(
         await pushPack(current)
       },
       hydrateFromDomain: (packs) => {
-        const history = packs.filter(packLooksStarted).map(fromDomainPack)
-        set({ history })
+        const mapped = packs.filter(packLooksStarted).map(fromDomainPack)
+        const { pack, history } = applyNowExpiry(get().pack, mapped)
+        set({ pack, history })
       },
       clearActive: () => set({ pack: null }),
       resetAll: () => set({ pack: null, history: [], error: null }),
     }),
     {
-      name: 'labas-evidence-v2',
+      name: 'labas-evidence-v3',
       partialize: (s) => ({ pack: s.pack, history: s.history }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        const next = applyNowExpiry(state.pack, state.history)
+        useEvidenceStore.setState(next)
+      },
     },
   ),
 )

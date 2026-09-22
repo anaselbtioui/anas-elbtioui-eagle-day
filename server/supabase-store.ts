@@ -117,6 +117,7 @@ export async function loadDb(): Promise<Db> {
     incidents: (
       rows.incidents as {
         id: string
+        ref: string | null
         motorist_id: string
         policy_id: string | null
         occurred_at: string | null
@@ -128,6 +129,7 @@ export async function loadDb(): Promise<Db> {
       }[]
     ).map((r) => ({
       id: r.id,
+      ref: r.ref?.trim() || `ACC-${r.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`,
       motoristId: r.motorist_id,
       policyId: r.policy_id,
       occurredAt: r.occurred_at,
@@ -438,6 +440,7 @@ async function persistAll(db: Db): Promise<void> {
     'incidents',
     db.incidents.map((r: Incident) => ({
       id: r.id,
+      ref: r.ref,
       motorist_id: r.motoristId,
       policy_id: r.policyId,
       occurred_at: r.occurredAt,

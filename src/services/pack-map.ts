@@ -3,6 +3,7 @@ import type {
   OtherPartyStatus,
   PhotoSlot,
 } from '@/domain/types.ts'
+import { accidentRefFromId } from '@/domain/accident-ref'
 import {
   CAR_PARTS,
   createEmptyPack,
@@ -20,6 +21,7 @@ export function toDomainPack(
   return {
     incident: {
       id: ui.id,
+      ref: ui.ref || accidentRefFromId(ui.id),
       motoristId: ctx.motoristId,
       policyId: ctx.policyId,
       occurredAt: ui.createdAt,
@@ -60,6 +62,7 @@ export function fromDomainPack(pack: DomainPack): UiPack {
   return {
     ...base,
     id: pack.incident.id,
+    ref: pack.incident.ref || accidentRefFromId(pack.incident.id),
     createdAt: pack.incident.occurredAt ?? base.createdAt,
     updatedAt: pack.incident.occurredAt ?? base.updatedAt,
     status: pack.incident.injury !== 'no' && pack.evidence.pv === 'required' ? 'stopped' : 'saved',

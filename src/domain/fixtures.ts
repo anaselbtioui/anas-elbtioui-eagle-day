@@ -1,4 +1,5 @@
 import type { Contact, EvidencePack, Profile } from './types.ts'
+import { accidentRefFromId } from './accident-ref.ts'
 import { emptyEvidence } from './rules.ts'
 
 export const contacts: Contact[] = [
@@ -64,6 +65,7 @@ export function nadiaMissingConstatPack(): EvidencePack {
   return {
     incident: {
       id: 'INC-1',
+      ref: accidentRefFromId('INC-1'),
       motoristId: 'M-1',
       policyId: 'P-1',
       occurredAt: '2026-09-18T16:00:00.000Z',
@@ -93,6 +95,7 @@ export function saraInjuryPack(): EvidencePack {
   return {
     incident: {
       id: 'INC-2',
+      ref: accidentRefFromId('INC-2'),
       motoristId: 'M-2',
       policyId: null,
       occurredAt: '2026-09-19T07:55:00.000Z',
@@ -145,6 +148,7 @@ export function omarImmobilisedPack(): EvidencePack {
   return {
     incident: {
       id: 'INC-3',
+      ref: accidentRefFromId('INC-3'),
       motoristId: 'M-3',
       policyId: 'P-3',
       occurredAt: '2026-09-19T08:12:00.000Z',

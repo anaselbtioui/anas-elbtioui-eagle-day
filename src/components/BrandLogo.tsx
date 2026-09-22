@@ -16,7 +16,7 @@ const logoHeight: Record<Size, string> = {
   xl: 'h-56',
 }
 
-/** Speech-bubble mark — `/brand/icon.png` (unchanged). */
+/** Speech-bubble mark — `/brand/icon.svg`. */
 export function BrandMark({
   size = 'md',
   className,
@@ -28,7 +28,7 @@ export function BrandMark({
 }) {
   return (
     <img
-      src="/brand/icon.png"
+      src="/brand/icon.svg"
       alt={alt}
       className={cn(markSize[size], 'shrink-0 object-contain', className)}
       draggable={false}

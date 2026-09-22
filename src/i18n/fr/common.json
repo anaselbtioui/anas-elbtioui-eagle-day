@@ -73,6 +73,7 @@
     "walletTitle": "Votre portefeuille",
     "walletEmpty": "Complétez votre profil",
     "doorNow": "Je viens d’avoir un accident",
+    "doorNowShort": "Nouvel accident",
     "doorNowHint": "Sur place — sécurité et preuves",
     "doorLater": "Déclarer un sinistre",
     "doorLaterHint": "Plus tard — via votre courtier",
@@ -98,6 +99,7 @@
     "pastHint": "Accidents déjà traités ou archivés.",
     "pastEmpty": "Aucun dossier passé",
     "pastEmptyHint": "Les accidents terminés apparaîtront ici.",
+    "packMissing": "Ce dossier n’est plus disponible sur cet appareil.",
     "pastGoClaims": "Ouvrir un sinistre",
     "pastUpdated": "{{date}}",
     "pastContinueNow": "Reprendre l’accident",
@@ -138,12 +140,14 @@
     "packStatus": {
       "draft": "En cours — sur place",
       "saved": "Prêt à déclarer",
-      "stopped": "Arrêté"
+      "stopped": "Arrêté",
+      "expired": "Fenêtre sur place terminée"
     },
     "packStatusHint": {
-      "draft": "Reprendre la collecte sur place.",
+      "draft": "Reprendre la collecte sur place (quelques heures).",
       "saved": "Preuves prêtes — déclarer via le courtier.",
-      "stopped": "Flux arrêté (blessure / refus / fuite)."
+      "stopped": "Flux arrêté (blessure / refus / fuite).",
+      "expired": "La collecte sur place n’est plus reprise — démarrez un nouvel accident si besoin."
     }
   },
   "onboarding": {
@@ -216,6 +220,9 @@
   "now": {
     "title": "Sur place",
     "starting": "Ouverture du pack…",
+    "expiredTitle": "Fenêtre sur place terminée",
+    "expiredBody": "Un accident se traite sur le moment. Après quelques heures, on ne reprend plus ce parcours — démarrez un nouvel accident si besoin.",
+    "expiredToast": "Ce parcours sur place a expiré. Démarrez un nouvel accident si besoin.",
     "safetyTitle": "Tout va bien ?",
     "safetyHint": "Tout le monde est-il en sécurité ?",
     "injuryNo": "Pas de blessure signalée",

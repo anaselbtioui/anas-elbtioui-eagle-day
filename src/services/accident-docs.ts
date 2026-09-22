@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'
+import { displayAccidentRef } from '@/domain/accident-ref'
 import type { EvidencePack } from '@/domain/evidence'
 import type { Wallet } from '@/services/wallet.ts'
 
@@ -76,7 +77,7 @@ function addFactsBlock(
   doc.setFontSize(11)
   doc.text('C — Faits & dégâts', 20, y)
   y += 8
-  y = line(doc, 'Pack', pack.id, 20, y)
+  y = line(doc, 'Pack', displayAccidentRef(pack.ref, pack.id), 20, y)
   y = line(doc, 'Date', pack.updatedAt.slice(0, 16).replace('T', ' '), 20, y)
   y = line(
     doc,
@@ -126,7 +127,7 @@ export function downloadAideMemoirePdf(
   doc.setFontSize(8)
   doc.setTextColor(100)
   doc.text('Remettez cette fiche aux autorités si utile. Conservez une copie.', 20, Math.min(y + 4, 280))
-  savePdf(doc, `med-assurance-fiche-autorites-${pack.id.slice(0, 12)}.pdf`)
+  savePdf(doc, `med-assurance-fiche-autorites-${(pack.ref || pack.id).replace(/#/g, '')}.pdf`)
 }
 
 /** Draft constat amiable layout — NOT a signed official form. */
@@ -160,5 +161,5 @@ export function downloadConstatDraftPdf(
     20,
     y,
   )
-  savePdf(doc, `med-assurance-constat-brouillon-${pack.id.slice(0, 12)}.pdf`)
+  savePdf(doc, `med-assurance-constat-brouillon-${(pack.ref || pack.id).replace(/#/g, '')}.pdf`)
 }

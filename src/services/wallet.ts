@@ -144,7 +144,24 @@ export const CLAIM_READY_FIELDS = [
   'brokerId',
 ] as const satisfies ReadonlyArray<keyof Wallet>
 
+/** Broader portefeuille fields for drawer progress (onboarding surface). */
+export const PORTEFEUILLE_PROGRESS_FIELDS = [
+  'name',
+  'phone',
+  'cin',
+  'city',
+  'plate',
+  'vehicle',
+  'insurer',
+  'policy',
+  'brokerId',
+  'licenseNumber',
+  'attestationValidUntil',
+] as const satisfies ReadonlyArray<keyof Wallet>
+
 export function walletFieldFilled(profile: Wallet, key: keyof Wallet): boolean {
+  if (key === 'phoneVerified') return profile.phoneVerified
+  if (key === 'assistanceOnContract') return profile.assistanceOnContract !== 'unknown'
   return String(profile[key] ?? '').trim().length > 0
 }
 
@@ -153,14 +170,22 @@ export function walletMissingClaimFields(profile: Wallet): Array<(typeof CLAIM_R
   return CLAIM_READY_FIELDS.filter((key) => !walletFieldFilled(profile, key))
 }
 
-/** Share of claim-ready fields still missing (0–100). */
+function walletMissingProgressFields(
+  profile: Wallet,
+): Array<(typeof PORTEFEUILLE_PROGRESS_FIELDS)[number]> {
+  return PORTEFEUILLE_PROGRESS_FIELDS.filter((key) => !walletFieldFilled(profile, key))
+}
+
+/** Share of portefeuille progress still missing (0–100). */
 export function walletRemainingPercent(profile: Wallet): number {
-  const missing = walletMissingClaimFields(profile).length
-  return Math.max(0, Math.round((missing / CLAIM_READY_FIELDS.length) * 100))
+  const missing = walletMissingProgressFields(profile).length
+  const phoneGap = profile.phoneVerified ? 0 : 1
+  const total = PORTEFEUILLE_PROGRESS_FIELDS.length + 1
+  return Math.max(0, Math.min(100, Math.round(((missing + phoneGap) / total) * 100)))
 }
 
 export function walletEssentialsFilled(profile: Wallet): boolean {
-  return walletRemainingPercent(profile) === 0
+  return walletMissingClaimFields(profile).length === 0
 }
 
 /** True when profile + courtier are complete enough to open LATER / send claim. */

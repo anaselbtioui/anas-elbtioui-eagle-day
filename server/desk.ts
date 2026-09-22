@@ -6,6 +6,7 @@ import type {
   MessageDraft,
   Provenance,
 } from '../src/domain/desk.ts'
+import { displayAccidentRef } from '../src/domain/accident-ref.ts'
 import type { Dossier, EvidencePack, Profile } from '../src/domain/types.ts'
 
 export type DeskFile = {
@@ -32,11 +33,12 @@ export function upsertDeskFile(list: DeskFile[], file: DeskFile): DeskFile[] {
 
 export function defaultTitle(pack: EvidencePack): string {
   const city = pack.incident.city ?? 'Sans ville'
+  const ref = displayAccidentRef(pack.incident.ref, pack.incident.id)
   if (pack.incident.injury === 'yes' || pack.incident.injury === 'unknown') {
-    return `Accident avec blessure · ${city}`
+    return `${ref} · Blessure · ${city}`
   }
-  if (pack.incident.vehicleImmobilised) return `Véhicule immobilisé · ${city}`
-  return `Collision · ${city}`
+  if (pack.incident.vehicleImmobilised) return `${ref} · Immobilisé · ${city}`
+  return `${ref} · Collision · ${city}`
 }
 
 function taskLabelForPiece(piece: string): string {

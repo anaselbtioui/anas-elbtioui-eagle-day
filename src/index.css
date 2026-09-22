@@ -12,7 +12,7 @@
   --color-alert-soft: #f8e8e7;
   --color-surface: #ffffff;
   --color-border: #d4cdc0;
-  --font-sans: "Baloo 2", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Baloo 2", ui-sans-serif, system-ui, sans-serif;
   --font-arabic: "Baloo Bhaijaan 2", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
   --radius-labas: 12px;
@@ -47,7 +47,8 @@
     min-height: 100dvh;
     font-family: var(--font-sans);
     font-size: 1rem;
-    line-height: 1.5;
+    line-height: 1.55;
+    letter-spacing: 0.005em;
     text-wrap: pretty;
     color: var(--color-ink);
     background-color: var(--color-sand);
@@ -176,6 +177,12 @@
 
   .labas-scroll {
     scrollbar-gutter: stable;
+    scrollbar-width: thin;
+  }
+
+  /* Sidebar récents: avoid stable gutter eating rounded active chips */
+  aside .labas-scroll {
+    scrollbar-gutter: auto;
   }
 
   /* Sinistres doors — stack mobile, grid desktop */

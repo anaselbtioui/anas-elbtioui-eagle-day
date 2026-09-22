@@ -6,7 +6,7 @@ import { LogoutButton } from '@/components/LogoutButton'
 import { cn } from '@/lib/utils'
 
 export const shellActiveEntry =
-  'bg-ink-soft text-ink outline outline-1 outline-ink/20 font-semibold'
+  'bg-ink-soft text-ink ring-1 ring-inset ring-ink/20 font-semibold'
 
 /** Scrollable main pane for list/detail pages (wizards use StickyActionsProvider instead). */
 export function ShellScroll({
@@ -60,6 +60,8 @@ type AppShellProps = {
   avatarTestId: string
   /** Action beside avatar (e.g. settings gear). */
   avatarAction?: ReactNode
+  /** Primary CTA under logo (e.g. motorist “I had an accident”). */
+  sidebarPrimary?: ReactNode
   search?: ReactNode
   nav: ReactNode
   listTitle?: string
@@ -77,6 +79,7 @@ export function AppShell({
   displayName,
   avatarTestId,
   avatarAction,
+  sidebarPrimary,
   search,
   nav,
   listTitle,
@@ -93,14 +96,16 @@ export function AppShell({
       >
         <Link
           to={homeTo}
-          className="mb-4 inline-flex items-center gap-2.5 px-1"
+          className="mb-3 inline-flex items-center gap-2.5 px-1"
           aria-label="Med Assurance"
         >
-          <BrandMark size="md" className="h-10 w-10" />
+          <BrandMark size="lg" className="h-14 w-14" />
           <span className="font-display text-base font-extrabold leading-none text-ink sm:text-lg">
             Med Assurance
           </span>
         </Link>
+
+        {sidebarPrimary ? <div className="mb-3 px-0.5">{sidebarPrimary}</div> : null}
 
         {search ? <div className="mb-3 px-0.5">{search}</div> : null}
 
@@ -113,7 +118,9 @@ export function AppShell({
                 {listTitle}
               </p>
             ) : null}
-            <div className="labas-scroll min-h-0 flex-1 overflow-y-auto pr-1">{list}</div>
+            <div className="labas-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-1">
+              {list}
+            </div>
           </div>
         ) : (
           <div className="mt-4 hidden flex-1 md:block" />

@@ -6,11 +6,13 @@ import { ShellScroll } from '@/app/AppShell'
 import { LabasIcon } from '@/components/LabasIcon'
 import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
+import { displayAccidentRef } from '@/domain/accident-ref'
 import type { EvidencePack, EvidencePackStatus } from '@/domain/evidence'
 import type { Dossier } from '@/domain/types.ts'
 import { api } from '@/services/api.ts'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
+import { openMotoristPack } from '@/features/home/openMotoristPack'
 import { showToast } from '@/store/toast'
 import { walletClaimReady } from '@/services/wallet.ts'
 import { cn } from '@/lib/utils'
@@ -21,12 +23,14 @@ function statusTone(status: EvidencePackStatus): string {
       return 'bg-moss-soft text-moss'
     case 'stopped':
       return 'bg-alert-soft text-alert'
+    case 'expired':
+      return 'bg-sand-deep text-ink-muted'
     default:
       return 'bg-sand-deep text-ink-muted'
   }
 }
 
-/** Open accidents — not yet a declared sinistre. */
+/** Open accidents — not yet a declared sinistre (expired = closed). */
 function isOpenAccident(status: EvidencePackStatus): boolean {
   return status === 'draft' || status === 'saved'
 }
@@ -88,10 +92,12 @@ export function HomePage() {
     () => [
       {
         id: 'ref',
-        accessorFn: (row) => row.id,
+        accessorFn: (row) => row.ref || row.id,
         header: t('motorist.colRef'),
         cell: ({ row }) => (
-          <p className="font-mono text-sm font-semibold text-ink">{row.original.id.slice(0, 14)}</p>
+          <p className="font-mono text-sm font-semibold text-ink">
+            {displayAccidentRef(row.original.ref, row.original.id)}
+          </p>
         ),
       },
       {
@@ -157,21 +163,15 @@ export function HomePage() {
   }
 
   function openPack(row: EvidencePack) {
-    if (row.status === 'draft') {
-      resume(row.id)
-      navigate('/now')
-      return
-    }
-    if (row.status === 'saved') {
-      if (!claimReady) {
-        showToast(t('home.laterBlocked'), 'alert')
-        return
-      }
-      resume(row.id)
-      navigate('/later')
-      return
-    }
-    navigate(`/past/${row.id}`)
+    openMotoristPack({
+      pack: row,
+      packId: row.id,
+      resume,
+      navigate,
+      claimReady,
+      onLaterBlocked: () => showToast(t('home.laterBlocked'), 'alert'),
+      onExpired: () => showToast(t('now.expiredToast'), 'alert'),
+    })
   }
 
   function goLater() {

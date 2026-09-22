@@ -1,5 +1,6 @@
 import type { DeskBundle } from './desk.ts'
 import { appendEvent } from './desk.ts'
+import { accidentRefFromId } from './accident-ref.ts'
 import type { EvidencePack, Profile } from './types.ts'
 import { ACAPS_NOTIFY_GUIDANCE } from './types.ts'
 
@@ -238,6 +239,7 @@ export function createImportBundle(input: {
   const pack: EvidencePack = {
     incident: {
       id: incidentId,
+      ref: accidentRefFromId(incidentId),
       motoristId,
       policyId,
       occurredAt: null,

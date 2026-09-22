@@ -8,11 +8,15 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioChoice, RadioGroup } from '@/components/ui/radio-group'
+import { displayAccidentRef } from '@/domain/accident-ref'
 import {
   CAR_PARTS,
+  deriveNowStep,
+  isNowDraftExpired,
   photoSlotsForParts,
   type CarPart,
   type InjuryAnswer,
+  type NowWizardStep,
   type OtherDriverAnswer,
   type PhotoSlotId,
 } from '@/domain/evidence'
@@ -29,22 +33,14 @@ import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
 import { CarDamageMap } from './CarDamageMap'
 
-type Step =
-  | 'injury'
-  | 'stop'
-  | 'other'
-  | 'constat'
-  | 'car'
-  | 'photos'
-  | 'drive'
-  | 'assist'
-  | 'saved'
+type Step = NowWizardStep
 
 export function NowPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const profile = useProfileStore((s) => s.profile)
-  const { pack, start, dispatch, clearActive, starting, error } = useEvidenceStore()
+  const { pack, start, dispatch, clearActive, starting, error, sweepExpired } =
+    useEvidenceStore()
   const [step, setStep] = useState<Step>('injury')
   const [authorityContacts, setAuthorityContacts] = useState<Contact[]>([])
   const [assistContacts, setAssistContacts] = useState<Contact[]>([])
@@ -56,6 +52,70 @@ export function NowPage() {
       setAssistContacts(list.filter((c) => c.role === 'assistance'))
     })
   }, [profile.assistanceOnContract])
+
+  useEffect(() => {
+    sweepExpired()
+  }, [sweepExpired])
+
+  useEffect(() => {
+    if (!pack) {
+      setStep('injury')
+      return
+    }
+    if (pack.status === 'expired' || isNowDraftExpired(pack)) {
+      sweepExpired()
+      setStep('expired')
+      return
+    }
+    setStep(deriveNowStep(pack))
+    // Resume / open: derive once per pack id — not on every field edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional pack-id gate
+  }, [pack?.id])
+
+  useEffect(() => {
+    if (!pack) return
+    if (pack.status === 'expired' || isNowDraftExpired(pack)) {
+      sweepExpired()
+      setStep('expired')
+    }
+  }, [pack?.status, pack?.createdAt, pack, sweepExpired])
+
+  if (pack && (step === 'expired' || pack.status === 'expired')) {
+    return (
+      <WizardFrame title={t('now.title')}>
+        <WizardSection title={t('now.expiredTitle')} hint={t('now.expiredBody')}>
+          <Card className="mb-4">
+            <CardTitle className="font-mono text-base">
+              {displayAccidentRef(pack.ref, pack.id)}
+            </CardTitle>
+          </Card>
+          <StickyActions>
+            <Button
+              className="w-full"
+              disabled={starting}
+              onClick={() => {
+                clearActive()
+                void start().then(() => setStep('injury'))
+              }}
+              data-testid="now-expired-new"
+            >
+              {starting ? t('now.starting') : t('home.doorNowShort')}
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                clearActive()
+                navigate('/')
+              }}
+            >
+              {t('now.backHome')}
+            </Button>
+          </StickyActions>
+        </WizardSection>
+      </WizardFrame>
+    )
+  }
 
   if (!pack) {
     return (
@@ -450,7 +510,9 @@ export function NowPage() {
       {step === 'saved' ? (
         <WizardSection title={t('now.packTitle')} hint={t('now.packBody')}>
           <Card className="mb-4 border-moss bg-moss-soft">
-            <CardTitle className="text-base">{pack.id}</CardTitle>
+            <CardTitle className="text-base">
+              {displayAccidentRef(pack.ref, pack.id)}
+            </CardTitle>
             <CardDescription>
               {pack.damagedParts.length} zone(s) · {Object.keys(pack.photos).length} photo(s)
             </CardDescription>
