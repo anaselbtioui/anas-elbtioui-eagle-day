@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="Med Assurance" width="112" height="112" />
+  <img src="apps/web/public/brand/icon.svg" alt="Med Assurance" width="140" />
 </p>
 
 # Med Assurance

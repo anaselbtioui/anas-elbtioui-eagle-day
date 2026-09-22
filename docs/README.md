@@ -22,4 +22,4 @@ Product truth and hackathon handoff for Med Assurance.
 
 ## Assets
 
-Brand mark: [assets/logo.svg](assets/logo.svg). Screenshots live in [screenshots/](screenshots/).
+Brand mark: [../apps/web/public/brand/icon.svg](../apps/web/public/brand/icon.svg). Screenshots live in [screenshots/](screenshots/).
