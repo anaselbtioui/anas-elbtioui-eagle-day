@@ -10,9 +10,7 @@ apps/api/src/data/
 .DS_Store
 dist/
 apps/web/dist/
-api/[...route].js
 api/[...route].js.map
-api/[[...route]].js
 api/[[...route]].js.map
 .tmp-pdf/
 playwright-report/
