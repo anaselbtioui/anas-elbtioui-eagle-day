@@ -4,13 +4,13 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
-import { syncDossier, listDeskBundlesForBroker } from '../server/core.ts'
+import { syncDossier, listDeskBundlesForBroker } from '../apps/api/src/core.ts'
 import {
   loadDb,
   saveDb,
   supabaseConfigured,
-} from '../server/supabase-store.ts'
-import { loadDb as loadJson, saveDb as saveJson } from '../server/store.ts'
+} from '../apps/api/src/supabase-store.ts'
+import { loadDb as loadJson, saveDb as saveJson } from '../apps/api/src/store.ts'
 
 function loadEnvFile(path: string): void {
   if (!existsSync(path)) return

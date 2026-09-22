@@ -13,7 +13,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'npm run server',
+      command: 'pnpm --filter @labas/api start',
       url: 'http://127.0.0.1:8787/health',
       reuseExistingServer: !process.env.CI,
       env: {
@@ -23,7 +23,7 @@ export default defineConfig({
       },
     },
     {
-      command: 'npm run dev -- --host 127.0.0.1 --port 5173',
+      command: 'pnpm --filter @labas/web dev',
       url: 'http://127.0.0.1:5173',
       reuseExistingServer: !process.env.CI,
     },

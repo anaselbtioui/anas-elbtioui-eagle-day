@@ -7,7 +7,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'i18n')
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'apps', 'web', 'src', 'i18n')
 
 const FORBIDDEN = [
   { id: 'garantie_activee', re: /garantie\s+activ[ée]e/gi },

@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const outfile = join(root, 'api', '[[...route]].js')
-const stub = join(root, 'server', 'import-agent', 'vercel-stub.ts')
+const stub = join(root, 'apps/api/src/import-agent/vercel-stub.ts')
+const domainSrc = join(root, 'packages/domain/src')
 
 mkdirSync(dirname(outfile), { recursive: true })
 
@@ -20,15 +21,24 @@ const stubImportAgent = {
   },
 }
 
+const labasDomain = {
+  name: 'labas-domain',
+  setup(build) {
+    build.onResolve({ filter: /^@labas\/domain\// }, (args) => ({
+      path: join(domainSrc, args.path.slice('@labas/domain/'.length)),
+    }))
+  },
+}
+
 await esbuild.build({
-  entryPoints: [join(root, 'server', 'vercel-entry.ts')],
+  entryPoints: [join(root, 'apps/api/src/vercel-entry.ts')],
   outfile,
   bundle: true,
   platform: 'node',
   target: 'node20',
   format: 'esm',
   logLevel: 'info',
-  plugins: [stubImportAgent],
+  plugins: [stubImportAgent, labasDomain],
   packages: 'bundle',
 })
 

@@ -1,46 +1,61 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Med Assurance" width="112" height="112" />
+</p>
+
 # Med Assurance
 
-**Guide après accident auto au Maroc** — sécurité et preuves sur place, déclaration plus tard via le courtier. Desk courtier sur les mêmes dossiers. Le prototype **ne décide pas** faute, garantie, ni indemnisation.
+Guide après accident auto au Maroc: sécurité et preuves sur place, déclaration plus tard via le courtier. Le desk courtier travaille sur les mêmes dossiers.
 
-> Eagle Day hackathon · 3ᵉ place
+Ce prototype **ne décide pas** la faute, la garantie, ni l'indemnisation.
 
-**Live demo:** https://anas-elbtioui-eagle-day.vercel.app  
-**GitHub:** https://github.com/anaselbtioui/anas-elbtioui-eagle-day
+Eagle Day hackathon · 3ᵉ place
 
-## What you built (two sides, one file)
+[Live demo](https://anas-elbtioui-eagle-day.vercel.app) · [GitHub](https://github.com/anaselbtioui/anas-elbtioui-eagle-day)
 
-| Who | What |
-|---|---|
-| **Automobiliste** | NOW (roadside) → pack de preuves · LATER → déclaration au courtier · Assistance contrat |
-| **Courtier** | File de dossiers, demandes de pièces, brouillons humains, transmission assureur |
+## Two sides, one file
+
+| Who | Job |
+| --- | --- |
+| Automobiliste | NOW (roadside evidence pack) · LATER (send to broker) · Assistance |
+| Courtier | Queue, piece requests, human drafts, insurer handoff |
 
 Same dossier ids on both sides.
 
-## Try the demo (2 min)
+## Try the demo (~2 min)
 
-1. Open the live URL → pick **Automobiliste** or **Courtier**.
-2. Sign up (any email / password ≥ 8 chars).
-3. Motorist: short onboarding → home (accidents) → NOW or LATER.  
-   Broker: `/desk` queue → open a dossier after a motorist has sent one (pick the same broker in onboarding).
+1. Open the live URL and pick Automobiliste or Courtier.
+2. Sign up (any email, password ≥ 8 characters).
+3. Motorist: onboarding → home → NOW or LATER.
+   Broker: `/desk` queue after a motorist sends a dossier (same broker in onboarding).
 
-Tip: use two browser profiles (or normal + private) for motorist + broker.
-
-## Stack
-
-React 19 · Vite · TypeScript · Tailwind v4 · Zustand · i18next (FR) · Hono · Supabase · PWA · Capacitor shells.
+Use two browser profiles (or normal + private) for motorist and broker together.
 
 ## Local
 
 ```bash
-npm install
-npm run server   # API :8787
-npm run dev      # Vite :5173
+pnpm install
+pnpm dev        # API :8787 + Vite :5173
 ```
 
-Optional: `VITE_API_URL=http://127.0.0.1:8787`. `ALLOW_RESET=1` + `npm run reset:db` for a clean local store.
+Split: `pnpm dev:api` / `pnpm dev:web`.
 
-## Known limits (by design / prototype)
+Optional: `VITE_API_URL=http://127.0.0.1:8787`. Reset store with `ALLOW_RESET=1 pnpm reset:db`.
 
-- Mock OTP; photos stay on-device; import portail = simulation.
-- No fault / coverage / payout fields.
-- See [`docs/`](docs/) for procedure notes and API contract.
+## Stack
+
+React 19 · Vite · TypeScript · Tailwind v4 · Zustand · i18next (FR) · Hono · Supabase · PWA · Capacitor
+
+Monorepo: `apps/web`, `apps/api`, `packages/domain`.
+
+## Docs
+
+| Folder | Contents |
+| --- | --- |
+| [docs/product](docs/product/) | Models, API, frontend contract, procedure |
+| [docs/hackathon](docs/hackathon/) | Participant guide, submission checklist, test notes |
+| [docs/screenshots](docs/screenshots/) | Demo captures |
+
+## Known limits
+
+- Mock OTP. Photos cache on-device, then upload to Storage. Portal import is simulation.
+- No fault, coverage, or payout fields.

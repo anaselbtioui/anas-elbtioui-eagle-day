@@ -6,4 +6,4 @@ resources
 node_modules
 .DS_Store
 .tmp-pdf
-docs/test-notes.md
+docs/hackathon/test-notes.md

@@ -6,9 +6,10 @@ resources/
 !.env.example
 .vercel
 node_modules/
-server/data/
+apps/api/src/data/
 .DS_Store
 dist/
+apps/web/dist/
 api/[...route].js
 api/[...route].js.map
 api/[[...route]].js
@@ -17,7 +18,5 @@ api/[[...route]].js.map
 playwright-report/
 test-results/
 *.local
-# Capacitor native projects (generated / platform-owned)
 android/
 ios/
-# source brand PNGs kept at root for design; served copies live in public/brand/

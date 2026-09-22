@@ -3,8 +3,8 @@
  * Wipe Labas API store (users, packs, dossiers) via POST /api/reset.
  *
  * Usage:
- *   npm run reset:db
- *   npm run reset:db -- --url https://anas-elbtioui-eagle-day.vercel.app
+ *   pnpm reset:db
+ *   pnpm reset:db -- --url https://anas-elbtioui-eagle-day.vercel.app
  *
  * Needs ALLOW_RESET=1 on the target API (local .env / Vercel env).
  */
