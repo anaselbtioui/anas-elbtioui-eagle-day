@@ -157,13 +157,16 @@ function writeDossier(
 export function createApp(
   loadFn: () => Promise<Db> = loadDb,
   persistFn: (db: Db) => Promise<void> = saveDb,
+  /** Full replace (wipe+write). Supabase must pass replaceDb; default = persistFn for JSON/memory. */
+  replaceFn: (db: Db) => Promise<void> = persistFn,
 ) {
   const load = loadFn
-  /** Serialize load→mutate→persist so full-table wipe cannot drop concurrent writes. */
+  /** Serialize load→mutate→persist within one process. */
   async function write(mutator: (db: Db) => Db | Promise<Db>): Promise<Db> {
     return exclusiveDbWrite(loadFn, persistFn, mutator)
   }
   const persist = persistFn
+  const replace = replaceFn
   const app = new Hono<AppEnv>()
   app.use(
     '/*',
@@ -1127,7 +1130,7 @@ export function createApp(
       return c.json({ error: 'reset_disabled' }, 403)
     }
     const db = emptyDb()
-    await persist(db)
+    await replace(db)
     return c.json({ ok: true })
   })
 

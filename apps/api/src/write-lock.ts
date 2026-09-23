@@ -11,7 +11,7 @@ export function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
   return run
 }
 
-/** Load → mutate → persist under one lock (avoids wipe races on full-table save). */
+/** Load → mutate → persist under one in-process lock (not cross-lambda). */
 export function exclusiveDbWrite(
   load: () => Promise<Db>,
   persist: (db: Db) => Promise<void>,

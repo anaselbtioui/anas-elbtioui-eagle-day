@@ -26094,11 +26094,6 @@ async function loadDb2() {
   memoryCache = { db, at: Date.now() };
   return db;
 }
-async function insertAll(sb, table, rows) {
-  if (!rows.length) return;
-  const { error } = await sb.from(table).insert(rows);
-  throwIf(error, `insert ${table}`);
-}
 async function upsertAll(sb, table, rows, onConflict) {
   if (!rows.length) return;
   const { error } = await sb.from(table).upsert(rows, { onConflict });
@@ -26136,28 +26131,13 @@ function deskFileRow(r) {
     events: r.events ?? []
   };
 }
-async function syncUpsertTable(sb, table, idColumn, rows, onConflict) {
-  await upsertAll(sb, table, rows, onConflict);
-  const keep = new Set(rows.map((r) => String(r[idColumn])));
-  const { data, error } = await sb.from(table).select(idColumn);
-  throwIf(error, `select ${table} ids`);
-  const stale = (data ?? []).map((r) => r[idColumn]).filter((id) => Boolean(id) && !keep.has(id));
-  for (const id of stale) {
-    const { error: delErr } = await sb.from(table).delete().eq(idColumn, id);
-    throwIf(delErr, `delete stale ${table}`);
-  }
-}
-async function saveDb2(db) {
-  invalidateDbCache();
-  await persistAll(db);
-  memoryCache = { db, at: Date.now() };
-}
-async function persistAll(db) {
-  const sb = client();
-  const { error: wipeUsers } = await sb.from("app_users").delete().neq("id", "__none__");
-  throwIf(wipeUsers, "wipe app_users");
+async function wipeAllTables(sb) {
   const wipeById = [
+    "app_users",
+    "desk_files",
+    "dossiers",
     "declarations",
+    "evidences",
     "incidents",
     "other_parties",
     "policies",
@@ -26168,20 +26148,42 @@ async function persistAll(db) {
     "contacts"
   ];
   for (const table of wipeById) {
-    const { error } = await sb.from(table).delete().neq("id", "__none__");
+    const idCol = table === "evidences" ? "incident_id" : table === "desk_files" ? "dossier_id" : "id";
+    const { error } = await sb.from(table).delete().neq(idCol, "__none__");
     throwIf(error, `wipe ${table}`);
   }
-  await insertAll(
+}
+async function saveDb2(db) {
+  invalidateDbCache();
+  await withWriteLock(async () => {
+    await upsertAllTables(db);
+    memoryCache = { db, at: Date.now() };
+  });
+}
+async function replaceDb(db) {
+  invalidateDbCache();
+  await withWriteLock(async () => {
+    const sb = client();
+    await wipeAllTables(sb);
+    await upsertAllTables(db);
+    memoryCache = { db, at: Date.now() };
+  });
+}
+async function upsertAllTables(db) {
+  const sb = client();
+  await upsertAll(
     sb,
     "insurers",
-    db.insurers.map((r) => ({ id: r.id, display_name: r.displayName }))
+    db.insurers.map((r) => ({ id: r.id, display_name: r.displayName })),
+    "id"
   );
-  await insertAll(
+  await upsertAll(
     sb,
     "brokers",
-    db.brokers.map((r) => ({ id: r.id, display_name: r.displayName }))
+    db.brokers.map((r) => ({ id: r.id, display_name: r.displayName })),
+    "id"
   );
-  await insertAll(
+  await upsertAll(
     sb,
     "motorists",
     db.motorists.map((r) => ({
@@ -26195,18 +26197,20 @@ async function persistAll(db) {
       license_photo_path: r.licensePhotoPath,
       carte_grise_photo_path: r.carteGrisePhotoPath,
       attestation_photo_path: r.attestationPhotoPath
-    }))
+    })),
+    "id"
   );
-  await insertAll(
+  await upsertAll(
     sb,
     "vehicles",
     db.vehicles.map((r) => ({
       id: r.id,
       plate: r.plate,
       make_model: r.makeModel
-    }))
+    })),
+    "id"
   );
-  await insertAll(
+  await upsertAll(
     sb,
     "policies",
     db.policies.map((r) => ({
@@ -26217,9 +26221,10 @@ async function persistAll(db) {
       vehicle_id: r.vehicleId,
       assistance_on_contract: r.assistanceOnContract,
       attestation_valid_until: r.attestationValidUntil
-    }))
+    })),
+    "id"
   );
-  await insertAll(
+  await upsertAll(
     sb,
     "other_parties",
     db.otherParties.map((r) => ({
@@ -26227,9 +26232,10 @@ async function persistAll(db) {
       status: r.status,
       name: r.name,
       plate: r.plate
-    }))
+    })),
+    "id"
   );
-  await insertAll(
+  await upsertAll(
     sb,
     "incidents",
     db.incidents.map((r) => ({
@@ -26244,9 +26250,10 @@ async function persistAll(db) {
       other_party_id: r.otherPartyId,
       work_commute: r.workCommute,
       archived_at: r.archivedAt
-    }))
+    })),
+    "id"
   );
-  await insertAll(
+  await upsertAll(
     sb,
     "contacts",
     db.contacts.map((r) => ({
@@ -26256,9 +26263,10 @@ async function persistAll(db) {
       phone: r.phone,
       url: r.url,
       note: r.note
-    }))
+    })),
+    "id"
   );
-  await insertAll(
+  await upsertAll(
     sb,
     "declarations",
     db.declarations.map((r) => ({
@@ -26268,30 +26276,13 @@ async function persistAll(db) {
       document_refs: r.documentRefs,
       channel: r.channel,
       submitted_at: r.submittedAt
-    }))
-  );
-  await syncUpsertTable(
-    sb,
-    "dossiers",
-    "id",
-    db.dossiers.map(dossierRow),
+    })),
     "id"
   );
-  await syncUpsertTable(
-    sb,
-    "evidences",
-    "incident_id",
-    db.evidences.map(evidenceRow),
-    "incident_id"
-  );
-  await syncUpsertTable(
-    sb,
-    "desk_files",
-    "dossier_id",
-    db.deskFiles.map(deskFileRow),
-    "dossier_id"
-  );
-  await insertAll(
+  await upsertAll(sb, "dossiers", db.dossiers.map(dossierRow), "id");
+  await upsertAll(sb, "evidences", db.evidences.map(evidenceRow), "incident_id");
+  await upsertAll(sb, "desk_files", db.deskFiles.map(deskFileRow), "dossier_id");
+  await upsertAll(
     sb,
     "app_users",
     db.users.map((r) => ({
@@ -26306,7 +26297,8 @@ async function persistAll(db) {
       vehicle_id: r.vehicleId,
       insurer_id: r.insurerId,
       policy_id: r.policyId
-    }))
+    })),
+    "id"
   );
 }
 
@@ -26638,12 +26630,13 @@ function writeDossier(db, pack, declaration, dossier) {
     pack
   );
 }
-function createApp(loadFn = loadDb, persistFn = saveDb) {
+function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
   const load = loadFn;
   async function write(mutator) {
     return exclusiveDbWrite(loadFn, persistFn, mutator);
   }
   const persist = persistFn;
+  const replace = replaceFn;
   const app2 = new Hono2();
   app2.use(
     "/*",
@@ -27492,7 +27485,7 @@ function createApp(loadFn = loadDb, persistFn = saveDb) {
       return c.json({ error: "reset_disabled" }, 403);
     }
     const db = emptyDb();
-    await persist(db);
+    await replace(db);
     return c.json({ ok: true });
   });
   return app2;
@@ -27523,7 +27516,7 @@ function createServerlessApp() {
     );
     return app3;
   }
-  const app2 = createApp(loadDb2, saveDb2);
+  const app2 = createApp(loadDb2, saveDb2, replaceDb);
   app2.get(
     "/api/health",
     (c) => c.json({

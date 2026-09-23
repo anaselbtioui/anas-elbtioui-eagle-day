@@ -6,6 +6,7 @@ import { createApp } from './app.ts'
 import { loadDb as loadJson, saveDb as saveJson } from './store.ts'
 import {
   loadDb as loadSupabase,
+  replaceDb as replaceSupabase,
   saveDb as saveSupabase,
   supabaseConfigured,
 } from './supabase-store.ts'
@@ -48,6 +49,7 @@ const useSupabase = supabaseConfigured()
 const app = createApp(
   useSupabase ? loadSupabase : loadJson,
   useSupabase ? saveSupabase : saveJson,
+  useSupabase ? replaceSupabase : saveJson,
 )
 
 const port = Number(process.env.PORT ?? 8787)

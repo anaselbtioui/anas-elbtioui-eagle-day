@@ -291,16 +291,6 @@ export async function loadDb(): Promise<Db> {
   return db
 }
 
-async function insertAll<T extends Record<string, unknown>>(
-  sb: SupabaseClient,
-  table: string,
-  rows: T[],
-): Promise<void> {
-  if (!rows.length) return
-  const { error } = await sb.from(table).insert(rows)
-  throwIf(error, `insert ${table}`)
-}
-
 async function upsertAll<T extends Record<string, unknown>>(
   sb: SupabaseClient,
   table: string,
@@ -374,38 +364,14 @@ export async function upsertDeskFileRow(file: DeskFile): Promise<void> {
   })
 }
 
-async function syncUpsertTable(
-  sb: SupabaseClient,
-  table: string,
-  idColumn: string,
-  rows: Record<string, unknown>[],
-  onConflict: string,
-): Promise<void> {
-  await upsertAll(sb, table, rows, onConflict)
-  const keep = new Set(rows.map((r) => String(r[idColumn])))
-  const { data, error } = await sb.from(table).select(idColumn)
-  throwIf(error, `select ${table} ids`)
-  const stale = ((data ?? []) as Record<string, string>[])
-    .map((r) => r[idColumn])
-    .filter((id): id is string => Boolean(id) && !keep.has(id))
-  for (const id of stale) {
-    const { error: delErr } = await sb.from(table).delete().eq(idColumn, id)
-    throwIf(delErr, `delete stale ${table}`)
-  }
-}
-
-export async function saveDb(db: Db): Promise<void> {
-  invalidateDbCache()
-  await persistAll(db)
-  memoryCache = { db, at: Date.now() }
-}
-
-async function persistAll(db: Db): Promise<void> {
-  const sb = client()
-  const { error: wipeUsers } = await sb.from('app_users').delete().neq('id', '__none__')
-  throwIf(wipeUsers, 'wipe app_users')
+async function wipeAllTables(sb: SupabaseClient): Promise<void> {
+  // Children before parents (FK order).
   const wipeById = [
+    'app_users',
+    'desk_files',
+    'dossiers',
     'declarations',
+    'evidences',
     'incidents',
     'other_parties',
     'policies',
@@ -416,21 +382,48 @@ async function persistAll(db: Db): Promise<void> {
     'contacts',
   ]
   for (const table of wipeById) {
-    const { error } = await sb.from(table).delete().neq('id', '__none__')
+    const idCol = table === 'evidences' ? 'incident_id' : table === 'desk_files' ? 'dossier_id' : 'id'
+    const { error } = await sb.from(table).delete().neq(idCol, '__none__')
     throwIf(error, `wipe ${table}`)
   }
+}
 
-  await insertAll(
+/** Normal writes: upsert only. Never delete-all (serverless races emptied prod). */
+export async function saveDb(db: Db): Promise<void> {
+  invalidateDbCache()
+  await withWriteLock(async () => {
+    await upsertAllTables(db)
+    memoryCache = { db, at: Date.now() }
+  })
+}
+
+/** Gated full replace — /api/reset only. */
+export async function replaceDb(db: Db): Promise<void> {
+  invalidateDbCache()
+  await withWriteLock(async () => {
+    const sb = client()
+    await wipeAllTables(sb)
+    await upsertAllTables(db)
+    memoryCache = { db, at: Date.now() }
+  })
+}
+
+async function upsertAllTables(db: Db): Promise<void> {
+  const sb = client()
+
+  await upsertAll(
     sb,
     'insurers',
     db.insurers.map((r: Insurer) => ({ id: r.id, display_name: r.displayName })),
+    'id',
   )
-  await insertAll(
+  await upsertAll(
     sb,
     'brokers',
     db.brokers.map((r: Broker) => ({ id: r.id, display_name: r.displayName })),
+    'id',
   )
-  await insertAll(
+  await upsertAll(
     sb,
     'motorists',
     db.motorists.map((r: Motorist) => ({
@@ -445,8 +438,9 @@ async function persistAll(db: Db): Promise<void> {
       carte_grise_photo_path: r.carteGrisePhotoPath,
       attestation_photo_path: r.attestationPhotoPath,
     })),
+    'id',
   )
-  await insertAll(
+  await upsertAll(
     sb,
     'vehicles',
     db.vehicles.map((r: Vehicle) => ({
@@ -454,8 +448,9 @@ async function persistAll(db: Db): Promise<void> {
       plate: r.plate,
       make_model: r.makeModel,
     })),
+    'id',
   )
-  await insertAll(
+  await upsertAll(
     sb,
     'policies',
     db.policies.map((r: Policy) => ({
@@ -467,8 +462,9 @@ async function persistAll(db: Db): Promise<void> {
       assistance_on_contract: r.assistanceOnContract,
       attestation_valid_until: r.attestationValidUntil,
     })),
+    'id',
   )
-  await insertAll(
+  await upsertAll(
     sb,
     'other_parties',
     db.otherParties.map((r: OtherParty) => ({
@@ -477,8 +473,9 @@ async function persistAll(db: Db): Promise<void> {
       name: r.name,
       plate: r.plate,
     })),
+    'id',
   )
-  await insertAll(
+  await upsertAll(
     sb,
     'incidents',
     db.incidents.map((r: Incident) => ({
@@ -494,8 +491,9 @@ async function persistAll(db: Db): Promise<void> {
       work_commute: r.workCommute,
       archived_at: r.archivedAt,
     })),
+    'id',
   )
-  await insertAll(
+  await upsertAll(
     sb,
     'contacts',
     db.contacts.map((r: Contact) => ({
@@ -506,8 +504,9 @@ async function persistAll(db: Db): Promise<void> {
       url: r.url,
       note: r.note,
     })),
+    'id',
   )
-  await insertAll(
+  await upsertAll(
     sb,
     'declarations',
     db.declarations.map((r: Declaration) => ({
@@ -518,32 +517,12 @@ async function persistAll(db: Db): Promise<void> {
       channel: r.channel,
       submitted_at: r.submittedAt,
     })),
-  )
-
-  // Hot tables: upsert-by-id (then drop orphans) instead of wipe+insert.
-  await syncUpsertTable(
-    sb,
-    'dossiers',
-    'id',
-    db.dossiers.map(dossierRow),
     'id',
   )
-  await syncUpsertTable(
-    sb,
-    'evidences',
-    'incident_id',
-    db.evidences.map(evidenceRow),
-    'incident_id',
-  )
-  await syncUpsertTable(
-    sb,
-    'desk_files',
-    'dossier_id',
-    db.deskFiles.map(deskFileRow),
-    'dossier_id',
-  )
-
-  await insertAll(
+  await upsertAll(sb, 'dossiers', db.dossiers.map(dossierRow), 'id')
+  await upsertAll(sb, 'evidences', db.evidences.map(evidenceRow), 'incident_id')
+  await upsertAll(sb, 'desk_files', db.deskFiles.map(deskFileRow), 'dossier_id')
+  await upsertAll(
     sb,
     'app_users',
     db.users.map((r) => ({
@@ -559,5 +538,6 @@ async function persistAll(db: Db): Promise<void> {
       insurer_id: r.insurerId,
       policy_id: r.policyId,
     })),
+    'id',
   )
 }
