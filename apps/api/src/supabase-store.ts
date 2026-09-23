@@ -405,48 +405,81 @@ export async function replaceDb(db: Db): Promise<void> {
   memoryCache = { db, at: Date.now() }
 }
 
+/**
+ * Upsert every table, parallel within an FK tier, tiers in order.
+ * 6 round trips instead of 16 sequential ones.
+ */
 async function upsertAllTables(db: Db): Promise<void> {
   const sb = client()
 
-  await upsertAll(
-    sb,
-    'insurers',
-    db.insurers.map((r: Insurer) => ({ id: r.id, display_name: r.displayName })),
-    'id',
-  )
-  await upsertAll(
-    sb,
-    'brokers',
-    db.brokers.map((r: Broker) => ({ id: r.id, display_name: r.displayName })),
-    'id',
-  )
-  await upsertAll(
-    sb,
-    'motorists',
-    db.motorists.map((r: Motorist) => ({
-      id: r.id,
-      name: r.name,
-      phone: r.phone,
-      also_tell_employer_if_commute: r.alsoTellEmployerIfCommute,
-      cin: r.cin,
-      city: r.city,
-      license_number: r.licenseNumber,
-      license_photo_path: r.licensePhotoPath,
-      carte_grise_photo_path: r.carteGrisePhotoPath,
-      attestation_photo_path: r.attestationPhotoPath,
-    })),
-    'id',
-  )
-  await upsertAll(
-    sb,
-    'vehicles',
-    db.vehicles.map((r: Vehicle) => ({
-      id: r.id,
-      plate: r.plate,
-      make_model: r.makeModel,
-    })),
-    'id',
-  )
+  // Tier 1: no foreign keys.
+  await Promise.all([
+    upsertAll(
+      sb,
+      'insurers',
+      db.insurers.map((r: Insurer) => ({ id: r.id, display_name: r.displayName })),
+      'id',
+    ),
+    upsertAll(
+      sb,
+      'brokers',
+      db.brokers.map((r: Broker) => ({ id: r.id, display_name: r.displayName })),
+      'id',
+    ),
+    upsertAll(
+      sb,
+      'motorists',
+      db.motorists.map((r: Motorist) => ({
+        id: r.id,
+        name: r.name,
+        phone: r.phone,
+        also_tell_employer_if_commute: r.alsoTellEmployerIfCommute,
+        cin: r.cin,
+        city: r.city,
+        license_number: r.licenseNumber,
+        license_photo_path: r.licensePhotoPath,
+        carte_grise_photo_path: r.carteGrisePhotoPath,
+        attestation_photo_path: r.attestationPhotoPath,
+      })),
+      'id',
+    ),
+    upsertAll(
+      sb,
+      'vehicles',
+      db.vehicles.map((r: Vehicle) => ({
+        id: r.id,
+        plate: r.plate,
+        make_model: r.makeModel,
+      })),
+      'id',
+    ),
+    upsertAll(
+      sb,
+      'other_parties',
+      db.otherParties.map((r: OtherParty) => ({
+        id: r.id,
+        status: r.status,
+        name: r.name,
+        plate: r.plate,
+      })),
+      'id',
+    ),
+    upsertAll(
+      sb,
+      'contacts',
+      db.contacts.map((r: Contact) => ({
+        id: r.id,
+        role: r.role,
+        display_name: r.displayName,
+        phone: r.phone,
+        url: r.url,
+        note: r.note,
+      })),
+      'id',
+    ),
+  ])
+
+  // Tier 2: policies -> insurers, brokers, vehicles.
   await upsertAll(
     sb,
     'policies',
@@ -461,80 +494,66 @@ async function upsertAllTables(db: Db): Promise<void> {
     })),
     'id',
   )
-  await upsertAll(
-    sb,
-    'other_parties',
-    db.otherParties.map((r: OtherParty) => ({
-      id: r.id,
-      status: r.status,
-      name: r.name,
-      plate: r.plate,
-    })),
-    'id',
-  )
-  await upsertAll(
-    sb,
-    'incidents',
-    db.incidents.map((r: Incident) => ({
-      id: r.id,
-      ref: r.ref,
-      motorist_id: r.motoristId,
-      policy_id: r.policyId,
-      occurred_at: r.occurredAt,
-      city: r.city,
-      injury: r.injury,
-      vehicle_immobilised: r.vehicleImmobilised,
-      other_party_id: r.otherPartyId,
-      work_commute: r.workCommute,
-      archived_at: r.archivedAt,
-    })),
-    'id',
-  )
-  await upsertAll(
-    sb,
-    'contacts',
-    db.contacts.map((r: Contact) => ({
-      id: r.id,
-      role: r.role,
-      display_name: r.displayName,
-      phone: r.phone,
-      url: r.url,
-      note: r.note,
-    })),
-    'id',
-  )
-  await upsertAll(
-    sb,
-    'declarations',
-    db.declarations.map((r: Declaration) => ({
-      id: r.id,
-      incident_id: r.incidentId,
-      narrative: r.narrative,
-      document_refs: r.documentRefs,
-      channel: r.channel,
-      submitted_at: r.submittedAt,
-    })),
-    'id',
-  )
+
+  // Tier 3: incidents -> motorists, policies, other_parties; app_users -> tier 1 + policies.
+  await Promise.all([
+    upsertAll(
+      sb,
+      'incidents',
+      db.incidents.map((r: Incident) => ({
+        id: r.id,
+        ref: r.ref,
+        motorist_id: r.motoristId,
+        policy_id: r.policyId,
+        occurred_at: r.occurredAt,
+        city: r.city,
+        injury: r.injury,
+        vehicle_immobilised: r.vehicleImmobilised,
+        other_party_id: r.otherPartyId,
+        work_commute: r.workCommute,
+        archived_at: r.archivedAt,
+      })),
+      'id',
+    ),
+    upsertAll(
+      sb,
+      'app_users',
+      db.users.map((r) => ({
+        id: r.id,
+        email: r.email,
+        password_hash: r.passwordHash,
+        role: r.role,
+        display_name: r.displayName,
+        onboarded: r.onboarded,
+        motorist_id: r.motoristId,
+        broker_id: r.brokerId,
+        vehicle_id: r.vehicleId,
+        insurer_id: r.insurerId,
+        policy_id: r.policyId,
+      })),
+      'id',
+    ),
+  ])
+
+  // Tier 4: evidences, declarations -> incidents.
+  await Promise.all([
+    upsertAll(sb, 'evidences', db.evidences.map(evidenceRow), 'incident_id'),
+    upsertAll(
+      sb,
+      'declarations',
+      db.declarations.map((r: Declaration) => ({
+        id: r.id,
+        incident_id: r.incidentId,
+        narrative: r.narrative,
+        document_refs: r.documentRefs,
+        channel: r.channel,
+        submitted_at: r.submittedAt,
+      })),
+      'id',
+    ),
+  ])
+
+  // Tier 5: dossiers -> declarations. Tier 6: desk_files -> dossiers.
   await upsertAll(sb, 'dossiers', db.dossiers.map(dossierRow), 'id')
-  await upsertAll(sb, 'evidences', db.evidences.map(evidenceRow), 'incident_id')
   await upsertAll(sb, 'desk_files', db.deskFiles.map(deskFileRow), 'dossier_id')
-  await upsertAll(
-    sb,
-    'app_users',
-    db.users.map((r) => ({
-      id: r.id,
-      email: r.email,
-      password_hash: r.passwordHash,
-      role: r.role,
-      display_name: r.displayName,
-      onboarded: r.onboarded,
-      motorist_id: r.motoristId,
-      broker_id: r.brokerId,
-      vehicle_id: r.vehicleId,
-      insurer_id: r.insurerId,
-      policy_id: r.policyId,
-    })),
-    'id',
-  )
 }
