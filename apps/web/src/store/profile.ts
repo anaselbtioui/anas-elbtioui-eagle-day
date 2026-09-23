@@ -18,6 +18,8 @@ interface ProfileState {
   profile: Wallet
   saving: boolean
   error: string | null
+  /** False until first GET /api/profile attempt finishes (success or fail). */
+  remoteHydrated: boolean
   setProfile: (patch: Partial<Wallet>) => void
   ensureDeviceWallet: () => void
   /** Debounced server sync of domain-mapped fields. */
@@ -215,6 +217,7 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
   profile: emptyWallet,
   saving: false,
   error: null,
+  remoteHydrated: false,
   setProfile: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
   ensureDeviceWallet: () => {
     const current = get().profile
@@ -307,9 +310,10 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         next.attestationPhotoLocal,
         'attestationPhotoLocal',
       )
-      set({ profile: next })
+      set({ profile: next, remoteHydrated: true })
     } catch {
-      /* offline / no remote profile yet */
+      // Offline / no remote yet — still mark hydrated so UI can show auth seed.
+      set({ remoteHydrated: true })
     }
   },
   completeOnboarding: async () => {
@@ -336,5 +340,5 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
       throw err
     }
   },
-  reset: () => set({ profile: createDeviceWallet(), error: null }),
+  reset: () => set({ profile: createDeviceWallet(), error: null, remoteHydrated: false }),
 }))

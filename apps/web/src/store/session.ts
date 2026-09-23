@@ -45,6 +45,8 @@ export function syncProfile(user: AuthUser): void {
         user.role === 'broker' ? false : Boolean(user.onboarded),
     },
     error: null,
+    // New motorist (or cold rehydrate onto empty wallet): wait for GET before nudge %.
+    ...(sameMotorist ? {} : { remoteHydrated: false }),
   })
 }
 

@@ -30,6 +30,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate()
   const user = useSessionStore((s) => s.user)
   const profile = useProfileStore((s) => s.profile)
+  const remoteHydrated = useProfileStore((s) => s.remoteHydrated)
   const pullRemoteProfile = useProfileStore((s) => s.pullRemoteProfile)
   const history = useEvidenceStore((s) => s.history)
   const pack = useEvidenceStore((s) => s.pack)
@@ -292,7 +293,9 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
           </FluidHover>
         }
         bottomDock={
-          inAccidentFlow ? undefined : <WalletNudgeDrawer profile={profile} />
+          inAccidentFlow || !remoteHydrated ? undefined : (
+            <WalletNudgeDrawer profile={profile} />
+          )
         }
       >
         {children}

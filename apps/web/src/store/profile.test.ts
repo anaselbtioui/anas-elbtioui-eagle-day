@@ -97,7 +97,21 @@ describe('pullRemoteProfile remote-wins', () => {
       },
       error: null,
       saving: false,
+      remoteHydrated: false,
     })
+  })
+
+  it('marks remoteHydrated after a successful pull', async () => {
+    expect(useProfileStore.getState().remoteHydrated).toBe(false)
+    getProfile.mockResolvedValue(remoteProfile())
+    await useProfileStore.getState().pullRemoteProfile()
+    expect(useProfileStore.getState().remoteHydrated).toBe(true)
+  })
+
+  it('marks remoteHydrated after a failed pull so auth seed can show', async () => {
+    getProfile.mockRejectedValue(new Error('offline'))
+    await useProfileStore.getState().pullRemoteProfile()
+    expect(useProfileStore.getState().remoteHydrated).toBe(true)
   })
 
   it('overwrites nonempty local fields with server values', async () => {
