@@ -95,6 +95,16 @@ export function peekOfflinePackQueue(): OfflinePackOp[] {
   return readQueue()
 }
 
+/** True when offline queue still has create/save/patch/pieces for this incident id. */
+export function offlineQueueHasIncident(incidentId: string): boolean {
+  if (!incidentId.trim()) return false
+  return readQueue().some((op) => {
+    if (op.op === 'createPack') return op.clientIncidentId === incidentId
+    if (op.op === 'savePack') return op.pack.incident.id === incidentId
+    return op.incidentId === incidentId
+  })
+}
+
 export function clearOfflinePackQueue() {
   localStorage.removeItem(STORAGE_KEY)
 }

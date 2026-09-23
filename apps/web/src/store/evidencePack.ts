@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import {
   canArchivePack,
   canCancelPack,
@@ -18,15 +17,20 @@ import {
   flushOfflinePackQueue,
   isBrowserOnline,
   isNetworkFailure,
+  offlineQueueHasIncident,
   type OfflineIdRemap,
 } from '@/services/offline-pack-queue.ts'
 import { fromDomainPack, packLooksStarted, toDomainPack } from '@/services/pack-map.ts'
 import { accidentRefFromId } from '@/domain/accident-ref'
 import { useProfileStore } from '@/store/profile.ts'
 
+export const EVIDENCE_STORAGE_KEY = 'labas-evidence-v3'
+
 interface EvidenceState {
   pack: EvidencePack | null
   history: EvidencePack[]
+  /** Active pack id with unsynced local edits (or pending save). */
+  dirtyPackId: string | null
   starting: boolean
   error: string | null
   start: () => Promise<void>
@@ -90,19 +94,31 @@ export function applyNowExpiry(
 
 function applyRemaps(remaps: OfflineIdRemap[]) {
   if (remaps.length === 0) return
-  const { pack, history } = useEvidenceStore.getState()
+  const { pack, history, dirtyPackId } = useEvidenceStore.getState()
   let nextPack = pack
   let nextHistory = history
+  let nextDirty = dirtyPackId
   for (const { from, to } of remaps) {
     if (nextPack?.id === from) nextPack = { ...nextPack, id: to }
     nextHistory = nextHistory.map((h) => (h.id === from ? { ...h, id: to } : h))
+    if (nextDirty === from) nextDirty = to
   }
-  useEvidenceStore.setState({ pack: nextPack, history: nextHistory })
+  useEvidenceStore.setState({ pack: nextPack, history: nextHistory, dirtyPackId: nextDirty })
+}
+
+function clearDirtyIf(id: string) {
+  const { dirtyPackId } = useEvidenceStore.getState()
+  if (dirtyPackId === id) {
+    useEvidenceStore.setState({ dirtyPackId: null })
+  }
 }
 
 function pushPack(ui: EvidencePack): Promise<void> {
   // Skip untouched empty drafts. Everything else (incl. archive / cancel) hits the API.
-  if (ui.status === 'draft' && !ui.injury && !ui.stopReason) return Promise.resolve()
+  if (ui.status === 'draft' && !ui.injury && !ui.stopReason) {
+    clearDirtyIf(ui.id)
+    return Promise.resolve()
+  }
   persistChain = persistChain
     .catch(() => undefined)
     .then(async () => {
@@ -113,6 +129,7 @@ function pushPack(ui: EvidencePack): Promise<void> {
       }
       try {
         await api.savePack(domain)
+        clearDirtyIf(ui.id)
       } catch (err) {
         if (isNetworkFailure(err)) {
           enqueueSavePack(domain)
@@ -145,6 +162,66 @@ function startOfflinePack(): EvidencePack {
   }
 }
 
+/**
+ * Resolve active pack after a server list hydrate.
+ * Keep local only when dirty or offline queue still owns the incident.
+ */
+export function resolveActiveAfterHydrate(
+  localPack: EvidencePack | null,
+  serverMapped: EvidencePack[],
+  dirtyPackId: string | null,
+  queueHasIncident: (id: string) => boolean = offlineQueueHasIncident,
+): EvidencePack | null {
+  if (!localPack) return null
+  const keepLocal =
+    dirtyPackId === localPack.id || queueHasIncident(localPack.id)
+  if (keepLocal) return localPack
+  return serverMapped.find((p) => p.id === localPack.id) ?? null
+}
+
+function shouldKeepLocalPack(
+  id: string,
+  dirtyPackId: string | null,
+  queueHasIncident: (id: string) => boolean,
+): boolean {
+  return dirtyPackId === id || queueHasIncident(id)
+}
+
+/**
+ * Server list wins, except rows still dirty or sitting in the offline queue.
+ * Also re-inserts local-only guarded packs the server has not seen yet.
+ */
+export function mergeHydratePacks(
+  serverMapped: EvidencePack[],
+  localPack: EvidencePack | null,
+  localHistory: EvidencePack[],
+  dirtyPackId: string | null,
+  queueHasIncident: (id: string) => boolean = offlineQueueHasIncident,
+): EvidencePack[] {
+  const localById = new Map<string, EvidencePack>()
+  for (const h of localHistory) localById.set(h.id, h)
+  if (localPack) localById.set(localPack.id, localPack)
+
+  const merged: EvidencePack[] = []
+  const seen = new Set<string>()
+  for (const remote of serverMapped) {
+    const local = localById.get(remote.id)
+    if (local && shouldKeepLocalPack(local.id, dirtyPackId, queueHasIncident)) {
+      merged.push(local)
+    } else {
+      merged.push(remote)
+    }
+    seen.add(remote.id)
+  }
+  for (const [id, local] of localById) {
+    if (seen.has(id)) continue
+    if (!shouldKeepLocalPack(id, dirtyPackId, queueHasIncident)) continue
+    merged.unshift(local)
+    seen.add(id)
+  }
+  return merged
+}
+
 /** Flush localStorage offline queue (createPack / savePack / …) via persistChain. */
 export function flushEvidenceOfflineQueue(): Promise<void> {
   persistChain = persistChain
@@ -152,6 +229,10 @@ export function flushEvidenceOfflineQueue(): Promise<void> {
     .then(async () => {
       const remaps = await flushOfflinePackQueue()
       applyRemaps(remaps)
+      const dirty = useEvidenceStore.getState().dirtyPackId
+      if (dirty && !offlineQueueHasIncident(dirty)) {
+        clearDirtyIf(dirty)
+      }
     })
   return persistChain
 }
@@ -169,176 +250,275 @@ export function installEvidenceOfflineReplay() {
   })
 }
 
-export const useEvidenceStore = create<EvidenceState>()(
-  persist(
-    (set, get) => ({
-      pack: null,
-      history: [],
-      starting: false,
-      error: null,
-      sweepExpired: (now = Date.now()) => {
-        const { pack, history } = applyNowExpiry(get().pack, get().history, now)
-        set({ pack, history })
-      },
-      start: async () => {
-        set({ starting: true, error: null })
+function normalizeUiPack(raw: Partial<EvidencePack> & { id?: string }): EvidencePack | null {
+  if (!raw?.id || typeof raw.id !== 'string') return null
+  return {
+    ...createEmptyPack(),
+    ...raw,
+    id: raw.id,
+    archivedAt: raw.archivedAt ?? null,
+  }
+}
+
+/**
+ * One-shot: push local-only packs from labas-evidence-v3, never overwrite server ids.
+ * Deletes the key only after list + saves succeed (or blob is empty/corrupt).
+ */
+export async function migrateLegacyEvidenceStorage(): Promise<void> {
+  if (typeof localStorage === 'undefined') return
+  let raw: string | null = null
+  try {
+    raw = localStorage.getItem(EVIDENCE_STORAGE_KEY)
+  } catch {
+    return
+  }
+  if (!raw) return
+
+  const motoristId = useProfileStore.getState().profile.motoristId.trim()
+  let parsedOk = false
+  let locals: EvidencePack[] = []
+  try {
+    const parsed = JSON.parse(raw) as {
+      state?: { pack?: Partial<EvidencePack>; history?: Partial<EvidencePack>[] }
+      pack?: Partial<EvidencePack>
+      history?: Partial<EvidencePack>[]
+    }
+    parsedOk = true
+    const blobPack = parsed.state?.pack ?? parsed.pack
+    const blobHistory = parsed.state?.history ?? parsed.history ?? []
+    const active = blobPack ? normalizeUiPack(blobPack) : null
+    if (active) locals.push(active)
+    for (const row of blobHistory) {
+      const p = normalizeUiPack(row)
+      if (p && !locals.some((x) => x.id === p.id)) locals.push(p)
+    }
+  } catch {
+    /* corrupt — drop key */
+    try {
+      localStorage.removeItem(EVIDENCE_STORAGE_KEY)
+    } catch {
+      /* ignore */
+    }
+    return
+  }
+
+  if (!parsedOk) return
+
+  const toUpload = locals.filter(
+    (local) => !(local.status === 'draft' && !local.injury && !local.stopReason),
+  )
+  if (toUpload.length === 0) {
+    try {
+      localStorage.removeItem(EVIDENCE_STORAGE_KEY)
+    } catch {
+      /* ignore */
+    }
+    return
+  }
+
+  if (!motoristId || !isBrowserOnline()) return
+
+  let serverIds: Set<string>
+  try {
+    const remote = await api.listPacks(motoristId)
+    serverIds = new Set(remote.map((p) => p.incident.id))
+  } catch {
+    /* keep key for retry */
+    return
+  }
+
+  for (const local of toUpload) {
+    if (serverIds.has(local.id)) continue
+    try {
+      await api.savePack(toDomainPack(local, ctx()))
+    } catch {
+      /* keep key for retry */
+      return
+    }
+  }
+
+  try {
+    localStorage.removeItem(EVIDENCE_STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+export const useEvidenceStore = create<EvidenceState>()((set, get) => ({
+  pack: null,
+  history: [],
+  dirtyPackId: null,
+  starting: false,
+  error: null,
+  sweepExpired: (now = Date.now()) => {
+    const { pack, history } = applyNowExpiry(get().pack, get().history, now)
+    set({ pack, history })
+  },
+  start: async () => {
+    set({ starting: true, error: null })
+    try {
+      get().sweepExpired()
+      const current = get().pack
+      if (current) {
+        // Flush before park so hydrate cannot wipe unsaved edits from history.
         try {
-          get().sweepExpired()
-          const current = get().pack
-          if (current) {
-            set({
-              history: [current, ...get().history.filter((h) => h.id !== current.id)].slice(0, 20),
-              pack: null,
-            })
-          }
-          if (!isBrowserOnline()) {
-            set({ pack: startOfflinePack(), starting: false })
-            return
-          }
-          let created: DomainPack
-          try {
-            created = await api.createPack({
-              motoristId: ctx().motoristId,
-              city: ctx().city,
-            })
-          } catch (err) {
-            if (isNetworkFailure(err)) {
-              set({ pack: startOfflinePack(), starting: false })
-              return
-            }
-            throw err
-          }
-          const ui = {
-            ...createEmptyPack(),
-            id: created.incident.id,
-            ref: created.incident.ref || accidentRefFromId(created.incident.id),
-            createdAt: created.incident.occurredAt ?? new Date().toISOString(),
-            city: created.incident.city ?? ctx().city,
-          }
-          set({ pack: ui, starting: false })
+          await pushPack(current)
         } catch (err) {
           set({
             starting: false,
-            error: err instanceof Error ? err.message : 'create_failed',
+            error: err instanceof Error ? err.message : 'save_failed',
           })
           throw err
         }
-      },
-      resume: (id) => {
-        get().sweepExpired()
-        const { pack, history } = get()
-        if (pack?.id === id) {
-          if (pack.status === 'expired' || isNowDraftExpired(pack)) return false
-          return true
-        }
-        const found = history.find((h) => h.id === id)
-        if (!found) return false
-        if (found.status === 'expired' || isNowDraftExpired(found)) return false
-        let nextHistory = history.filter((h) => h.id !== id)
-        if (pack) {
-          nextHistory = [pack, ...nextHistory.filter((h) => h.id !== pack.id)]
-        }
-        set({ pack: found, history: nextHistory.slice(0, 20) })
-        return true
-      },
-      dispatch: (action) => {
-        const current = get().pack
-        if (!current) return
-        if (current.status === 'expired' || isNowDraftExpired(current)) {
-          get().sweepExpired()
+        set({
+          history: [current, ...get().history.filter((h) => h.id !== current.id)].slice(0, 20),
+          pack: null,
+          dirtyPackId:
+            get().dirtyPackId === current.id ? null : get().dirtyPackId,
+        })
+      }
+      if (!isBrowserOnline()) {
+        const offline = startOfflinePack()
+        set({ pack: offline, starting: false, dirtyPackId: offline.id })
+        return
+      }
+      let created: DomainPack
+      try {
+        created = await api.createPack({
+          motoristId: ctx().motoristId,
+          city: ctx().city,
+        })
+      } catch (err) {
+        if (isNetworkFailure(err)) {
+          const offline = startOfflinePack()
+          set({ pack: offline, starting: false, dirtyPackId: offline.id })
           return
         }
-        const next = evidenceReducer(current, action)
-        if (next.status === 'saved' || next.status === 'stopped') {
-          set({
-            pack: next,
-            history: [next, ...get().history.filter((h) => h.id !== next.id)].slice(0, 20),
-          })
-        } else {
-          set({ pack: next })
-        }
-        void pushPack(next).catch((err) => {
-          set({ error: err instanceof Error ? err.message : 'save_failed' })
-        })
-      },
-      persistActive: async () => {
-        const current = get().pack
-        if (!current) return
-        await pushPack(current)
-      },
-      hydrateFromDomain: (packs) => {
-        const mapped = packs.filter(packLooksStarted).map(fromDomainPack)
-        const { pack, history } = applyNowExpiry(get().pack, mapped)
-        set({ pack, history })
-      },
-      archivePack: (id) => {
-        get().sweepExpired()
-        const { pack, history } = get()
-        const target = pack?.id === id ? pack : history.find((h) => h.id === id)
-        if (!target || !canArchivePack(target)) return false
-        const at = new Date().toISOString()
-        const archived = { ...target, archivedAt: at, updatedAt: at }
-        const next = patchPackById(pack, history, id, () => archived)
-        if (!next) return false
-        set(next)
-        void pushPack(archived).catch((err) => {
-          set({ error: err instanceof Error ? err.message : 'save_failed' })
-        })
-        return true
-      },
-      unarchivePack: (id) => {
-        const { pack, history } = get()
-        const target = pack?.id === id ? pack : history.find((h) => h.id === id)
-        if (!target?.archivedAt) return false
-        const at = new Date().toISOString()
-        const restored = { ...target, archivedAt: null, updatedAt: at }
-        const next = patchPackById(pack, history, id, () => restored)
-        if (!next) return false
-        set(next)
-        void pushPack(restored).catch((err) => {
-          set({ error: err instanceof Error ? err.message : 'save_failed' })
-        })
-        return true
-      },
-      cancelPack: (id) => {
-        get().sweepExpired()
-        const { pack, history } = get()
-        const target = pack?.id === id ? pack : history.find((h) => h.id === id)
-        if (!target || !canCancelPack(target)) return false
-        const stopped = evidenceReducer(target, { type: 'STOP', reason: 'other' })
-        if (pack?.id === id) {
-          set({
-            pack: stopped,
-            history: [stopped, ...history.filter((h) => h.id !== id)].slice(0, 20),
-          })
-        } else {
-          set({
-            history: history.map((h) => (h.id === id ? stopped : h)),
-          })
-        }
-        void pushPack(stopped).catch((err) => {
-          set({ error: err instanceof Error ? err.message : 'save_failed' })
-        })
-        return true
-      },
-      clearActive: () => set({ pack: null }),
-      resetAll: () => set({ pack: null, history: [], error: null }),
-    }),
-    {
-      name: 'labas-evidence-v3',
-      partialize: (s) => ({ pack: s.pack, history: s.history }),
-      onRehydrateStorage: () => (state) => {
-        if (!state) return
-        const pack = state.pack
-          ? { ...state.pack, archivedAt: state.pack.archivedAt ?? null }
-          : null
-        const history = state.history.map((h) => ({
-          ...h,
-          archivedAt: h.archivedAt ?? null,
-        }))
-        const next = applyNowExpiry(pack, history)
-        useEvidenceStore.setState(next)
-      },
-    },
-  ),
-)
+        throw err
+      }
+      const ui = {
+        ...createEmptyPack(),
+        id: created.incident.id,
+        ref: created.incident.ref || accidentRefFromId(created.incident.id),
+        createdAt: created.incident.occurredAt ?? new Date().toISOString(),
+        city: created.incident.city ?? ctx().city,
+      }
+      // Fresh server create — not dirty until user edits.
+      set({ pack: ui, starting: false, dirtyPackId: null })
+    } catch (err) {
+      set({
+        starting: false,
+        error: err instanceof Error ? err.message : 'create_failed',
+      })
+      throw err
+    }
+  },
+  resume: (id) => {
+    get().sweepExpired()
+    const { pack, history } = get()
+    if (pack?.id === id) {
+      if (pack.status === 'expired' || isNowDraftExpired(pack)) return false
+      return true
+    }
+    const found = history.find((h) => h.id === id)
+    if (!found) return false
+    if (found.status === 'expired' || isNowDraftExpired(found)) return false
+    let nextHistory = history.filter((h) => h.id !== id)
+    if (pack) {
+      nextHistory = [pack, ...nextHistory.filter((h) => h.id !== pack.id)]
+    }
+    set({ pack: found, history: nextHistory.slice(0, 20) })
+    return true
+  },
+  dispatch: (action) => {
+    const current = get().pack
+    if (!current) return
+    if (current.status === 'expired' || isNowDraftExpired(current)) {
+      get().sweepExpired()
+      return
+    }
+    const next = evidenceReducer(current, action)
+    if (next.status === 'saved' || next.status === 'stopped') {
+      set({
+        pack: next,
+        history: [next, ...get().history.filter((h) => h.id !== next.id)].slice(0, 20),
+        dirtyPackId: next.id,
+      })
+    } else {
+      set({ pack: next, dirtyPackId: next.id })
+    }
+    void pushPack(next).catch((err) => {
+      set({ error: err instanceof Error ? err.message : 'save_failed' })
+    })
+  },
+  persistActive: async () => {
+    const current = get().pack
+    if (!current) return
+    await pushPack(current)
+  },
+  hydrateFromDomain: (packs) => {
+    const mapped = packs.filter(packLooksStarted).map(fromDomainPack)
+    const localPack = get().pack
+    const localHistory = get().history
+    const dirtyPackId = get().dirtyPackId
+    const merged = mergeHydratePacks(mapped, localPack, localHistory, dirtyPackId)
+    const active = resolveActiveAfterHydrate(localPack, merged, dirtyPackId)
+    const historyBase = merged.filter((p) => p.id !== active?.id)
+    const { pack, history } = applyNowExpiry(active, historyBase)
+    set({ pack, history })
+  },
+  archivePack: (id) => {
+    get().sweepExpired()
+    const { pack, history } = get()
+    const target = pack?.id === id ? pack : history.find((h) => h.id === id)
+    if (!target || !canArchivePack(target)) return false
+    const at = new Date().toISOString()
+    const archived = { ...target, archivedAt: at, updatedAt: at }
+    const next = patchPackById(pack, history, id, () => archived)
+    if (!next) return false
+    set({ ...next, dirtyPackId: id })
+    void pushPack(archived).catch((err) => {
+      set({ error: err instanceof Error ? err.message : 'save_failed' })
+    })
+    return true
+  },
+  unarchivePack: (id) => {
+    const { pack, history } = get()
+    const target = pack?.id === id ? pack : history.find((h) => h.id === id)
+    if (!target?.archivedAt) return false
+    const at = new Date().toISOString()
+    const restored = { ...target, archivedAt: null, updatedAt: at }
+    const next = patchPackById(pack, history, id, () => restored)
+    if (!next) return false
+    set({ ...next, dirtyPackId: id })
+    void pushPack(restored).catch((err) => {
+      set({ error: err instanceof Error ? err.message : 'save_failed' })
+    })
+    return true
+  },
+  cancelPack: (id) => {
+    get().sweepExpired()
+    const { pack, history } = get()
+    const target = pack?.id === id ? pack : history.find((h) => h.id === id)
+    if (!target || !canCancelPack(target)) return false
+    const stopped = evidenceReducer(target, { type: 'STOP', reason: 'other' })
+    if (pack?.id === id) {
+      set({
+        pack: stopped,
+        history: [stopped, ...history.filter((h) => h.id !== id)].slice(0, 20),
+        dirtyPackId: id,
+      })
+    } else {
+      set({
+        history: history.map((h) => (h.id === id ? stopped : h)),
+        dirtyPackId: id,
+      })
+    }
+    void pushPack(stopped).catch((err) => {
+      set({ error: err instanceof Error ? err.message : 'save_failed' })
+    })
+    return true
+  },
+  clearActive: () => set({ pack: null, dirtyPackId: null }),
+  resetAll: () => set({ pack: null, history: [], dirtyPackId: null, error: null }),
+}))

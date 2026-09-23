@@ -50,12 +50,73 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
 
   useEffect(() => {
     if (!profile.motoristId) return
-    void pullRemoteProfile()
+    let cancelled = false
+    void (async () => {
+      const { migrateLegacyProfileStorage } = await import('@/store/profile.ts')
+      if (cancelled) return
+      await migrateLegacyProfileStorage()
+      if (cancelled) return
+      await pullRemoteProfile()
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [profile.motoristId, pullRemoteProfile])
+
+  // Concurrent sessions: pull wallet + packs on focus / visibility + light interval.
+  useEffect(() => {
+    if (!profile.motoristId) return
+    let focusTimer: ReturnType<typeof setTimeout> | null = null
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return
+      void pullRemoteProfile()
+      if (profile.onboarded) {
+        void api
+          .listPacks(profile.motoristId)
+          .then(hydrateFromDomain)
+          .catch(() => undefined)
+      }
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    const onFocus = () => {
+      // Coalesce focus + visibility both firing on tab return.
+      if (focusTimer) clearTimeout(focusTimer)
+      focusTimer = setTimeout(refresh, 50)
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return
+      refresh()
+    }, 20_000)
+    return () => {
+      if (focusTimer) clearTimeout(focusTimer)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.clearInterval(interval)
+    }
+  }, [profile.motoristId, profile.onboarded, pullRemoteProfile, hydrateFromDomain])
 
   useEffect(() => {
     if (!profile.onboarded || !profile.motoristId) return
-    void api.listPacks(profile.motoristId).then(hydrateFromDomain).catch(() => undefined)
+    let cancelled = false
+    void (async () => {
+      const { migrateLegacyEvidenceStorage } = await import('@/store/evidencePack')
+      if (cancelled) return
+      await migrateLegacyEvidenceStorage()
+      if (cancelled) return
+      try {
+        const packs = await api.listPacks(profile.motoristId)
+        if (!cancelled) hydrateFromDomain(packs)
+      } catch {
+        /* ignore */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [profile.onboarded, profile.motoristId, hydrateFromDomain])
 
   const recentPacks = useMemo(() => {

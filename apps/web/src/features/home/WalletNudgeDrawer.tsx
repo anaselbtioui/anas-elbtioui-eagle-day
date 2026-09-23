@@ -8,11 +8,12 @@ import {
   OnboardingWizardBody,
 } from '@/features/onboarding/OnboardingPage'
 import {
-  attestationDaysRemaining,
-  walletEssentialsFilled,
-  walletFullyComplete,
+  deriveOnboardingPhase,
+  onboardingGapCount,
+  onboardingRemainingPercent,
+} from '@/services/onboarding-phase.ts'
+import {
   walletIncompleteSteps,
-  walletRemainingPercent,
   type Wallet,
 } from '@/services/wallet.ts'
 import { cn } from '@/lib/utils'
@@ -30,12 +31,13 @@ function dismissKey(motoristId: string) {
   return `labas-wallet-complete-dismissed:${motoristId || 'anon'}`
 }
 
+/** Map derived phase → nudge chrome (null = hide). */
 export function walletNudgeKind(profile: Wallet, completeDismissed = false): WalletNudgeKind {
-  if (!walletEssentialsFilled(profile) || walletRemainingPercent(profile) > 0) return 'empty'
-  const days = attestationDaysRemaining(profile.attestationValidUntil)
-  if (days !== null && days < 0) return 'expired'
-  if (days !== null && days <= 45) return 'expiring'
-  if (walletFullyComplete(profile) && !completeDismissed) return 'complete'
+  const phase = deriveOnboardingPhase(profile)
+  if (phase === 'gaps' || phase === 'claimReady') return 'empty'
+  if (phase === 'expired') return 'expired'
+  if (phase === 'expiring') return 'expiring'
+  if (phase === 'complete' && !completeDismissed) return 'complete'
   return null
 }
 
@@ -65,8 +67,8 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
 
   const kind = walletNudgeKind(profile, completeDismissed)
 
-  const remainingPct = useMemo(() => walletRemainingPercent(profile), [profile])
-  const gapCount = useMemo(() => walletIncompleteSteps(profile).length, [profile])
+  const remainingPct = useMemo(() => onboardingRemainingPercent(profile), [profile])
+  const gapCount = useMemo(() => onboardingGapCount(profile), [profile])
   const stepPct = useMemo(() => {
     if (kind === 'complete') return 100
     const gaps = walletIncompleteSteps(profile)

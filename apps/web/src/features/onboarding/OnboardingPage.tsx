@@ -30,9 +30,9 @@ import { LocalPhotoField } from '@/features/onboarding/LocalPhotoField'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { cn } from '@/lib/utils'
 import { api } from '@/services/api.ts'
+import { resumeStepId } from '@/services/onboarding-phase.ts'
 import {
   attestationDaysRemaining,
-  firstWalletGapStep,
   walletFieldNeedsInput,
   walletIncompleteSteps,
 } from '@/services/wallet.ts'
@@ -688,7 +688,7 @@ export function useOnboardingWizard(opts: {
   const user = useSessionStore((s) => s.user)
   const [step, setStep] = useState(() => {
     if (opts.gapsOnly) {
-      const gap = firstWalletGapStep(profile)
+      const gap = resumeStepId(profile)
       const idx = ONBOARDING_STEPS.indexOf(gap)
       return idx >= 0 ? idx : 0
     }
@@ -708,7 +708,7 @@ export function useOnboardingWizard(opts: {
   // If gaps close while drawer open, jump to next remaining gap (or review).
   useEffect(() => {
     if (!opts.gapsOnly) return
-    const gap = firstWalletGapStep(profile)
+    const gap = resumeStepId(profile)
     const idx = ONBOARDING_STEPS.indexOf(gap)
     if (idx < 0 || idx === step) return
     const currentId = ONBOARDING_STEPS[step]

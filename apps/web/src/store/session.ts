@@ -20,7 +20,7 @@ interface SessionState {
   clearRole: () => void
 }
 
-/** Auth → wallet: ids + split displayName into firstName/lastName (never legacy `name` only). */
+/** Auth → wallet: ids + seed names; full fields come from pullRemoteProfile. */
 export function syncProfile(user: AuthUser): void {
   const current = useProfileStore.getState().profile
   const sameMotorist = Boolean(current.motoristId && current.motoristId === (user.motoristId ?? ''))
@@ -42,9 +42,7 @@ export function syncProfile(user: AuthUser): void {
       brokerId,
       policyId: user.policyId ?? (sameMotorist ? current.policyId : '') ?? '',
       onboarded:
-        user.role === 'broker'
-          ? false
-          : Boolean(user.onboarded || (sameMotorist && current.onboarded)),
+        user.role === 'broker' ? false : Boolean(user.onboarded),
     },
     error: null,
   })
