@@ -57,14 +57,22 @@ export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number]
 const STEP_COUNT = ONBOARDING_STEPS.length
 const REVIEW_STEP = ONBOARDING_STEPS.indexOf('review')
 
-/** Ring missing portefeuille inputs so resume gaps are obvious. */
+/** Ring missing portefeuille inputs — only while resuming wallet gaps. */
 function gapClass(
+  gapsOnly: boolean,
   profile: Parameters<typeof walletFieldNeedsInput>[0],
   key: Parameters<typeof walletFieldNeedsInput>[1],
 ) {
-  return walletFieldNeedsInput(profile, key)
-    ? 'border-alert ring-2 ring-alert/35 focus-visible:ring-alert'
-    : undefined
+  if (!gapsOnly || !walletFieldNeedsInput(profile, key)) return undefined
+  return 'border-alert ring-2 ring-alert/35 focus-visible:ring-alert'
+}
+
+function gapAttr(
+  gapsOnly: boolean,
+  profile: Parameters<typeof walletFieldNeedsInput>[0],
+  key: Parameters<typeof walletFieldNeedsInput>[1],
+) {
+  return gapsOnly && walletFieldNeedsInput(profile, key) ? true : undefined
 }
 
 function stepTitleKey(id: OnboardingStepId): string {
@@ -147,11 +155,13 @@ function BrokerPickStep({
   onSkip,
   onSkipAll,
   onContinue,
+  gapsOnly = false,
 }: {
   onBack: () => void
   onSkip: () => void
   onSkipAll?: () => void
   onContinue: () => void
+  gapsOnly?: boolean
 }) {
   const { t } = useTranslation()
   const { profile, setProfile } = useProfileStore()
@@ -223,11 +233,11 @@ function BrokerPickStep({
         <ul
           className={cn(
             'space-y-2',
-            walletFieldNeedsInput(profile, 'brokerId') &&
+            gapAttr(gapsOnly, profile, 'brokerId') &&
               'rounded-[var(--radius-labas)] ring-2 ring-alert/35',
           )}
           data-testid="broker-pick-list"
-          data-wallet-gap={walletFieldNeedsInput(profile, 'brokerId') || undefined}
+          data-wallet-gap={gapAttr(gapsOnly, profile, 'brokerId')}
         >
           {brokers.map((b) => {
             const selected = profile.brokerId === b.id
@@ -377,14 +387,14 @@ export function OnboardingSteps({
     return (
       <div className="space-y-4">
         <p className="text-sm text-ink-muted">{t('onboarding.otpHint')}</p>
-        <div data-wallet-gap={walletFieldNeedsInput(profile, 'phone') || undefined}>
+        <div data-wallet-gap={gapAttr(gapsOnly, profile, 'phone')}>
           <PhoneInput
             id="otp-phone"
             label={t('onboarding.phone')}
             value={profile.phone}
             onChange={(e164) => setProfile({ phone: e164 })}
             required
-            className={gapClass(profile, 'phone')}
+            highlight={Boolean(gapAttr(gapsOnly, profile, 'phone'))}
           />
         </div>
         <Button
@@ -396,7 +406,7 @@ export function OnboardingSteps({
         >
           {t('onboarding.otpSend')}
         </Button>
-        {otpSent || walletFieldNeedsInput(profile, 'phoneVerified') ? (
+        {otpSent || (gapsOnly && walletFieldNeedsInput(profile, 'phoneVerified')) ? (
           <div className="space-y-2">
             <Label htmlFor="otp-code">{t('onboarding.otpCode')}</Label>
             <Input
@@ -408,8 +418,8 @@ export function OnboardingSteps({
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="123456"
-              className={gapClass(profile, 'phoneVerified')}
-              data-wallet-gap={walletFieldNeedsInput(profile, 'phoneVerified') || undefined}
+              className={gapClass(gapsOnly, profile, 'phoneVerified')}
+              data-wallet-gap={gapAttr(gapsOnly, profile, 'phoneVerified')}
             />
             <p className="text-xs text-ink-muted">{t('onboarding.otpMockNote')}</p>
           </div>
@@ -445,8 +455,8 @@ export function OnboardingSteps({
               onChange={(e) => setProfile({ firstName: e.target.value })}
               autoComplete="given-name"
               aria-invalid={!firstOk}
-              className={gapClass(profile, 'firstName')}
-              data-wallet-gap={walletFieldNeedsInput(profile, 'firstName') || undefined}
+              className={gapClass(gapsOnly, profile, 'firstName')}
+              data-wallet-gap={gapAttr(gapsOnly, profile, 'firstName')}
             />
             {!firstOk ? (
               <p className="text-sm text-alert">{t('fields.errorPersonName')}</p>
@@ -460,8 +470,8 @@ export function OnboardingSteps({
               onChange={(e) => setProfile({ lastName: e.target.value })}
               autoComplete="family-name"
               aria-invalid={!lastOk}
-              className={gapClass(profile, 'lastName')}
-              data-wallet-gap={walletFieldNeedsInput(profile, 'lastName') || undefined}
+              className={gapClass(gapsOnly, profile, 'lastName')}
+              data-wallet-gap={gapAttr(gapsOnly, profile, 'lastName')}
             />
             {!lastOk ? (
               <p className="text-sm text-alert">{t('fields.errorPersonName')}</p>
@@ -476,21 +486,18 @@ export function OnboardingSteps({
             onChange={(e) => setProfile({ cin: normalizeCin(e.target.value) })}
             autoComplete="off"
             aria-invalid={!cinOk}
-            className={gapClass(profile, 'cin')}
-            data-wallet-gap={walletFieldNeedsInput(profile, 'cin') || undefined}
+            className={gapClass(gapsOnly, profile, 'cin')}
+            data-wallet-gap={gapAttr(gapsOnly, profile, 'cin')}
           />
           {!cinOk ? <p className="text-sm text-alert">{t('fields.errorCin')}</p> : null}
         </div>
-        <div
-          className={cn('space-y-2 rounded-[var(--radius-labas)]', gapClass(profile, 'city') && 'p-1')}
-          data-wallet-gap={walletFieldNeedsInput(profile, 'city') || undefined}
-        >
+        <div className="space-y-2" data-wallet-gap={gapAttr(gapsOnly, profile, 'city')}>
           <Label htmlFor="city">{t('onboarding.city')}</Label>
           <CitySelect
             id="city"
             value={profile.city}
             onChange={(city) => setProfile({ city })}
-            className={gapClass(profile, 'city')}
+            highlight={Boolean(gapAttr(gapsOnly, profile, 'city'))}
           />
           {!cityOk ? <p className="text-sm text-alert">{t('fields.errorCity')}</p> : null}
         </div>
@@ -520,8 +527,8 @@ export function OnboardingSteps({
             id="licenseNumber"
             value={profile.licenseNumber}
             onChange={(e) => setProfile({ licenseNumber: e.target.value })}
-            className={gapClass(profile, 'licenseNumber')}
-            data-wallet-gap={walletFieldNeedsInput(profile, 'licenseNumber') || undefined}
+            className={gapClass(gapsOnly, profile, 'licenseNumber')}
+            data-wallet-gap={gapAttr(gapsOnly, profile, 'licenseNumber')}
           />
         </div>
         <StepNav onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
@@ -545,8 +552,8 @@ export function OnboardingSteps({
             value={profile.plate}
             onChange={(e) => setProfile({ plate: e.target.value.toUpperCase() })}
             aria-invalid={Boolean(profile.plate.trim()) && !isMoroccanPlate(profile.plate)}
-            className={gapClass(profile, 'plate')}
-            data-wallet-gap={walletFieldNeedsInput(profile, 'plate') || undefined}
+            className={gapClass(gapsOnly, profile, 'plate')}
+            data-wallet-gap={gapAttr(gapsOnly, profile, 'plate')}
           />
           {profile.plate.trim() && !isMoroccanPlate(profile.plate) ? (
             <p className="text-sm text-alert">{t('fields.errorPlate')}</p>
@@ -554,12 +561,12 @@ export function OnboardingSteps({
         </div>
         <div className="space-y-2">
           <Label htmlFor="vehicle">{t('onboarding.vehicle')}</Label>
-          <div data-wallet-gap={walletFieldNeedsInput(profile, 'vehicle') || undefined}>
+          <div data-wallet-gap={gapAttr(gapsOnly, profile, 'vehicle')}>
             <VehicleSelect
               id="vehicle"
               value={profile.vehicle}
               onChange={(vehicle) => setProfile({ vehicle })}
-              className={gapClass(profile, 'vehicle')}
+              highlight={Boolean(gapAttr(gapsOnly, profile, 'vehicle'))}
             />
           </div>
         </div>
@@ -590,13 +597,13 @@ export function OnboardingSteps({
         />
         <div className="space-y-2">
           <Label htmlFor="insurer">{t('onboarding.insurer')}</Label>
-          <div data-wallet-gap={walletFieldNeedsInput(profile, 'insurer') || undefined}>
+          <div data-wallet-gap={gapAttr(gapsOnly, profile, 'insurer')}>
             <InsurerSelect
               id="insurer"
               value={profile.insurer}
               onChange={(insurer) => setProfile({ insurer })}
               placeholder={t('onboarding.insurerPick')}
-              className={gapClass(profile, 'insurer')}
+              className={gapClass(gapsOnly, profile, 'insurer')}
             />
           </div>
         </div>
@@ -606,19 +613,19 @@ export function OnboardingSteps({
             id="policy"
             value={profile.policy}
             onChange={(e) => setProfile({ policy: e.target.value })}
-            className={gapClass(profile, 'policy')}
-            data-wallet-gap={walletFieldNeedsInput(profile, 'policy') || undefined}
+            className={gapClass(gapsOnly, profile, 'policy')}
+            data-wallet-gap={gapAttr(gapsOnly, profile, 'policy')}
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="attestationValidUntil">{t('onboarding.attestationValidUntil')}</Label>
-          <div data-wallet-gap={walletFieldNeedsInput(profile, 'attestationValidUntil') || undefined}>
+          <div data-wallet-gap={gapAttr(gapsOnly, profile, 'attestationValidUntil')}>
             <DatePicker
               id="attestationValidUntil"
               value={profile.attestationValidUntil}
               onChange={(attestationValidUntil) => setProfile({ attestationValidUntil })}
               data-testid="attestation-valid-until"
-              className={gapClass(profile, 'attestationValidUntil')}
+              highlight={Boolean(gapAttr(gapsOnly, profile, 'attestationValidUntil'))}
             />
           </div>
         </div>
@@ -629,7 +636,7 @@ export function OnboardingSteps({
   }
 
   if (id === 'broker') {
-    return <BrokerPickStep onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
+    return <BrokerPickStep onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} gapsOnly={gapsOnly} />
   }
 
   if (id === 'assistance') {

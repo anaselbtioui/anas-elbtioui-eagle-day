@@ -22,6 +22,8 @@ export type PhoneInputProps = {
   required?: boolean
   disabled?: boolean
   className?: string
+  /** Wallet gap resume — alert border on the national digits field. */
+  highlight?: boolean
   id?: string
   hint?: string
   /** Inline error while digits present but not yet valid MA E.164. Default true. */
@@ -64,6 +66,7 @@ export function PhoneInput({
   required,
   disabled,
   className,
+  highlight = false,
   id,
   hint,
   validateRealtime = true,
@@ -176,7 +179,7 @@ export function PhoneInput({
         <div
           className={cn(
             'flex min-h-12 shrink-0 items-center gap-2 rounded-[var(--radius-labas)] border border-border bg-surface px-3',
-            displayError && 'border-alert',
+            (displayError || highlight) && 'border-alert',
             disabled && 'opacity-50',
           )}
           aria-hidden
@@ -192,7 +195,8 @@ export function PhoneInput({
           id={nationalId}
           className={cn(
             'min-w-0 flex-1 font-mono text-base tracking-wide tabular-nums',
-            displayError && 'border-alert',
+            (displayError || highlight) && 'border-alert',
+            highlight && 'ring-2 ring-alert/35',
           )}
           type="tel"
           inputMode="tel"
@@ -200,7 +204,7 @@ export function PhoneInput({
           disabled={disabled}
           required={required}
           value={nationalText}
-          aria-invalid={!!displayError}
+          aria-invalid={!!displayError || highlight}
           aria-describedby={displayError ? errorId : undefined}
           onChange={(e) => handleNationalChange(e.currentTarget.value)}
           onFocus={() => setNationalFocused(true)}

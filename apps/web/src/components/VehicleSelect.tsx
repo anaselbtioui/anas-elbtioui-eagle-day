@@ -42,15 +42,22 @@ type VehicleSelectProps = {
   value: string
   onChange: (vehicle: string) => void
   className?: string
+  /** Wallet gap resume — alert border on incomplete selects. */
+  highlight?: boolean
 }
 
 /** Marque, modèle, année from a local Moroccan parc list. Autre keeps free text. */
-export function VehicleSelect({ id, value, onChange, className }: VehicleSelectProps) {
+export function VehicleSelect({ id, value, onChange, className, highlight = false }: VehicleSelectProps) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState(() => draftFromValue(value))
   const years = vehicleYears()
   const models = vehicleModels(draft.make)
   const other = draft.make === OTHER
+  const gapMake = highlight && !draft.make
+  const gapModel = highlight && Boolean(draft.make) && draft.make !== OTHER && !draft.model
+  const gapYear = highlight && Boolean(draft.model) && !draft.year
+  const gapOther = highlight && other && !draft.otherText.trim()
+  const gapStyle = 'border-alert ring-2 ring-alert/35'
 
   useEffect(() => {
     setDraft((current) => {
@@ -67,13 +74,14 @@ export function VehicleSelect({ id, value, onChange, className }: VehicleSelectP
   }
 
   return (
-    <div className="grid gap-2" data-testid="vehicle-select">
+    <div className={cn('grid gap-2', className)} data-testid="vehicle-select">
       <select
         id={id}
         aria-label={t('onboarding.vehicleMake')}
         value={draft.make}
-        className={cn(selectClass, className)}
+        className={cn(selectClass, gapMake && gapStyle)}
         data-testid="vehicle-make"
+        data-wallet-gap={gapMake || undefined}
         onChange={(e) => {
           const make = e.target.value
           publish({
@@ -99,6 +107,8 @@ export function VehicleSelect({ id, value, onChange, className }: VehicleSelectP
           value={draft.otherText}
           placeholder={t('onboarding.vehicleOtherPh')}
           data-testid="vehicle-other"
+          data-wallet-gap={gapOther || undefined}
+          className={cn(gapOther && gapStyle)}
           onChange={(e) => publish({ ...draft, otherText: e.target.value })}
         />
       ) : (
@@ -107,8 +117,9 @@ export function VehicleSelect({ id, value, onChange, className }: VehicleSelectP
             aria-label={t('onboarding.vehicleModel')}
             value={draft.model}
             disabled={!draft.make}
-            className={cn(selectClass, className)}
+            className={cn(selectClass, gapModel && gapStyle)}
             data-testid="vehicle-model"
+            data-wallet-gap={gapModel || undefined}
             onChange={(e) => publish({ ...draft, model: e.target.value, year: '' })}
           >
             <option value="">{t('onboarding.vehicleModel')}</option>
@@ -122,8 +133,9 @@ export function VehicleSelect({ id, value, onChange, className }: VehicleSelectP
             aria-label={t('onboarding.vehicleYear')}
             value={draft.year}
             disabled={!draft.model}
-            className={cn(selectClass, className)}
+            className={cn(selectClass, gapYear && gapStyle)}
             data-testid="vehicle-year"
+            data-wallet-gap={gapYear || undefined}
             onChange={(e) => publish({ ...draft, year: e.target.value })}
           >
             <option value="">{t('onboarding.vehicleYear')}</option>

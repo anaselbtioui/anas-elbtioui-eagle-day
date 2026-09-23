@@ -15,6 +15,8 @@ type CitySelectProps = {
   value: string
   onChange: (city: string) => void
   className?: string
+  /** Wallet gap resume — paint alert border on the search input. */
+  highlight?: boolean
   'data-testid'?: string
   /** Show “Ma position” control. Default true. */
   allowGeolocate?: boolean
@@ -50,6 +52,7 @@ export function CitySelect({
   value,
   onChange,
   className,
+  highlight = false,
   'data-testid': testId,
   allowGeolocate = true,
 }: CitySelectProps) {
@@ -200,7 +203,8 @@ export function CitySelect({
             'flex min-h-12 w-full rounded-[var(--radius-labas)] border-2 bg-surface px-4 py-3 text-base text-ink',
             'transition-[border-color,box-shadow] duration-150 ease-out',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:border-ink',
-            valid ? 'border-border' : 'border-alert',
+            !valid || highlight ? 'border-alert' : 'border-border',
+            highlight && 'ring-2 ring-alert/35',
           )}
           onChange={(e) => {
             setQuery(e.target.value)

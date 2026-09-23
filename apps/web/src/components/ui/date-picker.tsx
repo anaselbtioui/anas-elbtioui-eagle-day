@@ -20,6 +20,8 @@ type DatePickerProps = {
   onChange: (iso: string) => void
   className?: string
   disabled?: boolean
+  /** Wallet gap resume — alert border on the trigger. */
+  highlight?: boolean
   'data-testid'?: string
   'aria-invalid'?: boolean
 }
@@ -57,6 +59,7 @@ export function DatePicker({
   onChange,
   className,
   disabled,
+  highlight = false,
   'data-testid': testId,
   'aria-invalid': ariaInvalid,
 }: DatePickerProps) {
@@ -255,7 +258,8 @@ export function DatePicker({
           'transition-[border-color,box-shadow] duration-150 ease-out',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:border-ink',
           'disabled:cursor-not-allowed disabled:opacity-50',
-          ariaInvalid ? 'border-alert' : 'border-border',
+          ariaInvalid || highlight ? 'border-alert' : 'border-border',
+          highlight && !open && 'ring-2 ring-alert/35',
           open && 'border-ink ring-2 ring-ink',
         )}
       >
