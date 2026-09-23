@@ -64,6 +64,19 @@ export async function loadDb(): Promise<Db> {
     return {
       ...emptyDb(),
       ...parsed,
+      motorists: (parsed.motorists ?? emptyDb().motorists).map((m) => ({
+        ...m,
+        cin: m.cin ?? null,
+        city: m.city ?? null,
+        licenseNumber: m.licenseNumber ?? null,
+        licensePhotoPath: m.licensePhotoPath ?? null,
+        carteGrisePhotoPath: m.carteGrisePhotoPath ?? null,
+        attestationPhotoPath: m.attestationPhotoPath ?? null,
+      })),
+      policies: (parsed.policies ?? emptyDb().policies).map((p) => ({
+        ...p,
+        attestationValidUntil: p.attestationValidUntil ?? null,
+      })),
       contacts: parsed.contacts?.length ? parsed.contacts : contacts,
       deskFiles: parsed.deskFiles ?? [],
       users: parsed.users ?? [],

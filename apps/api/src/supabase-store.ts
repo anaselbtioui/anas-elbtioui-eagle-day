@@ -31,7 +31,18 @@ function throwIf(error: { message: string } | null, action: string): void {
   if (error) throw new Error(`${action}: ${error.message}`)
 }
 
+let memoryCache: { db: Db; at: number } | null = null
+/** In-process cache — auth middleware + routes used to reload all tables per hop. */
+const CACHE_TTL_MS = 3_000
+
+export function invalidateDbCache(): void {
+  memoryCache = null
+}
+
 export async function loadDb(): Promise<Db> {
+  if (memoryCache && Date.now() - memoryCache.at < CACHE_TTL_MS) {
+    return memoryCache.db
+  }
   const sb = client()
   const tables = [
     'insurers',
@@ -48,14 +59,16 @@ export async function loadDb(): Promise<Db> {
     'desk_files',
     'app_users',
   ] as const
-  const rows: Record<string, unknown[]> = {}
-  for (const table of tables) {
-    const { data, error } = await sb.from(table).select('*')
-    throwIf(error, `select ${table}`)
-    rows[table] = data ?? []
-  }
+  const settled = await Promise.all(
+    tables.map(async (table) => {
+      const { data, error } = await sb.from(table).select('*')
+      throwIf(error, `select ${table}`)
+      return [table, data ?? []] as const
+    }),
+  )
+  const rows: Record<string, unknown[]> = Object.fromEntries(settled)
 
-  return {
+  const db: Db = {
     insurers: (rows.insurers as { id: string; display_name: string }[]).map((r) => ({
       id: r.id,
       displayName: r.display_name,
@@ -70,12 +83,24 @@ export async function loadDb(): Promise<Db> {
         name: string
         phone: string | null
         also_tell_employer_if_commute: boolean
+        cin?: string | null
+        city?: string | null
+        license_number?: string | null
+        license_photo_path?: string | null
+        carte_grise_photo_path?: string | null
+        attestation_photo_path?: string | null
       }[]
     ).map((r) => ({
       id: r.id,
       name: r.name,
       phone: r.phone,
       alsoTellEmployerIfCommute: r.also_tell_employer_if_commute,
+      cin: r.cin ?? null,
+      city: r.city ?? null,
+      licenseNumber: r.license_number ?? null,
+      licensePhotoPath: r.license_photo_path ?? null,
+      carteGrisePhotoPath: r.carte_grise_photo_path ?? null,
+      attestationPhotoPath: r.attestation_photo_path ?? null,
     })),
     vehicles: (rows.vehicles as { id: string; plate: string | null; make_model: string | null }[]).map(
       (r) => ({
@@ -92,6 +117,7 @@ export async function loadDb(): Promise<Db> {
         broker_id: string | null
         vehicle_id: string
         assistance_on_contract: Policy['assistanceOnContract']
+        attestation_valid_until?: string | null
       }[]
     ).map((r) => ({
       id: r.id,
@@ -100,6 +126,7 @@ export async function loadDb(): Promise<Db> {
       brokerId: r.broker_id,
       vehicleId: r.vehicle_id,
       assistanceOnContract: r.assistance_on_contract,
+      attestationValidUntil: r.attestation_valid_until ?? null,
     })),
     otherParties: (
       rows.other_parties as {
@@ -258,6 +285,8 @@ export async function loadDb(): Promise<Db> {
       policyId: r.policy_id,
     })),
   }
+  memoryCache = { db, at: Date.now() }
+  return db
 }
 
 async function insertAll<T extends Record<string, unknown>>(
@@ -318,6 +347,7 @@ function deskFileRow(r: DeskFile) {
 
 /** Row-level write — avoids whole-table wipe for hot paths. */
 export async function upsertDossierRow(dossier: Dossier): Promise<void> {
+  invalidateDbCache()
   await withWriteLock(async () => {
     const sb = client()
     await upsertAll(sb, 'dossiers', [dossierRow(dossier)], 'id')
@@ -326,6 +356,7 @@ export async function upsertDossierRow(dossier: Dossier): Promise<void> {
 
 /** Row-level write — avoids whole-table wipe for hot paths. */
 export async function upsertEvidenceRow(evidence: Evidence): Promise<void> {
+  invalidateDbCache()
   await withWriteLock(async () => {
     const sb = client()
     await upsertAll(sb, 'evidences', [evidenceRow(evidence)], 'incident_id')
@@ -334,6 +365,7 @@ export async function upsertEvidenceRow(evidence: Evidence): Promise<void> {
 
 /** Row-level write — avoids whole-table wipe for hot paths. */
 export async function upsertDeskFileRow(file: DeskFile): Promise<void> {
+  invalidateDbCache()
   await withWriteLock(async () => {
     const sb = client()
     await upsertAll(sb, 'desk_files', [deskFileRow(file)], 'dossier_id')
@@ -361,7 +393,9 @@ async function syncUpsertTable(
 }
 
 export async function saveDb(db: Db): Promise<void> {
+  invalidateDbCache()
   await persistAll(db)
+  memoryCache = { db, at: Date.now() }
 }
 
 async function persistAll(db: Db): Promise<void> {
@@ -402,6 +436,12 @@ async function persistAll(db: Db): Promise<void> {
       name: r.name,
       phone: r.phone,
       also_tell_employer_if_commute: r.alsoTellEmployerIfCommute,
+      cin: r.cin,
+      city: r.city,
+      license_number: r.licenseNumber,
+      license_photo_path: r.licensePhotoPath,
+      carte_grise_photo_path: r.carteGrisePhotoPath,
+      attestation_photo_path: r.attestationPhotoPath,
     })),
   )
   await insertAll(
@@ -423,6 +463,7 @@ async function persistAll(db: Db): Promise<void> {
       broker_id: r.brokerId,
       vehicle_id: r.vehicleId,
       assistance_on_contract: r.assistanceOnContract,
+      attestation_valid_until: r.attestationValidUntil,
     })),
   )
   await insertAll(

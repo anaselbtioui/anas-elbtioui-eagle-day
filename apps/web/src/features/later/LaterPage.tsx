@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { WizardFrame, WizardSection } from '@/app/WizardFrame'
 import { Button } from '@/components/ui/button'
+import { LoadingLine } from '@/components/ui/loading-line'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { StickyActions } from '@/components/ui/sticky-actions'
@@ -54,16 +55,7 @@ export function LaterPage() {
         setDossier(file.dossier)
         setSubmittedAt(file.declaration?.submittedAt ?? null)
         setFacts(file.declaration?.narrative ?? '')
-        if (file.dossier?.id) {
-          try {
-            const bundle = await api.getBrokerDossier(file.dossier.id)
-            if (!cancelled) {
-              setEvents((bundle.events ?? []).filter((e) => e.motoristVisible))
-            }
-          } catch {
-            /* desk may not exist yet */
-          }
-        }
+        // Desk events need broker auth — do not block motorist load on /api/broker/*.
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'load_failed')
       } finally {
@@ -157,7 +149,7 @@ export function LaterPage() {
   if (loading) {
     return (
       <WizardFrame title={t('later.title')}>
-        <p className="text-ink-muted">{t('later.loading')}</p>
+        <LoadingLine />
       </WizardFrame>
     )
   }
@@ -284,7 +276,8 @@ export function LaterPage() {
             <StickyActions>
               <Button
                 className="w-full"
-                disabled={!ready || busy || !confirmSend}
+                loading={busy}
+                disabled={!ready || !confirmSend}
                 onClick={() => void send()}
                 data-testid="later-submit"
               >

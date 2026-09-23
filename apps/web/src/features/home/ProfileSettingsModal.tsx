@@ -2,15 +2,31 @@ import { useEffect, useState, type ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
+import { CitySelect } from '@/components/CitySelect'
 import { InsurerSelect } from '@/components/InsurerSelect'
 import { VehicleSelect } from '@/components/VehicleSelect'
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PhoneInput } from '@/components/ui/phone-input'
 import { StickyActions, StickyActionsProvider } from '@/components/ui/sticky-actions'
+import {
+  isMoroccanCin,
+  isMoroccanPlate,
+  isPersonName,
+  normalizeCin,
+  normalizePlate,
+} from '@/domain/ma-fields.ts'
+import { isMoroccanCity } from '@/domain/moroccan-cities.ts'
+import { isValidMoroccanPhone } from '@/lib/phone'
 import { useProfileStore } from '@/store/profile'
 import { api } from '@/services/api.ts'
-import { attestationDaysRemaining, walletToDomain, type Wallet } from '@/services/wallet.ts'
+import {
+  attestationDaysRemaining,
+  emptyWallet,
+  type Wallet,
+} from '@/services/wallet.ts'
 import { cn } from '@/lib/utils'
 
 type ProfileCategory = 'identite' | 'vehicule' | 'contrat' | 'courtier'
@@ -35,7 +51,8 @@ const CATEGORY_ICON: Record<SettingsCategory, LabasIconName> = {
 
 type FieldKey = keyof Pick<
   Wallet,
-  | 'name'
+  | 'firstName'
+  | 'lastName'
   | 'phone'
   | 'cin'
   | 'city'
@@ -51,13 +68,14 @@ type FieldKey = keyof Pick<
 >
 
 const CATEGORY_FIELDS: Record<Exclude<ProfileCategory, 'courtier'>, FieldKey[]> = {
-  identite: ['name', 'phone', 'cin', 'city', 'licenseNumber'],
+  identite: ['firstName', 'lastName', 'phone', 'cin', 'city', 'licenseNumber'],
   vehicule: ['plate', 'vehicle'],
   contrat: ['insurer', 'policy', 'attestationValidUntil', 'assistanceNumber'],
 }
 
 const FIELD_LABEL: Record<FieldKey, string> = {
-  name: 'onboarding.name',
+  firstName: 'onboarding.firstName',
+  lastName: 'onboarding.lastName',
   phone: 'onboarding.phone',
   cin: 'onboarding.cin',
   city: 'onboarding.city',
@@ -70,6 +88,36 @@ const FIELD_LABEL: Record<FieldKey, string> = {
   assistanceNumber: 'onboarding.assistance',
   broker: 'onboarding.broker',
   brokerPhone: 'onboarding.brokerPhone',
+}
+
+function fieldErrorKey(draft: Wallet, key: FieldKey): string | null {
+  const raw = String(draft[key] ?? '').trim()
+  if (!raw) return null
+  switch (key) {
+    case 'firstName':
+    case 'lastName':
+      return isPersonName(raw) ? null : 'fields.errorPersonName'
+    case 'cin':
+      return isMoroccanCin(raw) ? null : 'fields.errorCin'
+    case 'city':
+      return isMoroccanCity(raw) ? null : 'fields.errorCity'
+    case 'plate':
+      return isMoroccanPlate(raw) ? null : 'fields.errorPlate'
+    case 'phone':
+      return isValidMoroccanPhone(raw) ? null : 'phone.invalid'
+    default:
+      return null
+  }
+}
+
+function draftSaveOk(draft: Wallet): boolean {
+  if (draft.firstName.trim() && !isPersonName(draft.firstName)) return false
+  if (draft.lastName.trim() && !isPersonName(draft.lastName)) return false
+  if (draft.cin.trim() && !isMoroccanCin(draft.cin)) return false
+  if (draft.city.trim() && !isMoroccanCity(draft.city)) return false
+  if (draft.plate.trim() && !isMoroccanPlate(draft.plate)) return false
+  if (draft.phone.trim() && !isValidMoroccanPhone(draft.phone)) return false
+  return true
 }
 
 function isEditableCategory(
@@ -101,7 +149,8 @@ export function ProfileSettingsModal({
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
-  const { profile, setProfile, saving, error } = useProfileStore()
+  const { setProfile, persistDraft, saving, error } = useProfileStore()
+  const [draft, setDraft] = useState<Wallet>(emptyWallet)
   const [category, setCategory] = useState<SettingsCategory>('identite')
   const [persistError, setPersistError] = useState<string | null>(null)
   const [persistBusy, setPersistBusy] = useState(false)
@@ -112,11 +161,14 @@ export function ProfileSettingsModal({
       setCategory('identite')
       setPersistError(null)
       setBrokerEmail(null)
+      return
     }
+    // Snapshot once per open — typing stays local until Enregistrer.
+    setDraft({ ...useProfileStore.getState().profile })
   }, [open])
 
   useEffect(() => {
-    if (!open || !profile.brokerId) {
+    if (!open || !draft.brokerId) {
       setBrokerEmail(null)
       return
     }
@@ -125,7 +177,7 @@ export function ProfileSettingsModal({
       .listRegisteredBrokers()
       .then((list) => {
         if (cancelled) return
-        const match = list.find((b) => b.id === profile.brokerId)
+        const match = list.find((b) => b.id === draft.brokerId)
         setBrokerEmail(match?.email ?? null)
       })
       .catch(() => {
@@ -134,15 +186,26 @@ export function ProfileSettingsModal({
     return () => {
       cancelled = true
     }
-  }, [open, profile.brokerId])
+  }, [open, draft.brokerId])
 
-  const days = attestationDaysRemaining(profile.attestationValidUntil)
+  const days = attestationDaysRemaining(draft.attestationValidUntil)
+
+  function patchDraft(patch: Partial<Wallet>) {
+    setDraft((prev) => ({ ...prev, ...patch }))
+  }
 
   async function persist() {
+    if (!draftSaveOk(draft)) return
     setPersistBusy(true)
     setPersistError(null)
     try {
-      await api.saveProfile(walletToDomain(profile))
+      const next = {
+        ...draft,
+        cin: draft.cin.trim() ? normalizeCin(draft.cin) : '',
+        plate: draft.plate.trim() ? normalizePlate(draft.plate) : '',
+      }
+      setProfile(next)
+      await persistDraft()
       onOpenChange(false)
     } catch {
       setPersistError(t('onboarding.saveError'))
@@ -152,6 +215,7 @@ export function ProfileSettingsModal({
   }
 
   const showEditableForm = isEditableCategory(category)
+  const canSave = draftSaveOk(draft)
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -220,37 +284,71 @@ export function ProfileSettingsModal({
                   </p>
 
                   <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
-                    {CATEGORY_FIELDS[category].map((key) => (
+                    {CATEGORY_FIELDS[category].map((key) => {
+                      const errKey = fieldErrorKey(draft, key)
+                      return (
                       <FieldRow key={key} label={t(FIELD_LABEL[key])}>
                         {key === 'insurer' ? (
                           <InsurerSelect
-                            value={profile.insurer}
-                            onChange={(insurer) => setProfile({ insurer })}
+                            value={draft.insurer}
+                            onChange={(insurer) => patchDraft({ insurer })}
                             placeholder={t('onboarding.insurerPick')}
                             className="min-h-10 border-border px-3 py-2 text-base"
                           />
                         ) : key === 'vehicle' ? (
                           <VehicleSelect
-                            value={profile.vehicle}
-                            onChange={(vehicle) => setProfile({ vehicle })}
+                            value={draft.vehicle}
+                            onChange={(vehicle) => patchDraft({ vehicle })}
                             className="min-h-10 border-border px-3 py-2 text-base"
+                          />
+                        ) : key === 'city' ? (
+                          <CitySelect
+                            value={draft.city}
+                            onChange={(city) => patchDraft({ city })}
+                            className="min-h-10"
+                          />
+                        ) : key === 'phone' ? (
+                          <PhoneInput
+                            value={draft.phone}
+                            onChange={(phone) => patchDraft({ phone })}
+                            className="min-h-10"
+                          />
+                        ) : key === 'attestationValidUntil' ? (
+                          <DatePicker
+                            value={draft.attestationValidUntil}
+                            onChange={(attestationValidUntil) =>
+                              patchDraft({ attestationValidUntil })
+                            }
+                            className="min-h-10 [&_button]:min-h-10 [&_button]:px-3 [&_button]:py-2"
+                            aria-invalid={Boolean(errKey)}
+                            data-testid="settings-attestation-valid-until"
                           />
                         ) : (
                           <Input
-                            type={key === 'attestationValidUntil' ? 'date' : 'text'}
-                            value={profile[key]}
-                            onChange={(e) => setProfile({ [key]: e.target.value })}
+                            type="text"
+                            value={draft[key]}
+                            onChange={(e) => {
+                              const v = e.target.value
+                              if (key === 'cin') patchDraft({ cin: normalizeCin(v) })
+                              else if (key === 'plate') patchDraft({ plate: v.toUpperCase() })
+                              else patchDraft({ [key]: v })
+                            }}
                             className="min-h-10 border-border px-3 py-2 text-base"
+                            aria-invalid={Boolean(errKey)}
                           />
                         )}
+                        {errKey ? (
+                          <p className="mt-1 text-sm text-alert">{t(errKey)}</p>
+                        ) : null}
                       </FieldRow>
-                    ))}
+                      )
+                    })}
                   </div>
 
                   {category === 'contrat' && days !== null && days < 0 ? (
                     <p className="mt-3 text-sm text-alert">
                       {t('onboarding.attestationExpired', {
-                        date: profile.attestationValidUntil,
+                        date: draft.attestationValidUntil,
                       })}
                     </p>
                   ) : null}
@@ -260,7 +358,7 @@ export function ProfileSettingsModal({
                   days <= 45 ? (
                     <p className="mt-3 text-sm text-ink-muted">
                       {t('onboarding.attestationExpiryReminder', {
-                        date: profile.attestationValidUntil,
+                        date: draft.attestationValidUntil,
                         days,
                       })}
                     </p>
@@ -273,7 +371,8 @@ export function ProfileSettingsModal({
                   <StickyActions>
                     <Button
                       type="button"
-                      disabled={persistBusy || saving}
+                      loading={persistBusy || saving}
+                      disabled={!canSave}
                       onClick={() => void persist()}
                       data-testid="settings-save"
                     >
@@ -294,7 +393,7 @@ export function ProfileSettingsModal({
                   <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
                     <FieldRow label={t('onboarding.broker')}>
                       <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-name">
-                        {profile.broker.trim() || t('motorist.brokerUnset')}
+                        {draft.broker.trim() || t('motorist.brokerUnset')}
                       </p>
                     </FieldRow>
                     <FieldRow label={t('onboarding.brokerEmail')}>

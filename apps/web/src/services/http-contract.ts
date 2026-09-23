@@ -89,6 +89,13 @@ export type LabasHttpApi = {
   getSession: (motoristId?: string) => Promise<SessionSnapshot>
   getProfile: (motoristId?: string) => Promise<Profile>
   saveProfile: (profile: Profile) => Promise<Profile>
+  uploadProfileDoc: (
+    kind: 'license' | 'carteGrise' | 'attestation',
+    dataUrl: string,
+  ) => Promise<{ kind: string; path: string }>
+  profileDocUrl: (
+    kind: 'license' | 'carteGrise' | 'attestation',
+  ) => Promise<{ url: string; path: string }>
   loadDemoProfile: () => Promise<Profile>
   listContacts: (
     assistanceOnContract: Profile['policy']['assistanceOnContract'],

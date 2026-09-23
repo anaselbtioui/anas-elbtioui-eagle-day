@@ -68,6 +68,12 @@ export const httpApi: LabasHttpApi = {
   },
   saveProfile: (profile) =>
     req<Profile>('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }),
+  uploadProfileDoc: (kind, dataUrl) =>
+    req('/api/profile/docs', {
+      method: 'POST',
+      body: JSON.stringify({ kind, dataUrl }),
+    }),
+  profileDocUrl: (kind) => req(`/api/profile/docs/${kind}/url`),
   loadDemoProfile: () => req<Profile>('/api/profile/demo', { method: 'POST' }),
   listContacts: (assistanceOnContract) =>
     req(`/api/contacts?assistanceOnContract=${assistanceOnContract}`),

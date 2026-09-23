@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ShellListFrame, ShellScroll } from '@/app/AppShell'
 import { DataTable } from '@/components/ui/data-table'
+import { LoadingLine } from '@/components/ui/loading-line'
 import type { ColumnDef } from '@tanstack/table-core'
 import type { BrokerClient } from '@/services/http-contract.ts'
 import { api } from '@/services/api.ts'
@@ -84,7 +85,7 @@ export function BrokerClientsPage() {
         <p className="mt-2 max-w-xl text-base text-ink-muted">{t('broker.clientsHint')}</p>
       </div>
 
-      {loading ? <p className="text-ink-muted">{t('later.loading')}</p> : null}
+      {loading ? <LoadingLine /> : null}
       {error ? <p className="mb-3 text-sm text-alert">{error}</p> : null}
 
       {!loading ? (

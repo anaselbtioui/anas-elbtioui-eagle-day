@@ -3,6 +3,7 @@ import { Navigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ShellScroll } from '@/app/AppShell'
 import { Button } from '@/components/ui/button'
+import { LoadingLine } from '@/components/ui/loading-line'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { StickyActions } from '@/components/ui/sticky-actions'
@@ -81,7 +82,7 @@ export function BrokerDossierPage() {
   }, [activeDraft?.id, activeDraft?.body])
 
   if (lookup === 'loading') {
-    return <p className="text-ink-muted">{t('later.loading')}</p>
+    return <LoadingLine />
   }
 
   if (!bundle) {

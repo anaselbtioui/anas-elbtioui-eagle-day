@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canArchivePack,
   createEmptyPack,
+  DECLARE_GUIDANCE_WINDOW_MS,
   deriveNowStep,
   evidenceReducer,
   expireDraftPack,
+  isDeclareGuidanceExpired,
   isNowDraftExpired,
+  isPackArchived,
   nextNowStep,
   NOW_DRAFT_TTL_MS,
   photoSlotsForParts,
@@ -52,10 +56,64 @@ describe('NOW draft expiry', () => {
     expect(expireDraftPack(pack, before).status).toBe('draft')
   })
 
+  it('marks the 5-day guidance window without touching saved status', () => {
+    const createdAt = '2026-09-01T10:00:00.000Z'
+    const before = Date.parse('2026-09-06T10:00:00.000Z')
+    const after = Date.parse('2026-09-06T10:00:01.000Z')
+    expect(DECLARE_GUIDANCE_WINDOW_MS).toBe(5 * 24 * 60 * 60 * 1000)
+    expect(isDeclareGuidanceExpired(createdAt, before)).toBe(false)
+    expect(isDeclareGuidanceExpired(createdAt, after)).toBe(true)
+    expect(isDeclareGuidanceExpired(undefined, after)).toBe(false)
+  })
+
   it('does not expire saved or stopped', () => {
     const old = '2020-01-01T00:00:00.000Z'
     expect(isNowDraftExpired({ status: 'saved', createdAt: old })).toBe(false)
     expect(isNowDraftExpired({ status: 'stopped', createdAt: old })).toBe(false)
+  })
+})
+
+describe('archive eligibility', () => {
+  it('allows stopped and expired', () => {
+    expect(
+      canArchivePack({
+        ...createEmptyPack(),
+        status: 'stopped',
+        archivedAt: null,
+      }),
+    ).toBe(true)
+    expect(
+      canArchivePack({
+        ...createEmptyPack(),
+        status: 'expired',
+        archivedAt: null,
+      }),
+    ).toBe(true)
+  })
+
+  it('allows draft past TTL', () => {
+    const pack = {
+      ...createEmptyPack(),
+      status: 'draft' as const,
+      createdAt: '2020-01-01T00:00:00.000Z',
+      archivedAt: null,
+    }
+    expect(canArchivePack(pack)).toBe(true)
+  })
+
+  it('blocks draft, saved, and already archived', () => {
+    const fresh = createEmptyPack()
+    expect(canArchivePack(fresh)).toBe(false)
+    expect(canArchivePack({ ...fresh, status: 'saved' })).toBe(false)
+    expect(
+      canArchivePack({
+        ...fresh,
+        status: 'stopped',
+        archivedAt: '2026-09-23T10:00:00.000Z',
+      }),
+    ).toBe(false)
+    expect(isPackArchived({ archivedAt: '2026-09-23T10:00:00.000Z' })).toBe(true)
+    expect(isPackArchived({ archivedAt: null })).toBe(false)
   })
 })
 

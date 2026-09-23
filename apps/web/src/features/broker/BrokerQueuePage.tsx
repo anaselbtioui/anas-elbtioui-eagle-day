@@ -5,6 +5,7 @@ import type { ColumnDef } from '@tanstack/table-core'
 import { ShellListFrame, ShellScroll } from '@/app/AppShell'
 import { LifecycleRing } from '@/components/LifecycleRing'
 import { DataTable } from '@/components/ui/data-table'
+import { LoadingLine } from '@/components/ui/loading-line'
 import { filterDeskBundles, type DeskBundle } from '@/domain/desk.ts'
 import { dossierLifecycleStages } from '@/domain/lifecycle.ts'
 import { useBrokerDeskStore } from '@/store/brokerDesk'
@@ -174,7 +175,7 @@ export function BrokerQueuePage() {
         ))}
       </div>
 
-      {loading ? <p className="text-ink-muted">{t('later.loading')}</p> : null}
+      {loading ? <LoadingLine /> : null}
       {error ? <p className="mb-3 text-sm text-alert">{error}</p> : null}
 
       {!loading ? (

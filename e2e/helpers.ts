@@ -75,7 +75,9 @@ export async function fillOnboardingEssentials(
   // otp → Passer
   await page.getByRole('button', { name: /Passer/i }).click()
   // identity
-  await page.getByLabel(/Nom complet/i).fill(opts.name)
+  const parts = opts.name.trim().split(/\s+/)
+  await page.getByLabel(/^Prénom$/i).fill(parts[0] ?? opts.name)
+  await page.getByLabel(/^Nom$/i).fill(parts.slice(1).join(' ') || 'Test')
   await page.getByRole('button', { name: /Continuer/i }).click()
   // permis → Passer
   await page.getByRole('button', { name: /Passer/i }).click()

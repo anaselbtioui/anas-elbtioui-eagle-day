@@ -18,6 +18,8 @@ export const labasIcons = {
   user: 'streamline-color:user-circle-single',
   mail: 'streamline-color:mail-send-email-message',
   lock: 'streamline-color:padlock-square-1',
+  settings: 'streamline-color:cog',
+  logout: 'streamline-color:logout-1',
 } as const
 
 export type LabasIconName = keyof typeof labasIcons

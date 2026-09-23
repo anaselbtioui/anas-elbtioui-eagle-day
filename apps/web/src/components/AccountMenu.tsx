@@ -10,6 +10,9 @@ type AccountMenuProps = {
   onSettings: () => void
 }
 
+const menuItemClass =
+  'flex min-h-10 w-full items-center gap-2.5 rounded-[calc(var(--radius-labas)-2px)] px-2.5 text-left text-sm font-semibold text-ink transition-colors hover:bg-sand-deep/80'
+
 /** Avatar row opens settings and log out. Same control on both shells. */
 export function AccountMenu({ displayName, avatarTestId, onSettings }: AccountMenuProps) {
   const { t } = useTranslation()
@@ -61,32 +64,32 @@ export function AccountMenu({ displayName, avatarTestId, onSettings }: AccountMe
           id={menuId}
           role="menu"
           data-testid="account-menu"
-          className="absolute bottom-full left-0 z-30 mb-2 w-full min-w-44 rounded-[var(--radius-labas)] border border-border bg-surface py-1 shadow-[0_12px_40px_-12px_rgba(16,40,96,0.28)]"
+          className="absolute bottom-full left-0 z-30 mb-2 w-full min-w-44 rounded-[var(--radius-labas)] border border-border bg-surface p-1.5 shadow-[0_12px_40px_-12px_rgba(16,40,96,0.28)]"
         >
           <button
             type="button"
             role="menuitem"
-            className="flex min-h-10 w-full items-center px-3 text-left text-sm font-semibold text-ink transition-colors hover:bg-sand-deep/80"
+            className={menuItemClass}
             data-testid="account-menu-settings"
             onClick={() => {
               setOpen(false)
               onSettings()
             }}
           >
+            <LabasIcon name="settings" className="h-4 w-4 shrink-0" tone="onSand" aria-hidden />
             {t('motorist.settingsTitle')}
           </button>
           <button
             type="button"
             role="menuitem"
-            className={cn(
-              'flex min-h-10 w-full items-center border-t border-border/60 px-3 text-left text-sm font-semibold text-ink transition-colors hover:bg-sand-deep/80',
-            )}
+            className={cn(menuItemClass)}
             data-testid="logout"
             onClick={() => {
               setOpen(false)
               setConfirmLogout(true)
             }}
           >
+            <LabasIcon name="logout" className="h-4 w-4 shrink-0" tone="onSand" aria-hidden />
             {t('auth.logout')}
           </button>
         </div>

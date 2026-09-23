@@ -60,6 +60,9 @@ export function LifecycleRail({ stages, className }: LifecycleRailProps) {
                   {t(stateLabelKey(stage.state))}
                 </span>
               </div>
+              {stage.block ? (
+                <p className="mt-1 text-xs leading-snug text-ink-muted">{t(stage.block.titleKey)}</p>
+              ) : null}
             </div>
           </li>
         )

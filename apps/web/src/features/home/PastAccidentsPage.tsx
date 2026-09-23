@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
@@ -8,7 +8,12 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
 import { LifecycleRing } from '@/components/LifecycleRing'
 import { displayAccidentRef } from '@/domain/accident-ref'
-import type { EvidencePack, EvidencePackStatus } from '@/domain/evidence'
+import {
+  canArchivePack,
+  isPackArchived,
+  type EvidencePack,
+  type EvidencePackStatus,
+} from '@/domain/evidence'
 import { packLifecycleStages } from '@/domain/lifecycle.ts'
 import { openMotoristPack } from '@/features/home/openMotoristPack'
 import { api } from '@/services/api.ts'
@@ -16,8 +21,14 @@ import { walletClaimReady } from '@/services/wallet.ts'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
 import { showToast } from '@/store/toast'
+import {
+  accidentDisplayTitle,
+  accidentLabelCopyFromT,
+} from '@/lib/accident-label'
 import { fullTimestampFr, relativeFr } from '@/lib/relative-time'
 import { cn } from '@/lib/utils'
+
+type PastFilter = 'all' | 'archived'
 
 function statusTone(status: EvidencePackStatus): string {
   switch (status) {
@@ -44,8 +55,11 @@ export function PastAccidentsPage() {
   const history = useEvidenceStore((s) => s.history)
   const active = useEvidenceStore((s) => s.pack)
   const hydrateFromDomain = useEvidenceStore((s) => s.hydrateFromDomain)
+  const archivePack = useEvidenceStore((s) => s.archivePack)
+  const unarchivePack = useEvidenceStore((s) => s.unarchivePack)
   const resume = useEvidenceStore((s) => s.resume)
   const claimReady = walletClaimReady(profile)
+  const [filter, setFilter] = useState<PastFilter>('all')
 
   useEffect(() => {
     if (!profile.onboarded) return
@@ -59,13 +73,14 @@ export function PastAccidentsPage() {
     return [...byId.values()]
   }, [history, active])
 
-  const packs = useMemo(
-    () =>
-      allPacks
-        .filter((p) => isPasse(p.status))
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    [allPacks],
-  )
+  const packs = useMemo(() => {
+    const past = allPacks.filter((p) => isPasse(p.status))
+    const filtered =
+      filter === 'archived'
+        ? past.filter((p) => isPackArchived(p))
+        : past.filter((p) => !isPackArchived(p))
+    return filtered.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }, [allPacks, filter])
 
   const selected = useMemo(
     () => (packId ? allPacks.find((p) => p.id === packId) : undefined),
@@ -87,22 +102,43 @@ export function PastAccidentsPage() {
     })
   }, [packId, selected, resume, navigate, claimReady, t])
 
+  const labelCopy = useMemo(() => accidentLabelCopyFromT(t), [t])
+  const cityFallback = profile.city.trim() || null
+
   const columns = useMemo<ColumnDef<EvidencePack>[]>(
     () => [
       {
         id: 'ref',
-        accessorFn: (row) => row.ref || row.id,
-        header: t('motorist.colRef'),
-        cell: ({ row }) => (
-          <p
-            className={cn(
-              'font-mono text-sm font-semibold text-ink',
-              packId === row.original.id && 'underline decoration-ink/40',
-            )}
-          >
-            {displayAccidentRef(row.original.ref, row.original.id)}
-          </p>
-        ),
+        accessorFn: (row) =>
+          accidentDisplayTitle(
+            { ...row, city: row.city || cityFallback },
+            labelCopy,
+          ),
+        header: t('motorist.colAccident'),
+        cell: ({ row }) => {
+          const pack = row.original
+          const title = accidentDisplayTitle(
+            { ...pack, city: pack.city || cityFallback },
+            labelCopy,
+          )
+          const ref = displayAccidentRef(pack.ref, pack.id)
+          return (
+            <div className="min-w-0">
+              <p
+                className={cn(
+                  'truncate text-sm font-semibold text-ink',
+                  packId === pack.id && 'underline decoration-ink/40',
+                )}
+                title={title}
+              >
+                {title}
+              </p>
+              <p className="font-mono text-xs text-ink-muted" title={ref}>
+                {ref}
+              </p>
+            </div>
+          )
+        },
       },
       {
         id: 'updated',
@@ -149,8 +185,46 @@ export function PastAccidentsPage() {
           )
         },
       },
+      {
+        id: 'actions',
+        accessorFn: (row) => row.archivedAt ?? '',
+        header: () => <span className="sr-only">{t('motorist.colActions')}</span>,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const pack = row.original
+          if (isPackArchived(pack)) {
+            return (
+              <button
+                type="button"
+                className="text-xs font-semibold text-ink underline-offset-4 hover:underline"
+                data-testid={`unarchive-pack-${pack.id}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  unarchivePack(pack.id)
+                }}
+              >
+                {t('motorist.unarchive')}
+              </button>
+            )
+          }
+          if (!canArchivePack(pack)) return null
+          return (
+            <button
+              type="button"
+              className="text-xs font-semibold text-ink underline-offset-4 hover:underline"
+              data-testid={`archive-pack-${pack.id}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                archivePack(pack.id)
+              }}
+            >
+              {t('motorist.archive')}
+            </button>
+          )
+        },
+      },
     ],
-    [t, packId],
+    [t, packId, labelCopy, cityFallback, archivePack, unarchivePack],
   )
 
   if (!profile.onboarded) {
@@ -163,10 +237,33 @@ export function PastAccidentsPage() {
   return (
     <ShellScroll>
       <ShellListFrame className="space-y-5">
-        <header>
+        <header className="flex flex-wrap items-end justify-between gap-3">
           <h1 className="font-display text-2xl font-bold text-ink md:text-3xl">
             {t('motorist.pastTitle')}
           </h1>
+          <div className="flex flex-wrap gap-2 p-0.5">
+            {(
+              [
+                ['all', 'motorist.pastFilterAll'],
+                ['archived', 'motorist.pastFilterArchived'],
+              ] as const
+            ).map(([id, key]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setFilter(id)}
+                className={cn(
+                  'inline-flex min-h-10 items-center rounded-[var(--radius-labas)] px-3 py-2 text-xs font-semibold transition-colors',
+                  filter === id
+                    ? 'bg-ink-soft text-ink ring-1 ring-inset ring-ink/20'
+                    : 'bg-sand-deep text-ink-muted hover:text-ink',
+                )}
+                data-testid={`past-filter-${id}`}
+              >
+                {t(key)}
+              </button>
+            ))}
+          </div>
         </header>
 
         {detail ? (
@@ -187,6 +284,28 @@ export function PastAccidentsPage() {
               <Button asChild variant="ghost">
                 <Link to="/past">{t('app.back')}</Link>
               </Button>
+              {isPackArchived(detail) ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  data-testid={`unarchive-pack-${detail.id}`}
+                  onClick={() => unarchivePack(detail.id)}
+                >
+                  {t('motorist.unarchive')}
+                </Button>
+              ) : canArchivePack(detail) ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  data-testid={`archive-pack-${detail.id}`}
+                  onClick={() => {
+                    archivePack(detail.id)
+                    navigate('/past')
+                  }}
+                >
+                  {t('motorist.archive')}
+                </Button>
+              ) : null}
             </div>
           </Card>
         ) : null}
@@ -200,7 +319,11 @@ export function PastAccidentsPage() {
         <DataTable
           columns={columns}
           data={packs}
-          emptyMessage={t('motorist.pastEmpty')}
+          emptyMessage={
+            filter === 'archived'
+              ? t('motorist.pastEmptyArchived')
+              : t('motorist.pastEmpty')
+          }
           getRowTestId={(row) => `past-pack-${row.id}`}
           onRowClick={(row) => navigate(`/past/${row.id}`)}
         />

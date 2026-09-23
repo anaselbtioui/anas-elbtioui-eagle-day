@@ -16757,7 +16757,13 @@ var nadiaProfile = {
     id: "M-1",
     name: "Nadia El Mansouri",
     phone: "06\u2022\u2022\u2022\u2022\u2022142",
-    alsoTellEmployerIfCommute: false
+    alsoTellEmployerIfCommute: false,
+    cin: null,
+    city: "Casablanca",
+    licenseNumber: null,
+    licensePhotoPath: null,
+    carteGrisePhotoPath: null,
+    attestationPhotoPath: null
   },
   vehicle: {
     id: "V-1",
@@ -16772,7 +16778,8 @@ var nadiaProfile = {
     insurerId: "I-1",
     brokerId: "B-1",
     vehicleId: "V-1",
-    assistanceOnContract: "unknown"
+    assistanceOnContract: "unknown",
+    attestationValidUntil: null
   }
 };
 function nadiaMissingConstatPack() {
@@ -16829,7 +16836,13 @@ var saraMotorist = {
   id: "M-2",
   name: "Sara Amrani",
   phone: "06\u2022\u2022\u2022\u2022\u2022881",
-  alsoTellEmployerIfCommute: false
+  alsoTellEmployerIfCommute: false,
+  cin: null,
+  city: null,
+  licenseNumber: null,
+  licensePhotoPath: null,
+  carteGrisePhotoPath: null,
+  attestationPhotoPath: null
 };
 
 // apps/api/src/desk.ts
@@ -16956,6 +16969,19 @@ async function loadDb() {
     return {
       ...emptyDb(),
       ...parsed,
+      motorists: (parsed.motorists ?? emptyDb().motorists).map((m) => ({
+        ...m,
+        cin: m.cin ?? null,
+        city: m.city ?? null,
+        licenseNumber: m.licenseNumber ?? null,
+        licensePhotoPath: m.licensePhotoPath ?? null,
+        carteGrisePhotoPath: m.carteGrisePhotoPath ?? null,
+        attestationPhotoPath: m.attestationPhotoPath ?? null
+      })),
+      policies: (parsed.policies ?? emptyDb().policies).map((p) => ({
+        ...p,
+        attestationValidUntil: p.attestationValidUntil ?? null
+      })),
       contacts: parsed.contacts?.length ? parsed.contacts : contacts,
       deskFiles: parsed.deskFiles ?? [],
       users: parsed.users ?? []
@@ -17034,7 +17060,7 @@ async function userFromToken(db, token) {
     const payload = await verify2(token, jwtSecret(), "HS256");
     const id = typeof payload.sub === "string" ? payload.sub : null;
     if (!id) return null;
-    const row = db.users.find((u) => u.id === id);
+    const row = db?.users.find((u) => u.id === id);
     if (row) return publicUser(row);
     const role = payload.role === "broker" || payload.role === "motorist" ? payload.role : null;
     const email = typeof payload.email === "string" ? payload.email : "";
@@ -17075,7 +17101,13 @@ function provisionMotorist(db, displayName) {
         id: motoristId,
         name: displayName,
         phone: null,
-        alsoTellEmployerIfCommute: false
+        alsoTellEmployerIfCommute: false,
+        cin: null,
+        city: null,
+        licenseNumber: null,
+        licensePhotoPath: null,
+        carteGrisePhotoPath: null,
+        attestationPhotoPath: null
       }),
       vehicles: upsert(db.vehicles, { id: vehicleId, plate: null, makeModel: null }),
       insurers: upsert(db.insurers, { id: insurerId, displayName: "Assureur" }),
@@ -17085,7 +17117,8 @@ function provisionMotorist(db, displayName) {
         insurerId,
         brokerId: null,
         vehicleId,
-        assistanceOnContract: "unknown"
+        assistanceOnContract: "unknown",
+        attestationValidUntil: null
       })
     }
   };
@@ -25908,7 +25941,15 @@ function client() {
 function throwIf(error, action) {
   if (error) throw new Error(`${action}: ${error.message}`);
 }
+var memoryCache = null;
+var CACHE_TTL_MS = 3e3;
+function invalidateDbCache() {
+  memoryCache = null;
+}
 async function loadDb2() {
+  if (memoryCache && Date.now() - memoryCache.at < CACHE_TTL_MS) {
+    return memoryCache.db;
+  }
   const sb = client();
   const tables = [
     "insurers",
@@ -25925,13 +25966,15 @@ async function loadDb2() {
     "desk_files",
     "app_users"
   ];
-  const rows = {};
-  for (const table of tables) {
-    const { data, error } = await sb.from(table).select("*");
-    throwIf(error, `select ${table}`);
-    rows[table] = data ?? [];
-  }
-  return {
+  const settled = await Promise.all(
+    tables.map(async (table) => {
+      const { data, error } = await sb.from(table).select("*");
+      throwIf(error, `select ${table}`);
+      return [table, data ?? []];
+    })
+  );
+  const rows = Object.fromEntries(settled);
+  const db = {
     insurers: rows.insurers.map((r) => ({
       id: r.id,
       displayName: r.display_name
@@ -25944,7 +25987,13 @@ async function loadDb2() {
       id: r.id,
       name: r.name,
       phone: r.phone,
-      alsoTellEmployerIfCommute: r.also_tell_employer_if_commute
+      alsoTellEmployerIfCommute: r.also_tell_employer_if_commute,
+      cin: r.cin ?? null,
+      city: r.city ?? null,
+      licenseNumber: r.license_number ?? null,
+      licensePhotoPath: r.license_photo_path ?? null,
+      carteGrisePhotoPath: r.carte_grise_photo_path ?? null,
+      attestationPhotoPath: r.attestation_photo_path ?? null
     })),
     vehicles: rows.vehicles.map(
       (r) => ({
@@ -25959,7 +26008,8 @@ async function loadDb2() {
       insurerId: r.insurer_id,
       brokerId: r.broker_id,
       vehicleId: r.vehicle_id,
-      assistanceOnContract: r.assistance_on_contract
+      assistanceOnContract: r.assistance_on_contract,
+      attestationValidUntil: r.attestation_valid_until ?? null
     })),
     otherParties: rows.other_parties.map((r) => ({
       id: r.id,
@@ -26037,6 +26087,8 @@ async function loadDb2() {
       policyId: r.policy_id
     }))
   };
+  memoryCache = { db, at: Date.now() };
+  return db;
 }
 async function insertAll(sb, table, rows) {
   if (!rows.length) return;
@@ -26092,7 +26144,9 @@ async function syncUpsertTable(sb, table, idColumn, rows, onConflict) {
   }
 }
 async function saveDb2(db) {
+  invalidateDbCache();
   await persistAll(db);
+  memoryCache = { db, at: Date.now() };
 }
 async function persistAll(db) {
   const sb = client();
@@ -26130,7 +26184,13 @@ async function persistAll(db) {
       id: r.id,
       name: r.name,
       phone: r.phone,
-      also_tell_employer_if_commute: r.alsoTellEmployerIfCommute
+      also_tell_employer_if_commute: r.alsoTellEmployerIfCommute,
+      cin: r.cin,
+      city: r.city,
+      license_number: r.licenseNumber,
+      license_photo_path: r.licensePhotoPath,
+      carte_grise_photo_path: r.carteGrisePhotoPath,
+      attestation_photo_path: r.attestationPhotoPath
     }))
   );
   await insertAll(
@@ -26151,7 +26211,8 @@ async function persistAll(db) {
       insurer_id: r.insurerId,
       broker_id: r.brokerId,
       vehicle_id: r.vehicleId,
-      assistance_on_contract: r.assistanceOnContract
+      assistance_on_contract: r.assistanceOnContract,
+      attestation_valid_until: r.attestationValidUntil
     }))
   );
   await insertAll(
@@ -26276,6 +26337,10 @@ function evidenceObjectPath(incidentId, photoId, slot, ext) {
   const safeSlot = slot.replace(/[^a-zA-Z0-9._-]/g, "_");
   return `${safeIncident}/${safeSlot}/${safePhoto}.${ext}`;
 }
+function walletDocObjectPath(motoristId, kind, ext) {
+  const safeMotorist = motoristId.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return `wallet/${safeMotorist}/${kind}.${ext}`;
+}
 async function uploadEvidenceObject(path2, bytes, mime) {
   if (!storageConfigured()) throw new Error("storage_unconfigured");
   const sb = client2();
@@ -26316,7 +26381,13 @@ function createImportBundle(input) {
       id: motoristId,
       name: input.extracted.name.trim() || "Client import\xE9",
       phone: input.extracted.phone,
-      alsoTellEmployerIfCommute: false
+      alsoTellEmployerIfCommute: false,
+      cin: null,
+      city: input.extracted.city,
+      licenseNumber: null,
+      licensePhotoPath: null,
+      carteGrisePhotoPath: null,
+      attestationPhotoPath: null
     },
     vehicle: {
       id: vehicleId,
@@ -26331,7 +26402,8 @@ function createImportBundle(input) {
       insurerId,
       brokerId,
       vehicleId,
-      assistanceOnContract: "unknown"
+      assistanceOnContract: "unknown",
+      attestationValidUntil: null
     }
   };
   const pack = {
@@ -26585,8 +26657,7 @@ function createApp(loadFn = loadDb, persistFn = saveDb) {
     const header = c.req.header("Authorization") ?? "";
     const raw2 = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
     if (raw2) {
-      const db = await load();
-      c.set("auth", await userFromToken(db, raw2));
+      c.set("auth", await userFromToken(null, raw2));
     }
     await next();
   });
@@ -26704,8 +26775,24 @@ function createApp(loadFn = loadDb, persistFn = saveDb) {
       const registered = listRegisteredBrokers(db);
       const chosen = chosenBrokerId || (registered.length === 1 ? registered[0].id : "");
       if (!chosen) {
-        err = "broker_required";
-        return db;
+        const policy2 = {
+          ...body.policy,
+          id: auth.policyId ?? body.policy.id,
+          brokerId: null
+        };
+        const next2 = {
+          ...db,
+          motorists: upsert(db.motorists, body.motorist),
+          vehicles: upsert(db.vehicles, body.vehicle),
+          insurers: upsert(db.insurers, body.insurer),
+          policies: upsert(db.policies, policy2)
+        };
+        saved = {
+          ...body,
+          broker: { id: "", displayName: body.broker.displayName || "Courtier" },
+          policy: policy2
+        };
+        return next2;
       }
       const match2 = registered.find((b) => b.id === chosen);
       if (!match2) {
@@ -26733,9 +26820,51 @@ function createApp(loadFn = loadDb, persistFn = saveDb) {
       };
       return next;
     });
-    if (err === "broker_required") return c.json({ error: "broker_required" }, 400);
     if (err) return c.json({ error: err }, 400);
     return c.json(saved);
+  });
+  app2.post("/api/profile/docs", async (c) => {
+    const denied = needMotorist(c);
+    if (denied) return denied;
+    if (!storageConfigured()) return c.json({ error: "storage_unconfigured" }, 503);
+    const auth = c.get("auth");
+    const body = await readJson(c, {});
+    if (!body.kind || !body.dataUrl) return c.json({ error: "kind_and_data_required" }, 400);
+    let parsed;
+    try {
+      parsed = parseDataUrl(body.dataUrl);
+    } catch {
+      return c.json({ error: "invalid_data_url" }, 400);
+    }
+    const path2 = walletDocObjectPath(auth.motoristId, body.kind, parsed.ext);
+    await uploadEvidenceObject(path2, parsed.bytes, parsed.mime);
+    const pathKey = body.kind === "license" ? "licensePhotoPath" : body.kind === "carteGrise" ? "carteGrisePhotoPath" : "attestationPhotoPath";
+    await write((db) => {
+      const motorist = db.motorists.find((m) => m.id === auth.motoristId);
+      if (!motorist) return db;
+      return {
+        ...db,
+        motorists: upsert(db.motorists, { ...motorist, [pathKey]: path2 })
+      };
+    });
+    return c.json({ kind: body.kind, path: path2 }, 201);
+  });
+  app2.get("/api/profile/docs/:kind/url", async (c) => {
+    const denied = needMotorist(c);
+    if (denied) return denied;
+    if (!storageConfigured()) return c.json({ error: "storage_unconfigured" }, 503);
+    const kind = c.req.param("kind");
+    if (kind !== "license" && kind !== "carteGrise" && kind !== "attestation") {
+      return c.json({ error: "invalid_kind" }, 400);
+    }
+    const auth = c.get("auth");
+    const db = await load();
+    const motorist = db.motorists.find((m) => m.id === auth.motoristId);
+    if (!motorist) return c.json({ error: "no_profile" }, 404);
+    const path2 = kind === "license" ? motorist.licensePhotoPath : kind === "carteGrise" ? motorist.carteGrisePhotoPath : motorist.attestationPhotoPath;
+    if (!path2) return c.json({ error: "not_found" }, 404);
+    const url = await signedEvidenceUrl(path2);
+    return c.json({ url, path: path2 });
   });
   app2.get("/api/brokers", async (c) => {
     const denied = needAuth(c);

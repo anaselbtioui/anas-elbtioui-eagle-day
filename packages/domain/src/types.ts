@@ -21,6 +21,15 @@ export type Motorist = {
   name: string
   phone: string | null
   alsoTellEmployerIfCommute: boolean
+  /** Moroccan CIN / identity number. */
+  cin: string | null
+  /** Residence city (curated list). */
+  city: string | null
+  licenseNumber: string | null
+  /** Supabase Storage path in `evidence` bucket (wallet docs). */
+  licensePhotoPath: string | null
+  carteGrisePhotoPath: string | null
+  attestationPhotoPath: string | null
 }
 
 export type OtherParty = {
@@ -53,6 +62,8 @@ export type Policy = {
   brokerId: string | null
   vehicleId: string
   assistanceOnContract: AssistanceOnContract
+  /** ISO date YYYY-MM-DD when attestation expires. */
+  attestationValidUntil: string | null
 }
 
 export type Incident = {

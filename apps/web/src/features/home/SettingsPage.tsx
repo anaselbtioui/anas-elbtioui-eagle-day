@@ -50,7 +50,8 @@ export function SettingsPage() {
         <CardDescription>{t('motorist.settingsLocalNote')}</CardDescription>
 
         <div className="mt-4">
-          <Field label={t('onboarding.name')} value={profile.name} />
+          <Field label={t('onboarding.firstName')} value={profile.firstName} />
+          <Field label={t('onboarding.lastName')} value={profile.lastName} />
           <Field label={t('onboarding.phone')} value={profile.phone} />
           <Field label={t('onboarding.cin')} value={profile.cin} />
           <Field label={t('onboarding.plate')} value={profile.plate} />

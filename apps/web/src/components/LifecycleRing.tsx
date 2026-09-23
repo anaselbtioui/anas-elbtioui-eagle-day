@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import type { LifecycleStage } from '@/domain/lifecycle.ts'
 import { lifecycleTonePaint, type LifecycleTone } from '@/domain/lifecycle-tone.ts'
 import { LifecycleRail } from '@/components/LifecycleRail'
@@ -78,7 +79,12 @@ export function LifecycleRing({
   size = 16,
   className,
 }: LifecycleRingProps) {
+  const { t } = useTranslation()
   const resolvedTones = tones ?? stages?.map((s) => s.tone) ?? []
+  const blockKey =
+    stages?.find((s) => s.state === 'active' && s.block)?.block?.titleKey ??
+    stages?.find((s) => s.block)?.block?.titleKey
+  const accessibleLabel = blockKey ? `${label}. ${t(blockKey)}` : label
   const anchorRef = useRef<HTMLSpanElement>(null)
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -95,7 +101,8 @@ export function LifecycleRing({
       window.innerWidth - TIP_WIDTH - 8,
     )
     const below = r.bottom + 8
-    const tipH = 12 + stages!.length * 40
+    const blockCount = stages!.filter((s) => s.block).length
+    const tipH = 12 + stages!.length * 40 + blockCount * 32
     const top =
       below + tipH > window.innerHeight - 8 ? Math.max(8, r.top - tipH - 8) : below
     setPos({ top, left })
@@ -119,7 +126,7 @@ export function LifecycleRing({
         hasStages && 'cursor-help',
         className,
       )}
-      aria-label={label}
+      aria-label={accessibleLabel}
       title={hasStages ? undefined : label}
       onMouseEnter={show}
       onMouseLeave={hide}

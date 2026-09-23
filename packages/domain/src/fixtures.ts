@@ -43,6 +43,12 @@ export const nadiaProfile: Profile = {
     name: 'Nadia El Mansouri',
     phone: '06•••••142',
     alsoTellEmployerIfCommute: false,
+    cin: null,
+    city: 'Casablanca',
+    licenseNumber: null,
+    licensePhotoPath: null,
+    carteGrisePhotoPath: null,
+    attestationPhotoPath: null,
   },
   vehicle: {
     id: 'V-1',
@@ -58,6 +64,7 @@ export const nadiaProfile: Profile = {
     brokerId: 'B-1',
     vehicleId: 'V-1',
     assistanceOnContract: 'unknown',
+    attestationValidUntil: null,
   },
 }
 
@@ -118,6 +125,12 @@ export const saraMotorist = {
   name: 'Sara Amrani',
   phone: '06•••••881',
   alsoTellEmployerIfCommute: false,
+  cin: null,
+  city: null,
+  licenseNumber: null,
+  licensePhotoPath: null,
+  carteGrisePhotoPath: null,
+  attestationPhotoPath: null,
 }
 
 export const omarProfile: Profile = {
@@ -126,6 +139,12 @@ export const omarProfile: Profile = {
     name: 'Omar Benali',
     phone: '06•••••604',
     alsoTellEmployerIfCommute: false,
+    cin: null,
+    city: null,
+    licenseNumber: null,
+    licensePhotoPath: null,
+    carteGrisePhotoPath: null,
+    attestationPhotoPath: null,
   },
   vehicle: {
     id: 'V-3',
@@ -141,6 +160,7 @@ export const omarProfile: Profile = {
     brokerId: 'B-1',
     vehicleId: 'V-3',
     assistanceOnContract: 'unknown',
+    attestationValidUntil: null,
   },
 }
 

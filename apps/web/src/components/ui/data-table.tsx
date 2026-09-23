@@ -20,20 +20,29 @@ type DataTableProps<TData, TValue> = {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   onRowClick?: (row: TData) => void
+  /** When true: no row click, muted cells; status/lifecycle stay interactive. */
+  isRowDisabled?: (row: TData) => boolean
+  /** Column ids that stay full-opacity + hoverable on a disabled row. */
+  interactiveColumnIds?: string[]
   getRowTestId?: (row: TData) => string | undefined
   emptyMessage?: string
   className?: string
 }
 
+const DEFAULT_INTERACTIVE = ['status', 'lifecycle', 'actions']
+
 export function DataTable<TData, TValue>({
   columns,
   data,
   onRowClick,
+  isRowDisabled,
+  interactiveColumnIds = DEFAULT_INTERACTIVE,
   getRowTestId,
   emptyMessage,
   className,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
+  const interactive = new Set(interactiveColumnIds)
 
   const table = useReactTable({
     data,
@@ -73,29 +82,54 @@ export function DataTable<TData, TValue>({
       </TableHeader>
       <TableBody>
         {table.getRowModel().rows.length ? (
-          table.getRowModel().rows.map((row) => (
-            <TableRow
-              key={row.id}
-              data-testid={getRowTestId?.(row.original)}
-              className={cn(onRowClick && 'cursor-pointer')}
-              onClick={() => onRowClick?.(row.original)}
-              onKeyDown={(e) => {
-                if (!onRowClick) return
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  onRowClick(row.original)
-                }
-              }}
-              tabIndex={onRowClick ? 0 : undefined}
-              role={onRowClick ? 'link' : undefined}
-            >
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))
+          table.getRowModel().rows.map((row) => {
+            const disabled = Boolean(isRowDisabled?.(row.original))
+            const clickable = Boolean(onRowClick) && !disabled
+            return (
+              <TableRow
+                key={row.id}
+                data-testid={getRowTestId?.(row.original)}
+                aria-disabled={disabled || undefined}
+                className={cn(
+                  clickable && 'cursor-pointer',
+                  disabled && 'cursor-default hover:bg-transparent',
+                )}
+                onClick={() => {
+                  if (!clickable) return
+                  onRowClick?.(row.original)
+                }}
+                onKeyDown={(e) => {
+                  if (!clickable) return
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onRowClick?.(row.original)
+                  }
+                }}
+                tabIndex={clickable ? 0 : undefined}
+                role={clickable ? 'link' : undefined}
+              >
+                {row.getVisibleCells().map((cell) => {
+                  const keepLive = interactive.has(cell.column.id)
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      className={cn(
+                        disabled && !keepLive && 'pointer-events-none opacity-45',
+                        disabled && keepLive && 'relative z-[1]',
+                      )}
+                      onClick={
+                        disabled && keepLive
+                          ? (e) => e.stopPropagation()
+                          : undefined
+                      }
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  )
+                })}
+              </TableRow>
+            )
+          })
         ) : (
           <TableRow className="hover:bg-transparent">
             <TableCell

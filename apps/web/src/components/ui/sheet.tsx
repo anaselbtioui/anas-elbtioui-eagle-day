@@ -22,8 +22,8 @@ export function SheetContent({
   const body = stickyActions ? (
     <StickyActionsProvider
       className="min-h-0 flex-1"
-      bodyClassName="px-5 pt-1 pb-1"
-      footerClassName="px-5"
+      bodyClassName="px-6 pt-2 pb-2"
+      footerClassName="px-6 pt-4"
     >
       {children}
     </StickyActionsProvider>
@@ -36,12 +36,12 @@ export function SheetContent({
       <Dialog.Overlay className="labas-overlay fixed inset-0 z-40 bg-ink/35" />
       <Dialog.Content
         className={cn(
-          'labas-sheet-panel fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[88dvh] w-full max-w-md flex-col rounded-t-[1.25rem] border border-border bg-surface p-0 shadow-[0_-8px_40px_rgba(16,40,96,0.12)] outline-none',
+          'labas-sheet-panel fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-[1.25rem] border border-border bg-surface p-0 shadow-[0_-8px_40px_rgba(16,40,96,0.12)] outline-none',
           className,
         )}
         {...props}
       >
-        <div className="relative flex shrink-0 items-center justify-center px-12 pb-2 pt-3">
+        <div className="relative flex shrink-0 items-center justify-center px-12 pb-3 pt-4">
           <span className="h-1.5 w-10 rounded-full bg-border" aria-hidden />
           {hideClose ? null : (
             <Dialog.Close className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-ink-muted transition-[transform,background-color] duration-150 ease-out hover:bg-sand-deep active:scale-[0.96]">

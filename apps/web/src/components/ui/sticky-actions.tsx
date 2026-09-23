@@ -25,11 +25,14 @@ export function StickyActionsProvider({
   className,
   bodyClassName,
   footerClassName,
+  /** When false, footer sits under content instead of pinning to panel bottom. */
+  growBody = true,
 }: {
   children: ReactNode
   className?: string
   bodyClassName?: string
   footerClassName?: string
+  growBody?: boolean
 }) {
   const [footerEl, setFooterEl] = useState<HTMLElement | null>(null)
   const [hasActions, setHasActions] = useState(false)
@@ -43,10 +46,11 @@ export function StickyActionsProvider({
       <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
         <div
           className={cn(
-            'labas-scroll min-h-0 flex-1 overflow-y-auto',
+            'labas-scroll min-h-0 overflow-y-auto',
+            growBody && 'flex-1',
             bodyClassName,
             /* Space before sticky footer divider — avoid flush content. */
-            hasActions && 'pb-5',
+            hasActions && (growBody ? 'pb-7' : 'pb-3'),
           )}
         >
           {children}
@@ -54,7 +58,7 @@ export function StickyActionsProvider({
         <div
           ref={setFooterEl}
           className={cn(
-            'relative z-10 shrink-0 border-t border-border/60 bg-surface px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]',
+            'relative z-10 shrink-0 border-t border-border/60 bg-surface px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]',
             !hasActions && 'hidden border-0 p-0',
             footerClassName,
           )}

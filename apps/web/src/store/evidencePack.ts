@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
+  canArchivePack,
   createEmptyPack,
   evidenceReducer,
   expireDraftPack,
@@ -35,8 +36,42 @@ interface EvidenceState {
   dispatch: (action: EvidenceAction) => void
   persistActive: () => Promise<void>
   hydrateFromDomain: (packs: DomainPack[]) => void
+  archivePack: (id: string) => boolean
+  unarchivePack: (id: string) => boolean
   clearActive: () => void
   resetAll: () => void
+}
+
+/** Keep device-local archive stamps across server hydrate. */
+export function mergeArchivedAt(
+  packs: EvidencePack[],
+  previous: { pack: EvidencePack | null; history: EvidencePack[] },
+): EvidencePack[] {
+  const stamps = new Map<string, string>()
+  for (const h of previous.history) {
+    if (h.archivedAt) stamps.set(h.id, h.archivedAt)
+  }
+  if (previous.pack?.archivedAt) stamps.set(previous.pack.id, previous.pack.archivedAt)
+  return packs.map((p) => {
+    const archivedAt = stamps.get(p.id)
+    return archivedAt ? { ...p, archivedAt } : p
+  })
+}
+
+function patchPackById(
+  pack: EvidencePack | null,
+  history: EvidencePack[],
+  id: string,
+  patch: (p: EvidencePack) => EvidencePack,
+): { pack: EvidencePack | null; history: EvidencePack[] } | null {
+  if (pack?.id === id) {
+    return { pack: patch(pack), history }
+  }
+  const idx = history.findIndex((h) => h.id === id)
+  if (idx < 0) return null
+  const next = [...history]
+  next[idx] = patch(history[idx]!)
+  return { pack, history: next }
 }
 
 /** Serial chain for NOW pack writes — online API calls and offline queue flush share it. */
@@ -117,6 +152,7 @@ function startOfflinePack(): EvidencePack {
     id,
     ref,
     createdAt,
+    city: ctx().city,
   }
 }
 
@@ -188,6 +224,7 @@ export const useEvidenceStore = create<EvidenceState>()(
             id: created.incident.id,
             ref: created.incident.ref || accidentRefFromId(created.incident.id),
             createdAt: created.incident.occurredAt ?? new Date().toISOString(),
+            city: created.incident.city ?? ctx().city,
           }
           set({ pack: ui, starting: false })
         } catch (err) {
@@ -241,9 +278,47 @@ export const useEvidenceStore = create<EvidenceState>()(
         await pushPack(current)
       },
       hydrateFromDomain: (packs) => {
-        const mapped = packs.filter(packLooksStarted).map(fromDomainPack)
+        const prev = { pack: get().pack, history: get().history }
+        const mapped = mergeArchivedAt(
+          packs.filter(packLooksStarted).map(fromDomainPack),
+          prev,
+        )
+        const activeStamp = prev.pack?.archivedAt ?? null
         const { pack, history } = applyNowExpiry(get().pack, mapped)
-        set({ pack, history })
+        const nextPack =
+          pack && activeStamp && !pack.archivedAt
+            ? { ...pack, archivedAt: activeStamp }
+            : pack
+        set({ pack: nextPack, history })
+      },
+      archivePack: (id) => {
+        get().sweepExpired()
+        const { pack, history } = get()
+        const target = pack?.id === id ? pack : history.find((h) => h.id === id)
+        if (!target || !canArchivePack(target)) return false
+        const at = new Date().toISOString()
+        const next = patchPackById(pack, history, id, (p) => ({
+          ...p,
+          archivedAt: at,
+          updatedAt: at,
+        }))
+        if (!next) return false
+        set(next)
+        return true
+      },
+      unarchivePack: (id) => {
+        const { pack, history } = get()
+        const target = pack?.id === id ? pack : history.find((h) => h.id === id)
+        if (!target?.archivedAt) return false
+        const at = new Date().toISOString()
+        const next = patchPackById(pack, history, id, (p) => ({
+          ...p,
+          archivedAt: null,
+          updatedAt: at,
+        }))
+        if (!next) return false
+        set(next)
+        return true
       },
       clearActive: () => set({ pack: null }),
       resetAll: () => set({ pack: null, history: [], error: null }),
@@ -253,7 +328,14 @@ export const useEvidenceStore = create<EvidenceState>()(
       partialize: (s) => ({ pack: s.pack, history: s.history }),
       onRehydrateStorage: () => (state) => {
         if (!state) return
-        const next = applyNowExpiry(state.pack, state.history)
+        const pack = state.pack
+          ? { ...state.pack, archivedAt: state.pack.archivedAt ?? null }
+          : null
+        const history = state.history.map((h) => ({
+          ...h,
+          archivedAt: h.archivedAt ?? null,
+        }))
+        const next = applyNowExpiry(pack, history)
         useEvidenceStore.setState(next)
       },
     },

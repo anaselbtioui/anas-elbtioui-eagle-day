@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { AppRole, AuthUser } from '@/domain/auth.ts'
 import { setAuthToken } from '@/services/auth-token.ts'
-import { emptyWallet } from '@/services/wallet.ts'
+import { emptyWallet, migrateWalletNames, type Wallet } from '@/services/wallet.ts'
 import { useProfileStore } from '@/store/profile.ts'
 
 export type { AppRole }
@@ -20,21 +20,27 @@ interface SessionState {
   clearRole: () => void
 }
 
-function syncProfile(user: AuthUser): void {
+/** Auth → wallet: ids + split displayName into firstName/lastName (never legacy `name` only). */
+export function syncProfile(user: AuthUser): void {
   const current = useProfileStore.getState().profile
   const sameMotorist = Boolean(current.motoristId && current.motoristId === (user.motoristId ?? ''))
   // Prefer wallet broker link — auth JWT may lag behind PUT /api/profile until refresh.
   const brokerId =
     (sameMotorist && current.brokerId.trim()) || user.brokerId || ''
+  const base = sameMotorist ? current : emptyWallet
+  const named = migrateWalletNames({
+    ...base,
+    // Seed from auth when wallet names still empty (signup / rehydrate).
+    name: user.displayName,
+  } as Wallet & { name?: string })
   useProfileStore.setState({
     profile: {
-      ...(sameMotorist ? current : emptyWallet),
+      ...named,
       motoristId: user.motoristId ?? '',
       vehicleId: user.vehicleId ?? (sameMotorist ? current.vehicleId : '') ?? '',
       insurerId: user.insurerId ?? (sameMotorist ? current.insurerId : '') ?? '',
       brokerId,
       policyId: user.policyId ?? (sameMotorist ? current.policyId : '') ?? '',
-      name: sameMotorist && current.name ? current.name : user.displayName,
       onboarded:
         user.role === 'broker'
           ? false

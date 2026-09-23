@@ -73,6 +73,22 @@ export type EvidencePackStatus = 'draft' | 'saved' | 'stopped' | 'expired'
 /** Scene window for unfinished NOW drafts (4h from createdAt). */
 export const NOW_DRAFT_TTL_MS = 4 * 60 * 60 * 1000
 
+/**
+ * ACAPS example for informing the insurer (5 days from the accident).
+ * Display only. Does not change pack status and is not a legal bar.
+ */
+export const DECLARE_GUIDANCE_WINDOW_MS = 5 * 24 * 60 * 60 * 1000
+
+export function isDeclareGuidanceExpired(
+  createdAt: string | undefined,
+  now = Date.now(),
+): boolean {
+  if (!createdAt) return false
+  const created = Date.parse(createdAt)
+  if (Number.isNaN(created)) return false
+  return now > created + DECLARE_GUIDANCE_WINDOW_MS
+}
+
 export type NowWizardStep =
   | 'injury'
   | 'stop'
@@ -103,6 +119,20 @@ export function expireDraftPack(pack: EvidencePack, now = Date.now()): EvidenceP
     status: 'expired',
     updatedAt: new Date(now).toISOString(),
   }
+}
+
+export function isPackArchived(pack: Pick<EvidencePack, 'archivedAt'>): boolean {
+  return Boolean(pack.archivedAt)
+}
+
+/** Manual archive: closed flows only (stopped, expired, or draft past TTL). */
+export function canArchivePack(
+  pack: Pick<EvidencePack, 'status' | 'createdAt' | 'archivedAt'>,
+  now = Date.now(),
+): boolean {
+  if (isPackArchived(pack)) return false
+  if (pack.status === 'stopped' || pack.status === 'expired') return true
+  return isNowDraftExpired(pack, now)
 }
 
 /** Resume wizard step from pack fields (avoids always restarting at injury). */
@@ -137,6 +167,8 @@ export interface EvidencePack {
   status: EvidencePackStatus
   createdAt: string
   updatedAt: string
+  /** Snapshot of motorist city when pack started / last saved. */
+  city: string | null
   injury: InjuryAnswer | null
   otherDriver: OtherDriverAnswer | null
   constat: {
@@ -152,6 +184,8 @@ export interface EvidencePack {
   driveable: boolean | null
   assistanceShown: boolean
   stopReason: 'injury' | 'other' | null
+  /** Device-local archive stamp; null = still in working lists. */
+  archivedAt: string | null
 }
 
 export function createEmptyPack(): EvidencePack {
@@ -163,6 +197,7 @@ export function createEmptyPack(): EvidencePack {
     status: 'draft',
     createdAt: now,
     updatedAt: now,
+    city: null,
     injury: null,
     otherDriver: null,
     constat: {
@@ -178,6 +213,7 @@ export function createEmptyPack(): EvidencePack {
     driveable: null,
     assistanceShown: false,
     stopReason: null,
+    archivedAt: null,
   }
 }
 

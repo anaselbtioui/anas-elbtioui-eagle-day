@@ -54,12 +54,12 @@ export async function signToken(user: AuthUser): Promise<string> {
   )
 }
 
-export async function userFromToken(db: Db, token: string): Promise<AuthUser | null> {
+export async function userFromToken(db: Db | null, token: string): Promise<AuthUser | null> {
   try {
     const payload = await verify(token, jwtSecret(), 'HS256')
     const id = typeof payload.sub === 'string' ? payload.sub : null
     if (!id) return null
-    const row = db.users.find((u) => u.id === id)
+    const row = db?.users.find((u) => u.id === id)
     if (row) return publicUser(row)
     // JWT still valid but row missing (e.g. store rewrite race) — trust claims for session continuity.
     const role = payload.role === 'broker' || payload.role === 'motorist' ? payload.role : null
@@ -110,6 +110,12 @@ export function provisionMotorist(db: Db, displayName: string): {
         name: displayName,
         phone: null,
         alsoTellEmployerIfCommute: false,
+        cin: null,
+        city: null,
+        licenseNumber: null,
+        licensePhotoPath: null,
+        carteGrisePhotoPath: null,
+        attestationPhotoPath: null,
       }),
       vehicles: upsert(db.vehicles, { id: vehicleId, plate: null, makeModel: null }),
       insurers: upsert(db.insurers, { id: insurerId, displayName: 'Assureur' }),
@@ -120,6 +126,7 @@ export function provisionMotorist(db: Db, displayName: string): {
         brokerId: null,
         vehicleId,
         assistanceOnContract: 'unknown',
+        attestationValidUntil: null,
       }),
     },
   }

@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import { displayAccidentRef } from '@/domain/accident-ref'
 import type { EvidencePack } from '@/domain/evidence'
+import { displayName } from '@/services/wallet.ts'
 import type { Wallet } from '@/services/wallet.ts'
 
 function dash(v: string): string {
@@ -41,7 +42,7 @@ function addYouBlock(doc: jsPDF, profile: Wallet, y0: number): number {
   doc.setFontSize(11)
   doc.text('A — Votre véhicule', 20, y)
   y += 8
-  y = line(doc, 'Nom', profile.name, 20, y)
+  y = line(doc, 'Nom', displayName(profile), 20, y)
   y = line(doc, 'Tél.', profile.phone, 20, y)
   y = line(doc, 'CIN', profile.cin, 20, y)
   y = line(doc, 'Permis', profile.licenseNumber, 20, y)

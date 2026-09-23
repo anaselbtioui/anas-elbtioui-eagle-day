@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { WizardFrame, WizardSection } from '@/app/WizardFrame'
+import { PhotoCropDialog } from '@/components/PhotoCropDialog'
 import { Button } from '@/components/ui/button'
 import { StickyActions } from '@/components/ui/sticky-actions'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
@@ -20,7 +21,9 @@ import {
   type OtherDriverAnswer,
   type PhotoSlotId,
 } from '@/domain/evidence'
+import { isMoroccanPlate, isPersonName, normalizePlate } from '@/domain/ma-fields.ts'
 import type { Contact } from '@/domain/types.ts'
+import { SCENE_CROP_ASPECT } from '@/lib/crop-image'
 import { pickFromGallery, takePhoto } from '@/platform/camera'
 import { saveAndUploadPhoto } from '@/platform/photos'
 import { api } from '@/services/api.ts'
@@ -29,7 +32,7 @@ import {
   downloadConstatDraftPdf,
 } from '@/services/accident-docs.ts'
 import { toDomainSlot } from '@/services/pack-map.ts'
-import { walletClaimReady } from '@/services/wallet.ts'
+import { displayName, walletClaimReady } from '@/services/wallet.ts'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
 import { CarDamageMap } from './CarDamageMap'
@@ -45,6 +48,7 @@ export function NowPage() {
   const [step, setStep] = useState<Step>('injury')
   const [authorityContacts, setAuthorityContacts] = useState<Contact[]>([])
   const [assistContacts, setAssistContacts] = useState<Contact[]>([])
+  const [cropSlot, setCropSlot] = useState<{ slot: PhotoSlotId; src: string } | null>(null)
   const slots = photoSlotsForParts(pack?.damagedParts ?? [])
 
   useEffect(() => {
@@ -93,7 +97,7 @@ export function NowPage() {
           <StickyActions>
             <Button
               className="w-full"
-              disabled={starting}
+              loading={starting}
               onClick={() => {
                 clearActive()
                 void start().then(() => setStep('injury'))
@@ -130,7 +134,7 @@ export function NowPage() {
           <StickyActions>
             <Button
               className="w-full"
-              disabled={starting}
+              loading={starting}
               onClick={() => {
                 void start().then(() => setStep('injury'))
               }}
@@ -166,6 +170,13 @@ export function NowPage() {
   async function capture(slot: PhotoSlotId, fromGallery = false) {
     const dataUrl = fromGallery ? await pickFromGallery() : await takePhoto()
     if (!dataUrl || !pack) return
+    setCropSlot({ slot, src: dataUrl })
+  }
+
+  async function confirmCrop(dataUrl: string) {
+    if (!cropSlot || !pack) return
+    const slot = cropSlot.slot
+    setCropSlot(null)
     await saveAndUploadPhoto(pack.id, slot, dataUrl, {
       domainSlot: toDomainSlot(slot),
       zoneId: CAR_PARTS.includes(slot as CarPart) ? slot : null,
@@ -299,7 +310,7 @@ export function NowPage() {
           <Card className="mb-4 bg-moss-soft border-moss/30">
             <CardTitle className="text-sm">{t('now.attestationCard')}</CardTitle>
             <CardDescription>
-              {profile.name}
+              {displayName(profile)}
               <br />
               {profile.plate} · {profile.vehicle}
               <br />
@@ -310,12 +321,35 @@ export function NowPage() {
             <Field
               label={t('now.otherName')}
               value={pack.constat.otherName}
+              error={
+                pack.constat.otherName.trim() && !isPersonName(pack.constat.otherName)
+                  ? t('fields.errorPersonName')
+                  : undefined
+              }
               onChange={(v) => dispatch({ type: 'SET_CONSTAT', constat: { otherName: v } })}
             />
             <Field
               label={t('now.otherPlate')}
               value={pack.constat.otherPlate}
-              onChange={(v) => dispatch({ type: 'SET_CONSTAT', constat: { otherPlate: v } })}
+              error={
+                pack.constat.otherPlate.trim() && !isMoroccanPlate(pack.constat.otherPlate)
+                  ? t('fields.errorPlate')
+                  : undefined
+              }
+              onChange={(v) =>
+                dispatch({
+                  type: 'SET_CONSTAT',
+                  constat: { otherPlate: v.toUpperCase() },
+                })
+              }
+              onBlur={() => {
+                if (isMoroccanPlate(pack.constat.otherPlate)) {
+                  dispatch({
+                    type: 'SET_CONSTAT',
+                    constat: { otherPlate: normalizePlate(pack.constat.otherPlate) },
+                  })
+                }
+              }}
             />
             <Field
               label={t('now.otherPhone')}
@@ -550,6 +584,12 @@ export function NowPage() {
           </StickyActions>
         </WizardSection>
       ) : null}
+      <PhotoCropDialog
+        imageSrc={cropSlot?.src ?? null}
+        aspect={SCENE_CROP_ASPECT}
+        onCancel={() => setCropSlot(null)}
+        onConfirm={(dataUrl) => void confirmCrop(dataUrl)}
+      />
     </WizardFrame>
   )
 }
@@ -558,15 +598,25 @@ function Field({
   label,
   value,
   onChange,
+  onBlur,
+  error,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
+  onBlur?: () => void
+  error?: string
 }) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        aria-invalid={Boolean(error)}
+      />
+      {error ? <p className="text-sm text-alert">{error}</p> : null}
     </div>
   )
 }

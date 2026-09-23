@@ -218,6 +218,12 @@ export function createImportBundle(input: {
       name: input.extracted.name.trim() || 'Client importé',
       phone: input.extracted.phone,
       alsoTellEmployerIfCommute: false,
+      cin: null,
+      city: input.extracted.city,
+      licenseNumber: null,
+      licensePhotoPath: null,
+      carteGrisePhotoPath: null,
+      attestationPhotoPath: null,
     },
     vehicle: {
       id: vehicleId,
@@ -233,6 +239,7 @@ export function createImportBundle(input: {
       brokerId,
       vehicleId,
       assistanceOnContract: 'unknown',
+      attestationValidUntil: null,
     },
   }
 

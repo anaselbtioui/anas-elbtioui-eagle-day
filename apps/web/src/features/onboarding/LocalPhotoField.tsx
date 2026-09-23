@@ -1,7 +1,9 @@
-import { useId, useRef } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { PhotoCropDialog } from '@/components/PhotoCropDialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { DOCUMENT_CROP_ASPECT } from '@/lib/crop-image'
 
 type LocalPhotoFieldProps = {
   label: string
@@ -15,13 +17,14 @@ export function LocalPhotoField({ label, value, onChange, hint }: LocalPhotoFiel
   const { t } = useTranslation()
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
+  const [pending, setPending] = useState<string | null>(null)
 
   function onFile(file: File | undefined) {
     if (!file || !file.type.startsWith('image/')) return
     const reader = new FileReader()
     reader.onload = () => {
       const result = reader.result
-      if (typeof result === 'string') onChange(result)
+      if (typeof result === 'string') setPending(result)
     }
     reader.readAsDataURL(file)
   }
@@ -66,6 +69,15 @@ export function LocalPhotoField({ label, value, onChange, hint }: LocalPhotoFiel
           </Button>
         ) : null}
       </div>
+      <PhotoCropDialog
+        imageSrc={pending}
+        aspect={DOCUMENT_CROP_ASPECT}
+        onCancel={() => setPending(null)}
+        onConfirm={(dataUrl) => {
+          onChange(dataUrl)
+          setPending(null)
+        }}
+      />
     </div>
   )
 }

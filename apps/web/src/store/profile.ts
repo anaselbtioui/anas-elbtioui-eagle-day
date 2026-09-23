@@ -6,7 +6,9 @@ import {
   emptyWallet,
   isLegacySharedWallet,
   migrateDeviceWallet,
+  migrateWalletNames,
   needsDeviceWallet,
+  domainToWallet,
   walletToDomain,
   type Wallet,
 } from '@/services/wallet.ts'
@@ -17,13 +19,18 @@ interface ProfileState {
   error: string | null
   setProfile: (patch: Partial<Wallet>) => void
   ensureDeviceWallet: () => void
+  /** Best-effort server sync of domain-mapped fields (step advance). */
+  persistDraft: () => Promise<void>
+  /** Merge server profile into local wallet (cross-device / refresh). */
+  pullRemoteProfile: () => Promise<void>
   completeOnboarding: () => Promise<void>
   reset: () => void
 }
 
 /** Fields typed before device ids exist — keep when provisioning. */
 const DRAFT_KEYS = [
-  'name',
+  'firstName',
+  'lastName',
   'phone',
   'plate',
   'vehicle',
@@ -40,6 +47,9 @@ const DRAFT_KEYS = [
   'licensePhotoLocal',
   'carteGrisePhotoLocal',
   'attestationPhotoLocal',
+  'licensePhotoPath',
+  'carteGrisePhotoPath',
+  'attestationPhotoPath',
   'attestationValidUntil',
   'phoneVerified',
   'onboardingStep',
@@ -69,12 +79,133 @@ export const useProfileStore = create<ProfileState>()(
           },
         })
       },
+      persistDraft: async () => {
+        const wallet = get().profile
+        if (!wallet.motoristId.trim()) return
+        try {
+          let next = wallet
+          const docs: Array<{
+            kind: 'license' | 'carteGrise' | 'attestation'
+            local: string
+            pathKey: 'licensePhotoPath' | 'carteGrisePhotoPath' | 'attestationPhotoPath'
+          }> = [
+            {
+              kind: 'license',
+              local: wallet.licensePhotoLocal,
+              pathKey: 'licensePhotoPath',
+            },
+            {
+              kind: 'carteGrise',
+              local: wallet.carteGrisePhotoLocal,
+              pathKey: 'carteGrisePhotoPath',
+            },
+            {
+              kind: 'attestation',
+              local: wallet.attestationPhotoLocal,
+              pathKey: 'attestationPhotoPath',
+            },
+          ]
+          for (const doc of docs) {
+            if (!doc.local.startsWith('data:')) continue
+            try {
+              const { path } = await api.uploadProfileDoc(doc.kind, doc.local)
+              next = { ...next, [doc.pathKey]: path }
+            } catch {
+              /* storage optional in local json mode */
+            }
+          }
+          if (next !== wallet) set({ profile: next })
+          await api.saveProfile(walletToDomain(next))
+        } catch {
+          /* local persist already has draft; server sync best-effort */
+        }
+      },
+      pullRemoteProfile: async () => {
+        const cur = get().profile
+        if (!cur.motoristId.trim()) return
+        try {
+          const remote = await api.getProfile()
+          let next = domainToWallet(remote, cur)
+          const prefer = (local: string, fromRemote: string) =>
+            local.trim() ? local : fromRemote
+          next = {
+            ...next,
+            firstName: prefer(cur.firstName, next.firstName),
+            lastName: prefer(cur.lastName, next.lastName),
+            phone: prefer(cur.phone, next.phone),
+            plate: prefer(cur.plate, next.plate),
+            vehicle: prefer(cur.vehicle, next.vehicle),
+            insurer: prefer(cur.insurer, next.insurer),
+            policy: prefer(cur.policy, next.policy),
+            broker: prefer(cur.broker, next.broker),
+            brokerId: prefer(cur.brokerId, next.brokerId),
+            city: prefer(cur.city, next.city),
+            cin: prefer(cur.cin, next.cin),
+            licenseNumber: prefer(cur.licenseNumber, next.licenseNumber),
+            attestationValidUntil: prefer(
+              cur.attestationValidUntil,
+              next.attestationValidUntil,
+            ),
+            licensePhotoPath: prefer(cur.licensePhotoPath, next.licensePhotoPath),
+            carteGrisePhotoPath: prefer(
+              cur.carteGrisePhotoPath,
+              next.carteGrisePhotoPath,
+            ),
+            attestationPhotoPath: prefer(
+              cur.attestationPhotoPath,
+              next.attestationPhotoPath,
+            ),
+            licensePhotoLocal: cur.licensePhotoLocal,
+            carteGrisePhotoLocal: cur.carteGrisePhotoLocal,
+            attestationPhotoLocal: cur.attestationPhotoLocal,
+            onboardingStep: cur.onboardingStep,
+            onboarded: cur.onboarded || next.onboarded,
+            phoneVerified: cur.phoneVerified,
+          }
+          const fillPhoto = async (
+            kind: 'license' | 'carteGrise' | 'attestation',
+            path: string,
+            local: string,
+            key: 'licensePhotoLocal' | 'carteGrisePhotoLocal' | 'attestationPhotoLocal',
+          ) => {
+            if (!path || local.startsWith('data:')) return
+            try {
+              const { url } = await api.profileDocUrl(kind)
+              next = { ...next, [key]: url }
+            } catch {
+              /* ignore */
+            }
+          }
+          await fillPhoto(
+            'license',
+            next.licensePhotoPath,
+            next.licensePhotoLocal,
+            'licensePhotoLocal',
+          )
+          await fillPhoto(
+            'carteGrise',
+            next.carteGrisePhotoPath,
+            next.carteGrisePhotoLocal,
+            'carteGrisePhotoLocal',
+          )
+          await fillPhoto(
+            'attestation',
+            next.attestationPhotoPath,
+            next.attestationPhotoLocal,
+            'attestationPhotoLocal',
+          )
+          set({ profile: next })
+        } catch {
+          /* offline / no remote profile yet */
+        }
+      },
       completeOnboarding: async () => {
         set({ saving: true, error: null })
         try {
           if (needsDeviceWallet(get().profile) || isLegacySharedWallet(get().profile)) {
             get().ensureDeviceWallet()
           }
+          await get().persistDraft()
           const next = { ...get().profile, onboarded: true, onboardingStep: 0 }
           if (!next.brokerId.trim()) {
             set({ saving: false, error: 'broker_required' })
@@ -97,8 +228,12 @@ export const useProfileStore = create<ProfileState>()(
       name: 'labas-profile-v2',
       partialize: (s) => ({ profile: s.profile }),
       merge: (persisted, current) => {
-        const p = persisted as { profile?: Partial<Wallet> } | undefined
-        const merged: Wallet = { ...emptyWallet, ...current.profile, ...p?.profile }
+        const p = persisted as { profile?: Partial<Wallet> & { name?: string } } | undefined
+        const merged = migrateWalletNames({
+          ...emptyWallet,
+          ...current.profile,
+          ...p?.profile,
+        } as Wallet & { name?: string })
         return {
           ...current,
           ...p,

@@ -49,6 +49,15 @@ export function evidenceObjectPath(
   return `${safeIncident}/${safeSlot}/${safePhoto}.${ext}`
 }
 
+export function walletDocObjectPath(
+  motoristId: string,
+  kind: 'license' | 'carteGrise' | 'attestation',
+  ext: string,
+): string {
+  const safeMotorist = motoristId.replace(/[^a-zA-Z0-9._-]/g, '_')
+  return `wallet/${safeMotorist}/${kind}.${ext}`
+}
+
 export async function uploadEvidenceObject(
   path: string,
   bytes: Buffer,

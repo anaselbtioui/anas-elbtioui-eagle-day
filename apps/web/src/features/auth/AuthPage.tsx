@@ -6,6 +6,7 @@ import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { isPersonName } from '@/domain/ma-fields.ts'
 import { api } from '@/services/api.ts'
 import { useSessionStore } from '@/store/session'
 import { cn } from '@/lib/utils'
@@ -109,7 +110,9 @@ export function AuthPage() {
     const next: FieldErrors = {}
     if (mode === 'signup') {
       if (!firstName.trim()) next.firstName = t('auth.errorFirstName')
+      else if (!isPersonName(firstName)) next.firstName = t('auth.errorFirstNameInvalid')
       if (!lastName.trim()) next.lastName = t('auth.errorLastName')
+      else if (!isPersonName(lastName)) next.lastName = t('auth.errorLastNameInvalid')
     }
     const emailTrim = email.trim()
     if (!emailTrim) {
@@ -268,43 +271,45 @@ export function AuthPage() {
               {error}
             </p>
           ) : null}
-          <Button className="w-full" type="submit" disabled={busy} data-testid="auth-submit">
+          <Button className="w-full" type="submit" loading={busy} data-testid="auth-submit">
             {mode === 'signup' ? t('auth.submitSignup') : t('auth.submitSignin')}
           </Button>
-          <button
-            type="button"
-            className="w-full text-center text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
-            data-testid="auth-toggle"
-            onClick={() => {
-              setMode(mode === 'signup' ? 'signin' : 'signup')
-              setError(null)
-              setFieldErrors({})
-            }}
-          >
-            {mode === 'signup' ? t('auth.hasAccount') : t('auth.noAccount')}
-          </button>
-          <button
-            type="button"
-            className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
-            onClick={() => {
-              clearRole()
-              navigate('/', { replace: true })
-            }}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-4 w-4 shrink-0 rtl:-scale-x-100"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <button
+              type="button"
+              className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
+              onClick={() => {
+                clearRole()
+                navigate('/', { replace: true })
+              }}
             >
-              <path d="M19 12H5M11 18l-6-6 6-6" />
-            </svg>
-            {t('app.back')}
-          </button>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4 shrink-0 rtl:-scale-x-100"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M19 12H5M11 18l-6-6 6-6" />
+              </svg>
+              {t('app.back')}
+            </button>
+            <button
+              type="button"
+              className="min-h-10 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
+              data-testid="auth-toggle"
+              onClick={() => {
+                setMode(mode === 'signup' ? 'signin' : 'signup')
+                setError(null)
+                setFieldErrors({})
+              }}
+            >
+              {mode === 'signup' ? t('auth.hasAccount') : t('auth.noAccount')}
+            </button>
+          </div>
         </form>
       </AuthFormCard>
     </AuthSplitLayout>

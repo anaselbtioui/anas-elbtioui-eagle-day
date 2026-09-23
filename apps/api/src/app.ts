@@ -64,6 +64,7 @@ import {
   signedEvidenceUrl,
   storageConfigured,
   uploadEvidenceObject,
+  walletDocObjectPath,
 } from './storage.ts'
 import { emptyDb, loadDb, saveDb, upsert, type Db } from './store.ts'
 import { exclusiveDbWrite } from './write-lock.ts'
@@ -188,8 +189,8 @@ export function createApp(
     const header = c.req.header('Authorization') ?? ''
     const raw = header.startsWith('Bearer ') ? header.slice(7).trim() : ''
     if (raw) {
-      const db = await load()
-      c.set('auth', await userFromToken(db, raw))
+      // JWT claims only — do not reload full store on every request.
+      c.set('auth', await userFromToken(null, raw))
     }
     await next()
   })
@@ -317,16 +318,35 @@ export function createApp(
     const chosenBrokerId =
       body.policy.brokerId?.trim() || body.broker.id?.trim() || ''
     let saved: Profile | null = null
-    let err: 'broker_required' | 'broker_not_found' | null = null
+    let err: 'broker_not_found' | null = null
     await write((db) => {
       const registered = listRegisteredBrokers(db)
       const chosen =
         chosenBrokerId ||
         (registered.length === 1 ? registered[0]!.id : '')
+
+      // Draft OK without courtier — required only when finishing onboarding (client).
       if (!chosen) {
-        err = 'broker_required'
-        return db
+        const policy = {
+          ...body.policy,
+          id: auth.policyId ?? body.policy.id,
+          brokerId: null,
+        }
+        const next: Db = {
+          ...db,
+          motorists: upsert(db.motorists, body.motorist),
+          vehicles: upsert(db.vehicles, body.vehicle),
+          insurers: upsert(db.insurers, body.insurer),
+          policies: upsert(db.policies, policy),
+        }
+        saved = {
+          ...body,
+          broker: { id: '', displayName: body.broker.displayName || 'Courtier' },
+          policy,
+        }
+        return next
       }
+
       const match = registered.find((b) => b.id === chosen)
       if (!match) {
         err = 'broker_not_found'
@@ -353,9 +373,69 @@ export function createApp(
       }
       return next
     })
-    if (err === 'broker_required') return c.json({ error: 'broker_required' }, 400)
     if (err) return c.json({ error: err }, 400)
     return c.json(saved)
+  })
+
+  /** Upload a wallet document photo (permis / carte grise / attestation). */
+  app.post('/api/profile/docs', async (c) => {
+    const denied = needMotorist(c)
+    if (denied) return denied
+    if (!storageConfigured()) return c.json({ error: 'storage_unconfigured' }, 503)
+    const auth = c.get('auth')!
+    const body = await readJson<{
+      kind?: 'license' | 'carteGrise' | 'attestation'
+      dataUrl?: string
+    }>(c, {})
+    if (!body.kind || !body.dataUrl) return c.json({ error: 'kind_and_data_required' }, 400)
+    let parsed
+    try {
+      parsed = parseDataUrl(body.dataUrl)
+    } catch {
+      return c.json({ error: 'invalid_data_url' }, 400)
+    }
+    const path = walletDocObjectPath(auth.motoristId!, body.kind, parsed.ext)
+    await uploadEvidenceObject(path, parsed.bytes, parsed.mime)
+
+    const pathKey =
+      body.kind === 'license'
+        ? 'licensePhotoPath'
+        : body.kind === 'carteGrise'
+          ? 'carteGrisePhotoPath'
+          : 'attestationPhotoPath'
+
+    await write((db) => {
+      const motorist = db.motorists.find((m) => m.id === auth.motoristId)
+      if (!motorist) return db
+      return {
+        ...db,
+        motorists: upsert(db.motorists, { ...motorist, [pathKey]: path }),
+      }
+    })
+    return c.json({ kind: body.kind, path }, 201)
+  })
+
+  app.get('/api/profile/docs/:kind/url', async (c) => {
+    const denied = needMotorist(c)
+    if (denied) return denied
+    if (!storageConfigured()) return c.json({ error: 'storage_unconfigured' }, 503)
+    const kind = c.req.param('kind')
+    if (kind !== 'license' && kind !== 'carteGrise' && kind !== 'attestation') {
+      return c.json({ error: 'invalid_kind' }, 400)
+    }
+    const auth = c.get('auth')!
+    const db = await load()
+    const motorist = db.motorists.find((m) => m.id === auth.motoristId)
+    if (!motorist) return c.json({ error: 'no_profile' }, 404)
+    const path =
+      kind === 'license'
+        ? motorist.licensePhotoPath
+        : kind === 'carteGrise'
+          ? motorist.carteGrisePhotoPath
+          : motorist.attestationPhotoPath
+    if (!path) return c.json({ error: 'not_found' }, 404)
+    const url = await signedEvidenceUrl(path)
+    return c.json({ url, path })
   })
 
   /** Registered brokers for motorist picker (auth required). */

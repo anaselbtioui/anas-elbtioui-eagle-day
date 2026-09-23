@@ -1,12 +1,17 @@
 import * as RadioGroupPrimitive from '@radix-ui/react-radio-group'
 import * as React from 'react'
+import { FluidHover } from '@/components/ui/fluid-hover'
 import { cn } from '@/lib/utils'
 
 export const RadioGroup = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root>
->(({ className, ...props }, ref) => (
-  <RadioGroupPrimitive.Root className={cn('grid gap-3', className)} {...props} ref={ref} />
+>(({ className, children, ...props }, ref) => (
+  <FluidHover>
+    <RadioGroupPrimitive.Root className={cn('grid gap-3', className)} {...props} ref={ref}>
+      {children}
+    </RadioGroupPrimitive.Root>
+  </FluidHover>
 ))
 RadioGroup.displayName = RadioGroupPrimitive.Root.displayName
 
@@ -23,7 +28,7 @@ export const RadioGroupItem = React.forwardRef<
     {...props}
   >
     <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
-      <span className="h-2.5 w-2.5 rounded-full bg-ink" />
+      <span className="labas-radio-dot h-2.5 w-2.5 origin-center rounded-full bg-ink" />
     </RadioGroupPrimitive.Indicator>
   </RadioGroupPrimitive.Item>
 ))
@@ -44,7 +49,8 @@ export function RadioChoice({
   return (
     <label
       htmlFor={inputId}
-      className="flex min-h-14 cursor-pointer items-start gap-3 rounded-[var(--radius-labas)] border-2 border-border bg-surface p-4 has-[[data-state=checked]]:border-ink has-[[data-state=checked]]:bg-sand"
+      data-fluid-item
+      className="relative z-[1] flex min-h-14 cursor-pointer items-start gap-3 rounded-[var(--radius-labas)] border-2 border-border bg-transparent p-4 has-[[data-state=checked]]:border-ink has-[[data-state=checked]]:bg-sand"
     >
       <RadioGroupItem value={value} id={inputId} className="mt-0.5" />
       <span className="flex flex-col gap-0.5">

@@ -1,8 +1,19 @@
 import type { DossierStatus } from './types.ts'
-import type { EvidencePackStatus } from './evidence.ts'
+import { isDeclareGuidanceExpired, type EvidencePackStatus } from './evidence.ts'
 import type { LifecycleTone } from './lifecycle-tone.ts'
 
 export type LifecycleStageState = 'done' | 'active' | 'pending' | 'cancelled'
+
+/**
+ * Gate outside the accident. Completing it does not change pack status.
+ * `wallet` = identity, vehicle, contract, and broker are still incomplete.
+ */
+export type LifecycleBlock = {
+  /** `wallet` is outside the accident. `declareWindow` is the 5-day guidance display. */
+  id: 'wallet' | 'declareWindow'
+  /** i18n key under `lifecycle.*` */
+  titleKey: string
+}
 
 export type LifecycleStage = {
   id: string
@@ -10,6 +21,30 @@ export type LifecycleStage = {
   titleKey: string
   state: LifecycleStageState
   tone: LifecycleTone
+  /** Present while this stage cannot advance. */
+  block?: LifecycleBlock
+}
+
+export type PackLifecycleContext = {
+  /** False when the portefeuille cannot yet carry a déclaration. */
+  walletReady?: boolean
+  /** Accident time. Used only to show the guidance window. */
+  createdAt?: string
+  now?: number
+}
+
+const WALLET_BLOCK: LifecycleBlock = {
+  id: 'wallet',
+  titleKey: 'lifecycle.block.wallet',
+}
+
+function declareWindowBlock(walletReady: boolean): LifecycleBlock {
+  return {
+    id: 'declareWindow',
+    titleKey: walletReady
+      ? 'lifecycle.block.declareWindow'
+      : 'lifecycle.block.declareWindowWallet',
+  }
 }
 
 export type LifecycleSegment = {
@@ -111,10 +146,25 @@ export function dossierDominantTone(status: DossierStatus): LifecycleTone {
 }
 
 /**
- * NOW pack (sur place): Collecte → Prêt → Clos
+ * NOW pack (sur place): Collecte → Prêt → Clos.
  * Clos = stopped | expired (terminal).
+ * A saved pack stays blocked on déclaration while the portefeuille is incomplete.
  */
-export function packLifecycleStages(status: EvidencePackStatus): LifecycleStage[] {
+/** Saved evidence cannot open a déclaration until the portefeuille is complete. */
+export function packDeclareBlocked(
+  status: EvidencePackStatus,
+  walletReady: boolean,
+): boolean {
+  return status === 'saved' && !walletReady
+}
+
+export function packLifecycleStages(
+  status: EvidencePackStatus,
+  context?: PackLifecycleContext,
+): LifecycleStage[] {
+  const walletReady = context?.walletReady !== false
+  const declareWindowExpired =
+    status === 'saved' && isDeclareGuidanceExpired(context?.createdAt, context?.now)
   switch (status) {
     case 'draft':
       return [
@@ -148,14 +198,16 @@ export function packLifecycleStages(status: EvidencePackStatus): LifecycleStage[
         {
           id: 'ready',
           titleKey: 'lifecycle.pack.ready',
-          state: 'active',
-          tone: 'green',
+          state: declareWindowExpired ? (walletReady ? 'done' : 'cancelled') : 'active',
+          tone: walletReady ? 'green' : 'amber',
+          block: walletReady ? undefined : WALLET_BLOCK,
         },
         {
           id: 'closed',
           titleKey: 'lifecycle.pack.closed',
-          state: 'pending',
-          tone: 'gray',
+          state: declareWindowExpired ? 'active' : 'pending',
+          tone: declareWindowExpired ? 'red' : 'gray',
+          block: declareWindowExpired ? declareWindowBlock(walletReady) : undefined,
         },
       ]
     case 'stopped':
@@ -203,6 +255,9 @@ export function packLifecycleStages(status: EvidencePackStatus): LifecycleStage[
   }
 }
 
-export function packLifecycleSegments(status: EvidencePackStatus): LifecycleSegment[] {
-  return packLifecycleStages(status).map(segment)
+export function packLifecycleSegments(
+  status: EvidencePackStatus,
+  context?: PackLifecycleContext,
+): LifecycleSegment[] {
+  return packLifecycleStages(status, context).map(segment)
 }

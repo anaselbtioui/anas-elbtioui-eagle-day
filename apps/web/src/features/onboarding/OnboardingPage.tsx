@@ -4,14 +4,20 @@ import { useTranslation } from 'react-i18next'
 import { AuthFormCard, AuthSplitLayout } from '@/app/AuthSplitLayout'
 import { MobileShell } from '@/app/MobileShell'
 import { BrandLogo } from '@/components/BrandLogo'
+import { CitySelect } from '@/components/CitySelect'
 import { InsurerSelect } from '@/components/InsurerSelect'
 import { VehicleSelect } from '@/components/VehicleSelect'
 import { LogoutButton } from '@/components/LogoutButton'
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
+import { FluidHover } from '@/components/ui/fluid-hover'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LoadingLine } from '@/components/ui/loading-line'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { Progress } from '@/components/ui/progress'
+import { isMoroccanCin, isMoroccanPlate, isPersonName, normalizeCin, normalizePlate } from '@/domain/ma-fields.ts'
+import { isMoroccanCity } from '@/domain/moroccan-cities.ts'
 import { isValidMoroccanPhone } from '@/lib/phone'
 import { StickyActions } from '@/components/ui/sticky-actions'
 import {
@@ -44,6 +50,7 @@ export const ONBOARDING_STEPS = [
 export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number]
 
 const STEP_COUNT = ONBOARDING_STEPS.length
+const REVIEW_STEP = ONBOARDING_STEPS.indexOf('review')
 
 function stepTitleKey(id: OnboardingStepId): string {
   return `onboarding.steps.${id}`
@@ -52,6 +59,7 @@ function stepTitleKey(id: OnboardingStepId): string {
 function StepNav({
   onBack,
   onSkip,
+  onSkipAll,
   onContinue,
   continueLabel,
   continueDisabled,
@@ -59,34 +67,62 @@ function StepNav({
 }: {
   onBack: () => void
   onSkip?: () => void
+  onSkipAll?: () => void
   onContinue: () => void
   continueLabel?: string
   continueDisabled?: boolean
   showSkip?: boolean
 }) {
   const { t } = useTranslation()
+  const showSkipLinks = showSkip && (onSkip || onSkipAll)
   return (
     <StickyActions>
-      <Button variant="ghost" className="w-full" type="button" onClick={onBack}>
-        {t('app.back')}
-      </Button>
-      <Button
-        className="min-w-0 w-full whitespace-normal text-center leading-snug"
-        type="button"
-        onClick={onContinue}
-        disabled={continueDisabled}
-      >
-        {continueLabel ?? t('app.continue')}
-      </Button>
-      {showSkip && onSkip ? (
-        <button
-          type="button"
-          className="w-full basis-full text-center text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
-          onClick={onSkip}
-        >
-          {t('app.skip')}
-        </button>
-      ) : null}
+      <div className="flex w-full basis-full flex-col gap-3">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-stretch">
+          <Button
+            variant="ghost"
+            className="w-full sm:w-auto sm:min-w-[7.5rem] sm:flex-none"
+            type="button"
+            onClick={onBack}
+          >
+            {t('app.back')}
+          </Button>
+          <Button
+            className="min-w-0 w-full flex-1 whitespace-normal text-center leading-snug"
+            type="button"
+            onClick={onContinue}
+            disabled={continueDisabled}
+          >
+            {continueLabel ?? t('app.continue')}
+          </Button>
+        </div>
+        {showSkipLinks ? (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            {onSkip ? (
+              <button
+                type="button"
+                className="min-h-10 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
+                onClick={onSkip}
+                data-testid="onboarding-skip-step"
+              >
+                {t('app.skipStep')}
+              </button>
+            ) : (
+              <span aria-hidden className="min-h-10" />
+            )}
+            {onSkipAll ? (
+              <button
+                type="button"
+                className="min-h-10 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
+                onClick={onSkipAll}
+                data-testid="onboarding-skip-all"
+              >
+                {t('app.skipAll')}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </StickyActions>
   )
 }
@@ -94,10 +130,12 @@ function StepNav({
 function BrokerPickStep({
   onBack,
   onSkip,
+  onSkipAll,
   onContinue,
 }: {
   onBack: () => void
   onSkip: () => void
+  onSkipAll?: () => void
   onContinue: () => void
 }) {
   const { t } = useTranslation()
@@ -149,53 +187,57 @@ function BrokerPickStep({
   return (
     <div className="space-y-4">
       <p className="text-sm text-ink-muted">{t('onboarding.brokerPickHint')}</p>
-      {loading ? <p className="text-sm text-ink-muted">{t('later.loading')}</p> : null}
+      {loading ? <LoadingLine className="text-sm" /> : null}
       {loadError ? <p className="text-sm text-alert">{t('onboarding.brokerPickError')}</p> : null}
       {!loading && brokers.length === 0 ? (
         <p className="rounded-[var(--radius-labas)] bg-sand-deep px-3 py-3 text-sm text-ink-muted">
           {t('onboarding.brokerPickEmpty')}
         </p>
       ) : null}
-      <ul className="space-y-2" data-testid="broker-pick-list">
-        {brokers.map((b) => {
-          const selected = profile.brokerId === b.id
-          return (
-            <li key={b.id}>
-              <button
-                type="button"
-                data-testid={`broker-pick-${b.id}`}
-                onClick={() => pick(b.id, b.displayName)}
-                className={cn(
-                  'flex w-full items-start gap-3 rounded-[var(--radius-labas)] border px-3 py-3 text-left transition-colors',
-                  selected
-                    ? 'border-ink bg-ink-soft outline outline-1 outline-ink/20'
-                    : 'border-border bg-surface/90 hover:bg-sand-deep/70',
-                )}
-              >
-                <span
+      <FluidHover>
+        <ul className="space-y-2" data-testid="broker-pick-list">
+          {brokers.map((b) => {
+            const selected = profile.brokerId === b.id
+            return (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  data-testid={`broker-pick-${b.id}`}
+                  data-fluid-item
+                  onClick={() => pick(b.id, b.displayName)}
                   className={cn(
-                    'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
-                    selected ? 'border-ink bg-ink' : 'border-border',
+                    'relative z-[1] flex w-full items-start gap-3 rounded-[var(--radius-labas)] border px-3 py-3 text-left',
+                    selected
+                      ? 'border-ink bg-ink-soft outline outline-1 outline-ink/20'
+                      : 'border-border bg-transparent',
                   )}
-                  aria-hidden
                 >
-                  {selected ? <span className="h-2 w-2 rounded-full bg-sand" /> : null}
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-semibold text-ink">{b.displayName}</span>
-                  <span className="mt-0.5 block truncate text-sm text-ink-muted">{b.email}</span>
-                </span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+                  <span
+                    className={cn(
+                      'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
+                      selected ? 'border-ink bg-ink' : 'border-border',
+                    )}
+                    aria-hidden
+                  >
+                    {selected ? <span className="h-2 w-2 rounded-full bg-sand" /> : null}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-ink">{b.displayName}</span>
+                    <span className="mt-0.5 block truncate text-sm text-ink-muted">{b.email}</span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </FluidHover>
       <StepNav
         onBack={onBack}
         onSkip={brokers.length === 0 ? onSkip : undefined}
+        onSkipAll={onSkipAll}
         onContinue={continueWithBroker}
         continueDisabled={brokers.length > 0 && !profile.brokerId}
-        showSkip={brokers.length === 0}
+        showSkip={brokers.length === 0 || Boolean(onSkipAll)}
       />
     </div>
   )
@@ -245,6 +287,8 @@ function OnboardingSteps({
     else goTo(step - 1)
   }
   const skip = () => next()
+  const skipAll = () => goTo(REVIEW_STEP >= 0 ? REVIEW_STEP : STEP_COUNT - 1)
+  const canSkipAll = step < REVIEW_STEP
 
   if (id === 'welcome') {
     return (
@@ -252,7 +296,12 @@ function OnboardingSteps({
         <p className="text-lg font-medium leading-snug text-ink md:text-xl">
           {t('onboarding.welcomeBody')}
         </p>
-        <StepNav onBack={prev} onContinue={next} onSkip={skip} />
+        <StepNav
+          onBack={prev}
+          onContinue={next}
+          onSkip={skip}
+          onSkipAll={canSkipAll ? skipAll : undefined}
+        />
       </div>
     )
   }
@@ -297,6 +346,7 @@ function OnboardingSteps({
         <StepNav
           onBack={prev}
           onSkip={skip}
+          onSkipAll={canSkipAll ? skipAll : undefined}
           continueDisabled={!phoneOk}
           onContinue={() => {
             if (otpCode.trim().length >= 4) setProfile({ phoneVerified: true })
@@ -308,35 +358,68 @@ function OnboardingSteps({
   }
 
   if (id === 'identity') {
+    const firstOk = !profile.firstName.trim() || isPersonName(profile.firstName)
+    const lastOk = !profile.lastName.trim() || isPersonName(profile.lastName)
+    const cinOk = !profile.cin.trim() || isMoroccanCin(profile.cin)
+    const cityOk = !profile.city.trim() || isMoroccanCity(profile.city)
+    const identityOk = firstOk && lastOk && cinOk && cityOk
     return (
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">{t('onboarding.name')}</Label>
-          <Input
-            id="name"
-            value={profile.name}
-            onChange={(e) => setProfile({ name: e.target.value })}
-            autoComplete="name"
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="firstName">{t('onboarding.firstName')}</Label>
+            <Input
+              id="firstName"
+              value={profile.firstName}
+              onChange={(e) => setProfile({ firstName: e.target.value })}
+              autoComplete="given-name"
+              aria-invalid={!firstOk}
+            />
+            {!firstOk ? (
+              <p className="text-sm text-alert">{t('fields.errorPersonName')}</p>
+            ) : null}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lastName">{t('onboarding.lastName')}</Label>
+            <Input
+              id="lastName"
+              value={profile.lastName}
+              onChange={(e) => setProfile({ lastName: e.target.value })}
+              autoComplete="family-name"
+              aria-invalid={!lastOk}
+            />
+            {!lastOk ? (
+              <p className="text-sm text-alert">{t('fields.errorPersonName')}</p>
+            ) : null}
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="cin">{t('onboarding.cin')}</Label>
           <Input
             id="cin"
             value={profile.cin}
-            onChange={(e) => setProfile({ cin: e.target.value })}
+            onChange={(e) => setProfile({ cin: normalizeCin(e.target.value) })}
             autoComplete="off"
+            aria-invalid={!cinOk}
           />
+          {!cinOk ? <p className="text-sm text-alert">{t('fields.errorCin')}</p> : null}
         </div>
         <div className="space-y-2">
           <Label htmlFor="city">{t('onboarding.city')}</Label>
-          <Input
+          <CitySelect
             id="city"
             value={profile.city}
-            onChange={(e) => setProfile({ city: e.target.value })}
+            onChange={(city) => setProfile({ city })}
           />
+          {!cityOk ? <p className="text-sm text-alert">{t('fields.errorCity')}</p> : null}
         </div>
-        <StepNav onBack={prev} onSkip={skip} onContinue={next} />
+        <StepNav
+          onBack={prev}
+          onSkip={skip}
+          onSkipAll={canSkipAll ? skipAll : undefined}
+          onContinue={next}
+          continueDisabled={!identityOk}
+        />
       </div>
     )
   }
@@ -358,7 +441,7 @@ function OnboardingSteps({
             onChange={(e) => setProfile({ licenseNumber: e.target.value })}
           />
         </div>
-        <StepNav onBack={prev} onSkip={skip} onContinue={next} />
+        <StepNav onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
       </div>
     )
   }
@@ -377,8 +460,12 @@ function OnboardingSteps({
           <Input
             id="plate"
             value={profile.plate}
-            onChange={(e) => setProfile({ plate: e.target.value })}
+            onChange={(e) => setProfile({ plate: e.target.value.toUpperCase() })}
+            aria-invalid={Boolean(profile.plate.trim()) && !isMoroccanPlate(profile.plate)}
           />
+          {profile.plate.trim() && !isMoroccanPlate(profile.plate) ? (
+            <p className="text-sm text-alert">{t('fields.errorPlate')}</p>
+          ) : null}
         </div>
         <div className="space-y-2">
           <Label htmlFor="vehicle">{t('onboarding.vehicle')}</Label>
@@ -388,7 +475,18 @@ function OnboardingSteps({
             onChange={(vehicle) => setProfile({ vehicle })}
           />
         </div>
-        <StepNav onBack={prev} onSkip={skip} onContinue={next} />
+        <StepNav
+          onBack={prev}
+          onSkip={skip}
+          onSkipAll={canSkipAll ? skipAll : undefined}
+          onContinue={() => {
+            if (profile.plate.trim()) {
+              setProfile({ plate: normalizePlate(profile.plate) })
+            }
+            next()
+          }}
+          continueDisabled={Boolean(profile.plate.trim()) && !isMoroccanPlate(profile.plate)}
+        />
       </div>
     )
   }
@@ -421,21 +519,21 @@ function OnboardingSteps({
         </div>
         <div className="space-y-2">
           <Label htmlFor="attestationValidUntil">{t('onboarding.attestationValidUntil')}</Label>
-          <Input
+          <DatePicker
             id="attestationValidUntil"
-            type="date"
             value={profile.attestationValidUntil}
-            onChange={(e) => setProfile({ attestationValidUntil: e.target.value })}
+            onChange={(attestationValidUntil) => setProfile({ attestationValidUntil })}
+            data-testid="attestation-valid-until"
           />
         </div>
         <ExpiryReminder validUntil={profile.attestationValidUntil} />
-        <StepNav onBack={prev} onSkip={skip} onContinue={next} />
+        <StepNav onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
       </div>
     )
   }
 
   if (id === 'broker') {
-    return <BrokerPickStep onBack={prev} onSkip={skip} onContinue={next} />
+    return <BrokerPickStep onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
   }
 
   if (id === 'assistance') {
@@ -451,15 +549,17 @@ function OnboardingSteps({
             onChange={(e) => setProfile({ assistanceNumber: e.target.value })}
           />
         </div>
-        <StepNav onBack={prev} onSkip={skip} onContinue={next} />
+        <StepNav onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
       </div>
     )
   }
 
   if (id === 'review') {
     const rows: Array<[string, string]> = [
-      [t('onboarding.name'), profile.name || '—'],
+      [t('onboarding.firstName'), profile.firstName || '—'],
+      [t('onboarding.lastName'), profile.lastName || '—'],
       [t('onboarding.cin'), profile.cin || '—'],
+      [t('onboarding.city'), profile.city || '—'],
       [t('onboarding.phone'), profile.phone || '—'],
       [t('onboarding.licenseNumber'), profile.licenseNumber || '—'],
       [t('onboarding.plate'), profile.plate || '—'],
@@ -506,7 +606,8 @@ export function useOnboardingWizard(opts: {
   onFinished: () => void
 }) {
   const { t } = useTranslation()
-  const { profile, completeOnboarding, error, saving, setProfile } = useProfileStore()
+  const { profile, completeOnboarding, error, saving, setProfile, persistDraft } =
+    useProfileStore()
   const user = useSessionStore((s) => s.user)
   const [step, setStep] = useState(() =>
     Math.min(Math.max(profile.onboardingStep || 0, 0), STEP_COUNT - 1),
@@ -519,21 +620,43 @@ export function useOnboardingWizard(opts: {
     const clamped = Math.min(Math.max(n, 0), STEP_COUNT - 1)
     setStep(clamped)
     setProfile({ onboardingStep: clamped })
+    void persistDraft()
   }
 
   useEffect(() => {
     if (!user?.motoristId) return
-    if (profile.motoristId === user.motoristId) return
+    const fromAuth = (user.displayName ?? '').trim()
+    const space = fromAuth.indexOf(' ')
+    const authFirst = space < 0 ? fromAuth : fromAuth.slice(0, space).trim()
+    const authLast = space < 0 ? '' : fromAuth.slice(space + 1).trim()
+    const needsIds = profile.motoristId !== user.motoristId
+    const needsNames =
+      !profile.firstName.trim() &&
+      !profile.lastName.trim() &&
+      Boolean(authFirst || authLast)
+    if (!needsIds && !needsNames) return
     setProfile({
-      motoristId: user.motoristId,
-      vehicleId: user.vehicleId ?? '',
-      insurerId: user.insurerId ?? '',
-      // Keep a broker already picked in the wallet if auth claims lag.
-      brokerId: user.brokerId || profile.brokerId || '',
-      policyId: user.policyId ?? '',
-      name: profile.name || user.displayName,
+      ...(needsIds
+        ? {
+            motoristId: user.motoristId,
+            vehicleId: user.vehicleId ?? '',
+            insurerId: user.insurerId ?? '',
+            // Keep a broker already picked in the wallet if auth claims lag.
+            brokerId: user.brokerId || profile.brokerId || '',
+            policyId: user.policyId ?? '',
+          }
+        : {}),
+      firstName: profile.firstName || authFirst,
+      lastName: profile.lastName || authLast,
     })
-  }, [user, profile.motoristId, profile.name, profile.brokerId, setProfile])
+  }, [
+    user,
+    profile.motoristId,
+    profile.firstName,
+    profile.lastName,
+    profile.brokerId,
+    setProfile,
+  ])
 
   async function finish() {
     let wallet = useProfileStore.getState().profile
@@ -599,16 +722,22 @@ export function OnboardingWizardBody({
   onClose,
   onFinished,
   showStepTitle = true,
+  showProgress = true,
 }: {
   onClose: () => void
   onFinished: () => void
   showStepTitle?: boolean
+  /** Inline bar under title. Wallet drawer uses header-edge bar instead. */
+  showProgress?: boolean
 }) {
   const { t } = useTranslation()
   const { stepId, stepTitle, progress, form } = useOnboardingWizard({ onClose, onFinished })
   return (
-    <div className="space-y-3" data-testid="onboarding-wizard-body">
-      {progress}
+    <div
+      className={cn(showStepTitle ? 'space-y-5' : 'space-y-4')}
+      data-testid="onboarding-wizard-body"
+    >
+      {showProgress ? progress : null}
       {showStepTitle ? (
         <h2 className="font-display text-xl font-bold text-ink">{stepTitle}</h2>
       ) : null}
@@ -634,7 +763,7 @@ export function OnboardingEditSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         hideClose={false}
-        className="max-w-lg"
+        className="max-w-xl"
         data-testid="onboarding-edit-drawer"
       >
         {open ? (
@@ -717,7 +846,7 @@ export function OnboardingPage() {
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent hideClose={false}>
-          <div className="mb-4 space-y-3">
+          <div className="mb-5 space-y-4">
             {progress}
             <SheetTitle>{stepTitle}</SheetTitle>
             {stepId === 'welcome' ? null : (

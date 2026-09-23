@@ -1,3 +1,9 @@
+import {
+  isMoroccanCin,
+  isMoroccanPlate,
+  isPersonName,
+} from '@/domain/ma-fields.ts'
+import { isMoroccanCity } from '@/domain/moroccan-cities.ts'
 import type { AssistanceOnContract, Profile as DomainProfile } from '@/domain/types.ts'
 
 export type Wallet = {
@@ -9,7 +15,8 @@ export type Wallet = {
   insurerId: string
   brokerId: string
   policyId: string
-  name: string
+  firstName: string
+  lastName: string
   phone: string
   plate: string
   vehicle: string
@@ -23,12 +30,14 @@ export type Wallet = {
   /** Moroccan CIN / identity number. */
   cin: string
   licenseNumber: string
-  /** Local-only data URL — never uploaded. */
+  /** Device preview (data URL or signed URL). */
   licensePhotoLocal: string
-  /** Local-only data URL — never uploaded. */
   carteGrisePhotoLocal: string
-  /** Local-only data URL — never uploaded. */
   attestationPhotoLocal: string
+  /** Server storage paths (evidence bucket). */
+  licensePhotoPath: string
+  carteGrisePhotoPath: string
+  attestationPhotoPath: string
   /** ISO date YYYY-MM-DD when attestation expires. */
   attestationValidUntil: string
   /** Mock OTP verified on this device (Phase 1). */
@@ -44,7 +53,8 @@ export const emptyWallet: Wallet = {
   insurerId: '',
   brokerId: '',
   policyId: '',
-  name: '',
+  firstName: '',
+  lastName: '',
   phone: '',
   plate: '',
   vehicle: '',
@@ -60,8 +70,37 @@ export const emptyWallet: Wallet = {
   licensePhotoLocal: '',
   carteGrisePhotoLocal: '',
   attestationPhotoLocal: '',
+  licensePhotoPath: '',
+  carteGrisePhotoPath: '',
+  attestationPhotoPath: '',
   attestationValidUntil: '',
   phoneVerified: false,
+}
+
+/** UI / API display: « Prénom Nom ». */
+export function displayName(wallet: Pick<Wallet, 'firstName' | 'lastName'>): string {
+  return `${wallet.firstName.trim()} ${wallet.lastName.trim()}`.trim()
+}
+
+/** Split legacy single `name` into first + last when needed. */
+export function migrateWalletNames(
+  wallet: Wallet & { name?: string },
+): Wallet {
+  const legacy = typeof wallet.name === 'string' ? wallet.name.trim() : ''
+  let firstName = wallet.firstName?.trim() ?? ''
+  let lastName = wallet.lastName?.trim() ?? ''
+  if (!firstName && !lastName && legacy) {
+    const space = legacy.indexOf(' ')
+    if (space < 0) {
+      firstName = legacy
+      lastName = ''
+    } else {
+      firstName = legacy.slice(0, space).trim()
+      lastName = legacy.slice(space + 1).trim()
+    }
+  }
+  const { name: _drop, ...rest } = wallet as Wallet & { name?: string }
+  return { ...emptyWallet, ...rest, firstName, lastName }
 }
 
 function uuidSuffix(): string {
@@ -94,31 +133,36 @@ export function isLegacySharedWallet(wallet: Wallet): boolean {
 
 /** Replace shared M-1 wallet with device-scoped ids; keep typed profile fields. */
 export function migrateDeviceWallet(wallet: Wallet): Wallet {
-  if (!isLegacySharedWallet(wallet)) return wallet
+  const named = migrateWalletNames(wallet as Wallet & { name?: string })
+  if (!isLegacySharedWallet(named)) return named
   const fresh = createDeviceWallet()
   return {
     ...fresh,
-    name: wallet.name,
-    phone: wallet.phone,
-    plate: wallet.plate,
-    vehicle: wallet.vehicle,
-    insurer: wallet.insurer,
-    policy: wallet.policy,
-    broker: wallet.broker,
-    brokerId: wallet.brokerId,
-    brokerPhone: wallet.brokerPhone,
-    assistanceNumber: wallet.assistanceNumber,
-    assistanceOnContract: wallet.assistanceOnContract,
-    city: wallet.city,
-    cin: wallet.cin,
-    licenseNumber: wallet.licenseNumber,
-    licensePhotoLocal: wallet.licensePhotoLocal,
-    carteGrisePhotoLocal: wallet.carteGrisePhotoLocal,
-    attestationPhotoLocal: wallet.attestationPhotoLocal,
-    attestationValidUntil: wallet.attestationValidUntil,
-    phoneVerified: wallet.phoneVerified,
-    onboardingStep: wallet.onboardingStep,
-    onboarded: wallet.onboarded,
+    firstName: named.firstName,
+    lastName: named.lastName,
+    phone: named.phone,
+    plate: named.plate,
+    vehicle: named.vehicle,
+    insurer: named.insurer,
+    policy: named.policy,
+    broker: named.broker,
+    brokerId: named.brokerId,
+    brokerPhone: named.brokerPhone,
+    assistanceNumber: named.assistanceNumber,
+    assistanceOnContract: named.assistanceOnContract,
+    city: named.city,
+    cin: named.cin,
+    licenseNumber: named.licenseNumber,
+    licensePhotoLocal: named.licensePhotoLocal,
+    carteGrisePhotoLocal: named.carteGrisePhotoLocal,
+    attestationPhotoLocal: named.attestationPhotoLocal,
+    licensePhotoPath: named.licensePhotoPath,
+    carteGrisePhotoPath: named.carteGrisePhotoPath,
+    attestationPhotoPath: named.attestationPhotoPath,
+    attestationValidUntil: named.attestationValidUntil,
+    phoneVerified: named.phoneVerified,
+    onboardingStep: named.onboardingStep,
+    onboarded: named.onboarded,
   }
 }
 
@@ -134,7 +178,8 @@ export function attestationDaysRemaining(validUntil: string, now = new Date()): 
 
 /** Profile fields required before declaring a sinistre to a broker. */
 export const CLAIM_READY_FIELDS = [
-  'name',
+  'firstName',
+  'lastName',
   'phone',
   'cin',
   'city',
@@ -146,7 +191,8 @@ export const CLAIM_READY_FIELDS = [
 
 /** Broader portefeuille fields for drawer progress (onboarding surface). */
 export const PORTEFEUILLE_PROGRESS_FIELDS = [
-  'name',
+  'firstName',
+  'lastName',
   'phone',
   'cin',
   'city',
@@ -165,9 +211,27 @@ export function walletFieldFilled(profile: Wallet, key: keyof Wallet): boolean {
   return String(profile[key] ?? '').trim().length > 0
 }
 
+/** Filled + format rules for claim gates. */
+export function walletFieldValid(profile: Wallet, key: keyof Wallet): boolean {
+  if (!walletFieldFilled(profile, key)) return false
+  switch (key) {
+    case 'firstName':
+    case 'lastName':
+      return isPersonName(String(profile[key]))
+    case 'cin':
+      return isMoroccanCin(profile.cin)
+    case 'city':
+      return isMoroccanCity(profile.city)
+    case 'plate':
+      return isMoroccanPlate(profile.plate)
+    default:
+      return true
+  }
+}
+
 /** Fields still empty for claim-ready (for nudge / later gate). */
 export function walletMissingClaimFields(profile: Wallet): Array<(typeof CLAIM_READY_FIELDS)[number]> {
-  return CLAIM_READY_FIELDS.filter((key) => !walletFieldFilled(profile, key))
+  return CLAIM_READY_FIELDS.filter((key) => !walletFieldValid(profile, key))
 }
 
 function walletMissingProgressFields(
@@ -200,9 +264,15 @@ export function walletToDomain(wallet: Wallet): DomainProfile {
   return {
     motorist: {
       id: wallet.motoristId,
-      name: wallet.name.trim(),
+      name: displayName(wallet),
       phone: wallet.phone.trim() || null,
       alsoTellEmployerIfCommute: false,
+      cin: wallet.cin.trim() || null,
+      city: wallet.city.trim() || null,
+      licenseNumber: wallet.licenseNumber.trim() || null,
+      licensePhotoPath: wallet.licensePhotoPath.trim() || null,
+      carteGrisePhotoPath: wallet.carteGrisePhotoPath.trim() || null,
+      attestationPhotoPath: wallet.attestationPhotoPath.trim() || null,
     },
     vehicle: {
       id: wallet.vehicleId,
@@ -221,14 +291,19 @@ export function walletToDomain(wallet: Wallet): DomainProfile {
       id: wallet.policyId,
       number: wallet.policy.trim() || null,
       insurerId: wallet.insurerId,
-      brokerId: wallet.brokerId,
+      brokerId: wallet.brokerId.trim() || null,
       vehicleId: wallet.vehicleId,
       assistanceOnContract,
+      attestationValidUntil: wallet.attestationValidUntil.trim() || null,
     },
   }
 }
 
 export function domainToWallet(profile: DomainProfile, extra?: Partial<Wallet>): Wallet {
+  const split = migrateWalletNames({
+    ...emptyWallet,
+    name: profile.motorist.name,
+  } as Wallet & { name?: string })
   return {
     ...emptyWallet,
     ...extra,
@@ -238,7 +313,8 @@ export function domainToWallet(profile: DomainProfile, extra?: Partial<Wallet>):
     insurerId: profile.insurer.id,
     brokerId: profile.broker.id,
     policyId: profile.policy.id,
-    name: profile.motorist.name,
+    firstName: extra?.firstName ?? split.firstName,
+    lastName: extra?.lastName ?? split.lastName,
     phone: profile.motorist.phone ?? '',
     plate: profile.vehicle.plate ?? '',
     vehicle: profile.vehicle.makeModel ?? '',
@@ -246,5 +322,18 @@ export function domainToWallet(profile: DomainProfile, extra?: Partial<Wallet>):
     policy: profile.policy.number ?? '',
     broker: profile.broker.displayName,
     assistanceOnContract: profile.policy.assistanceOnContract,
+    city: profile.motorist.city ?? extra?.city ?? '',
+    cin: profile.motorist.cin ?? extra?.cin ?? '',
+    licenseNumber: profile.motorist.licenseNumber ?? extra?.licenseNumber ?? '',
+    licensePhotoPath: profile.motorist.licensePhotoPath ?? extra?.licensePhotoPath ?? '',
+    carteGrisePhotoPath:
+      profile.motorist.carteGrisePhotoPath ?? extra?.carteGrisePhotoPath ?? '',
+    attestationPhotoPath:
+      profile.motorist.attestationPhotoPath ?? extra?.attestationPhotoPath ?? '',
+    licensePhotoLocal: extra?.licensePhotoLocal ?? '',
+    carteGrisePhotoLocal: extra?.carteGrisePhotoLocal ?? '',
+    attestationPhotoLocal: extra?.attestationPhotoLocal ?? '',
+    attestationValidUntil:
+      profile.policy.attestationValidUntil ?? extra?.attestationValidUntil ?? '',
   }
 }

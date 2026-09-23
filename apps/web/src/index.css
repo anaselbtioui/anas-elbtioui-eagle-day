@@ -255,3 +255,39 @@
   }
 }
 
+@keyframes labas-trace {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+.labas-trace-spinner__dash {
+  animation: labas-trace 1.6s ease-in-out infinite;
+}
+
+@keyframes labas-radio-dot {
+  from {
+    transform: scale(0.6);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.labas-radio-dot {
+  transform: scale(1);
+  transition: transform 150ms ease-out;
+  animation: labas-radio-dot 150ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .labas-trace-spinner__dash {
+    animation: none;
+    stroke-dashoffset: -30;
+  }
+
+  .labas-radio-dot {
+    animation: none;
+  }
+}
+

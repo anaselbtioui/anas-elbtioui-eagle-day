@@ -58,7 +58,7 @@ export const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttribut
     <tr
       ref={ref}
       className={cn(
-        'border-b border-border/50 transition-colors hover:bg-ink-soft/40 data-[state=selected]:bg-ink-soft',
+        'border-b border-border/50 transition-[background-color] duration-150 ease-out hover:bg-ink-soft/40 data-[state=selected]:bg-ink-soft',
         className,
       )}
       {...props}
