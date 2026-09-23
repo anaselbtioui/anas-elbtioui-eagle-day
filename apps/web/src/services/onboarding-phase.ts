@@ -21,11 +21,12 @@ export type OnboardingPhase =
   | 'expired'
 
 export function deriveOnboardingPhase(wallet: Wallet): OnboardingPhase {
+  const days = attestationDaysRemaining(wallet.attestationValidUntil)
+  // Past date always wins — even when other fields still incomplete.
+  if (days !== null && days < 0) return 'expired'
   if (!walletFullyComplete(wallet)) {
     return walletClaimReady(wallet) ? 'claimReady' : 'gaps'
   }
-  const days = attestationDaysRemaining(wallet.attestationValidUntil)
-  if (days !== null && days < 0) return 'expired'
   if (days !== null && days <= 45) return 'expiring'
   return 'complete'
 }

@@ -9,6 +9,7 @@ import {
   migrateWalletNames,
   firstWalletGapStep,
   walletClaimReady,
+  walletFieldFilled,
   walletFieldNeedsInput,
   walletFullyComplete,
   walletRemainingPercent,
@@ -207,5 +208,25 @@ describe('firstWalletGapStep', () => {
     }
     expect(firstWalletGapStep(full)).toBe('review')
     expect(walletFullyComplete(full)).toBe(true)
+  })
+
+  it('stays on attestation when validity date is expired', () => {
+    const expired: Wallet = {
+      ...emptyWallet,
+      firstName: 'Nadia',
+      lastName: 'El Mansouri',
+      phone: '+212612345678',
+      phoneVerified: true,
+      cin: 'AB123456',
+      city: 'Casablanca',
+      plate: '12345-A-50',
+      vehicle: 'Dacia',
+      insurer: 'Sanlam',
+      brokerId: 'B-1',
+      licenseNumber: 'P-1',
+      attestationValidUntil: '2020-01-01',
+    }
+    expect(walletFieldFilled(expired, 'attestationValidUntil')).toBe(false)
+    expect(firstWalletGapStep(expired)).toBe('attestation')
   })
 })

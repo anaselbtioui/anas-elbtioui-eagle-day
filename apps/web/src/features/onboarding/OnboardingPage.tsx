@@ -33,9 +33,11 @@ import { api } from '@/services/api.ts'
 import { resumeStepId } from '@/services/onboarding-phase.ts'
 import {
   attestationDaysRemaining,
+  WALLET_GAP_STEPS,
   walletFieldIsProgress,
   walletFieldNeedsInput,
   walletIncompleteSteps,
+  type WalletGapStepId,
 } from '@/services/wallet.ts'
 import { useProfileStore } from '@/store/profile'
 import { useSessionStore } from '@/store/session'
@@ -353,15 +355,27 @@ export function OnboardingSteps({
 
   const next = () => nextGapOr(Math.min(step + 1, STEP_COUNT - 1))
   const prev = () => {
-    if (step <= 0) onLeave()
-    else if (gapsOnly) {
-      const incomplete = walletIncompleteSteps(profile)
-      const currentId = ONBOARDING_STEPS[step]
-      const idx = incomplete.findIndex((s) => s === currentId)
-      const prevId = incomplete[idx - 1]
-      if (prevId) goTo(ONBOARDING_STEPS.indexOf(prevId))
-      else onLeave()
-    } else goTo(step - 1)
+    if (step <= 0) {
+      onLeave()
+      return
+    }
+    if (!gapsOnly) {
+      goTo(step - 1)
+      return
+    }
+    // Gaps resume: walk prior wallet steps (filled ones too), not only incomplete.
+    const currentId = ONBOARDING_STEPS[step]
+    const gapIdx = (WALLET_GAP_STEPS as readonly string[]).indexOf(currentId)
+    if (gapIdx > 0) {
+      goTo(ONBOARDING_STEPS.indexOf(WALLET_GAP_STEPS[gapIdx - 1] as WalletGapStepId))
+      return
+    }
+    if (gapIdx === 0) {
+      onLeave()
+      return
+    }
+    // review / assistance / etc — last wallet gap step
+    goTo(ONBOARDING_STEPS.indexOf(WALLET_GAP_STEPS[WALLET_GAP_STEPS.length - 1]!))
   }
   const skip = () => next()
   const skipAll = () => goTo(REVIEW_STEP >= 0 ? REVIEW_STEP : STEP_COUNT - 1)
@@ -579,6 +593,8 @@ export function OnboardingSteps({
   }
 
   if (id === 'attestation') {
+    const days = attestationDaysRemaining(profile.attestationValidUntil)
+    const attestationNotExpired = days === null || days >= 0
     return (
       <div className="space-y-4">
         <LocalPhotoField
@@ -622,7 +638,13 @@ export function OnboardingSteps({
           </div>
         </div>
         <ExpiryReminder validUntil={profile.attestationValidUntil} />
-        <StepNav onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
+        <StepNav
+          onBack={prev}
+          onSkip={skip}
+          onSkipAll={canSkipAll ? skipAll : undefined}
+          onContinue={next}
+          continueDisabled={!attestationNotExpired}
+        />
       </div>
     )
   }

@@ -211,6 +211,10 @@ export const PLACEHOLDER_INSURER = 'Assureur'
 export function walletFieldFilled(profile: Wallet, key: keyof Wallet): boolean {
   if (key === 'phoneVerified') return profile.phoneVerified
   if (key === 'assistanceOnContract') return profile.assistanceOnContract !== 'unknown'
+  if (key === 'attestationValidUntil') {
+    const days = attestationDaysRemaining(String(profile.attestationValidUntil ?? ''))
+    return days !== null && days >= 0
+  }
   const value = String(profile[key] ?? '').trim()
   if (!value) return false
   if (key === 'insurer' && value === PLACEHOLDER_INSURER) return false
