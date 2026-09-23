@@ -4,6 +4,8 @@
     "hint": "Move the photo. Zoom adjusts the frame.",
     "zoom": "Zoom",
     "rotate": "Rotate",
+    "rotateLeft": "Rotate left",
+    "rotateRight": "Rotate right",
     "cancel": "Cancel",
     "confirm": "Use this crop"
   },

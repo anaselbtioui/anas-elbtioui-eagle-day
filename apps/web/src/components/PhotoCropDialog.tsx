@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import Cropper, { type Area } from 'react-easy-crop'
 import 'react-easy-crop/react-easy-crop.css'
+import { RotateCcw, RotateCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { cropImageToDataUrl } from '@/lib/crop-image'
@@ -91,28 +92,42 @@ export function PhotoCropDialog({ imageSrc, aspect, onCancel, onConfirm }: Photo
                 aria-valuenow={zoom}
               />
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant="secondary"
-                className="flex-1"
+                size="icon"
                 disabled={busy}
-                onClick={() => setRotation((value) => (value + 90) % 360)}
+                onClick={() => setRotation((value) => (value + 270) % 360)}
+                aria-label={t('crop.rotateLeft')}
+                data-testid="photo-crop-rotate-left"
               >
-                {t('crop.rotate')}
-              </Button>
-              <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>
-                {t('crop.cancel')}
+                <RotateCcw className="h-5 w-5" aria-hidden />
               </Button>
               <Button
                 type="button"
-                className="flex-1"
-                disabled={busy || !pixels}
-                onClick={() => void confirm()}
-                data-testid="photo-crop-confirm"
+                variant="secondary"
+                size="icon"
+                disabled={busy}
+                onClick={() => setRotation((value) => (value + 90) % 360)}
+                aria-label={t('crop.rotateRight')}
+                data-testid="photo-crop-rotate-right"
               >
-                {t('crop.confirm')}
+                <RotateCw className="h-5 w-5" aria-hidden />
               </Button>
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>
+                  {t('crop.cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  disabled={busy || !pixels}
+                  onClick={() => void confirm()}
+                  data-testid="photo-crop-confirm"
+                >
+                  {t('crop.confirm')}
+                </Button>
+              </div>
             </div>
           </div>
         </Dialog.Content>

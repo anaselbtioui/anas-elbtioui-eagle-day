@@ -4,6 +4,8 @@
     "hint": "Déplacez la photo. Le zoom règle le cadre.",
     "zoom": "Zoom",
     "rotate": "Pivoter",
+    "rotateLeft": "Pivoter à gauche",
+    "rotateRight": "Pivoter à droite",
     "cancel": "Annuler",
     "confirm": "Utiliser ce cadrage"
   },
