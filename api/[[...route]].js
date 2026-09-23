@@ -27481,7 +27481,7 @@ function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
     return c.json({ motorist: saraMotorist, pack: applyEvidenceRules(saraInjuryPack()) });
   });
   app2.post("/api/reset", async (c) => {
-    if (process.env.ALLOW_RESET !== "1" && process.env.NODE_ENV === "production") {
+    if (process.env.ALLOW_RESET !== "1") {
       return c.json({ error: "reset_disabled" }, 403);
     }
     const db = emptyDb();

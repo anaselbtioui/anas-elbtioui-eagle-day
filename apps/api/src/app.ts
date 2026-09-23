@@ -1126,7 +1126,8 @@ export function createApp(
   })
 
   app.post('/api/reset', async (c) => {
-    if (process.env.ALLOW_RESET !== '1' && process.env.NODE_ENV === 'production') {
+    // Opt-in only. Never open because NODE_ENV is unset on serverless.
+    if (process.env.ALLOW_RESET !== '1') {
       return c.json({ error: 'reset_disabled' }, 403)
     }
     const db = emptyDb()
