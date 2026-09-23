@@ -155,14 +155,21 @@ function BrokerPickStep({
         setBrokers(list)
         setLoading(false)
         const current = useProfileStore.getState().profile
-        if (list.length === 1 && !current.brokerId) {
+        if (list.length === 1) {
           const only = list[0]!
-          setProfile({ brokerId: only.id, broker: only.displayName })
+          if (current.brokerId !== only.id || current.broker !== only.displayName) {
+            useProfileStore.getState().setProfile({
+              brokerId: only.id,
+              broker: only.displayName,
+            })
+          }
+          // Persist now so Continue / skip do not leave wallet unlinked.
+          void useProfileStore.getState().persistDraft()
         } else if (
           current.brokerId &&
           !list.some((b) => b.id === current.brokerId)
         ) {
-          setProfile({ brokerId: '', broker: '' })
+          useProfileStore.getState().setProfile({ brokerId: '', broker: '' })
         }
       })
       .catch((err) => {
@@ -173,14 +180,17 @@ function BrokerPickStep({
     return () => {
       cancelled = true
     }
-  }, [setProfile])
+  }, [])
 
   function pick(id: string, displayName: string) {
     setProfile({ brokerId: id, broker: displayName })
+    void useProfileStore.getState().persistDraft()
   }
 
   function continueWithBroker() {
-    if (!profile.brokerId) return
+    const wallet = useProfileStore.getState().profile
+    if (!wallet.brokerId.trim()) return
+    void useProfileStore.getState().persistDraft()
     onContinue()
   }
 
@@ -236,7 +246,7 @@ function BrokerPickStep({
         onSkip={brokers.length === 0 ? onSkip : undefined}
         onSkipAll={onSkipAll}
         onContinue={continueWithBroker}
-        continueDisabled={brokers.length > 0 && !profile.brokerId}
+        continueDisabled={loading || (brokers.length > 0 && !profile.brokerId.trim())}
         showSkip={brokers.length === 0 || Boolean(onSkipAll)}
       />
     </div>
@@ -264,7 +274,7 @@ function ExpiryReminder({ validUntil }: { validUntil: string }) {
   return null
 }
 
-function OnboardingSteps({
+export function OnboardingSteps({
   step,
   goTo,
   onLeave,
@@ -629,10 +639,11 @@ export function useOnboardingWizard(opts: {
     const space = fromAuth.indexOf(' ')
     const authFirst = space < 0 ? fromAuth : fromAuth.slice(0, space).trim()
     const authLast = space < 0 ? '' : fromAuth.slice(space + 1).trim()
-    const needsIds = profile.motoristId !== user.motoristId
+    const latest = useProfileStore.getState().profile
+    const needsIds = latest.motoristId !== user.motoristId
     const needsNames =
-      !profile.firstName.trim() &&
-      !profile.lastName.trim() &&
+      !latest.firstName.trim() &&
+      !latest.lastName.trim() &&
       Boolean(authFirst || authLast)
     if (!needsIds && !needsNames) return
     setProfile({
@@ -641,22 +652,15 @@ export function useOnboardingWizard(opts: {
             motoristId: user.motoristId,
             vehicleId: user.vehicleId ?? '',
             insurerId: user.insurerId ?? '',
-            // Keep a broker already picked in the wallet if auth claims lag.
-            brokerId: user.brokerId || profile.brokerId || '',
+            // Prefer live wallet broker — JWT may lag; never wipe a pick with stale ''.
+            brokerId: user.brokerId || latest.brokerId || '',
             policyId: user.policyId ?? '',
           }
         : {}),
-      firstName: profile.firstName || authFirst,
-      lastName: profile.lastName || authLast,
+      firstName: latest.firstName || authFirst,
+      lastName: latest.lastName || authLast,
     })
-  }, [
-    user,
-    profile.motoristId,
-    profile.firstName,
-    profile.lastName,
-    profile.brokerId,
-    setProfile,
-  ])
+  }, [user, profile.motoristId, profile.firstName, profile.lastName, setProfile])
 
   async function finish() {
     let wallet = useProfileStore.getState().profile
