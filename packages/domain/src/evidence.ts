@@ -135,6 +135,14 @@ export function canArchivePack(
   return isNowDraftExpired(pack, now)
 }
 
+/** Cancel (stop) an in-progress claim: draft or saved only. */
+export function canCancelPack(
+  pack: Pick<EvidencePack, 'status' | 'archivedAt'>,
+): boolean {
+  if (isPackArchived(pack)) return false
+  return pack.status === 'draft' || pack.status === 'saved'
+}
+
 /** Resume wizard step from pack fields (avoids always restarting at injury). */
 export function deriveNowStep(pack: EvidencePack): NowWizardStep {
   if (pack.status === 'expired') return 'expired'

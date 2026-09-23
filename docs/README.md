@@ -22,4 +22,8 @@ Product truth and hackathon handoff for Med Assurance.
 
 ## Assets
 
-Brand mark: [../apps/web/public/brand/icon.svg](../apps/web/public/brand/icon.svg). Screenshots live in [screenshots/](screenshots/).
+| File | What |
+| --- | --- |
+| [assets/constat-a-lamiable-maroc-template.pdf](assets/constat-a-lamiable-maroc-template.pdf) | Scan of the Moroccan bilingual **constat amiable** (FR/AR). Source of truth for draft PDF field layout — not a PV. |
+| Brand mark | [../apps/web/public/brand/icon.svg](../apps/web/public/brand/icon.svg) |
+| Screenshots | [screenshots/](screenshots/) |

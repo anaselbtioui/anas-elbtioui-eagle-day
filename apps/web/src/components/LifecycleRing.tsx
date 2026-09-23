@@ -64,6 +64,8 @@ type LifecycleRingProps = {
   tones?: LifecycleTone[]
   /** When set, hover shows stage rail (next / current / done). */
   stages?: LifecycleStage[]
+  /** Subset shown in the hover tip; defaults to all `stages`. */
+  tipStages?: LifecycleStage[]
   label: string
   size?: number
   className?: string
@@ -75,13 +77,17 @@ const TIP_WIDTH = 248
 export function LifecycleRing({
   tones,
   stages,
+  tipStages,
   label,
   size = 16,
   className,
 }: LifecycleRingProps) {
   const { t } = useTranslation()
   const resolvedTones = tones ?? stages?.map((s) => s.tone) ?? []
+  const tipList = tipStages ?? stages
   const blockKey =
+    tipList?.find((s) => s.state === 'active' && s.block)?.block?.titleKey ??
+    tipList?.find((s) => s.block)?.block?.titleKey ??
     stages?.find((s) => s.state === 'active' && s.block)?.block?.titleKey ??
     stages?.find((s) => s.block)?.block?.titleKey
   const accessibleLabel = blockKey ? `${label}. ${t(blockKey)}` : label
@@ -91,25 +97,25 @@ export function LifecycleRing({
 
   if (resolvedTones.length === 0) return null
 
-  const hasStages = Boolean(stages && stages.length > 0)
+  const hasTip = Boolean(tipList && tipList.length > 0)
 
   function place() {
     const r = anchorRef.current?.getBoundingClientRect()
-    if (!r) return
+    if (!r || !tipList) return
     const left = Math.min(
       Math.max(8, r.right - TIP_WIDTH),
       window.innerWidth - TIP_WIDTH - 8,
     )
     const below = r.bottom + 8
-    const blockCount = stages!.filter((s) => s.block).length
-    const tipH = 12 + stages!.length * 40 + blockCount * 32
+    const blockCount = tipList.filter((s) => s.block).length
+    const tipH = 12 + tipList.length * 40 + blockCount * 32
     const top =
       below + tipH > window.innerHeight - 8 ? Math.max(8, r.top - tipH - 8) : below
     setPos({ top, left })
   }
 
   function show() {
-    if (!hasStages) return
+    if (!hasTip) return
     place()
     setOpen(true)
   }
@@ -123,27 +129,27 @@ export function LifecycleRing({
       ref={anchorRef}
       className={cn(
         'relative inline-flex shrink-0 items-center justify-center',
-        hasStages && 'cursor-help',
+        hasTip && 'cursor-help',
         className,
       )}
       aria-label={accessibleLabel}
-      title={hasStages ? undefined : label}
+      title={hasTip ? undefined : label}
       onMouseEnter={show}
       onMouseLeave={hide}
       onFocus={show}
       onBlur={hide}
       onClick={(e) => {
-        if (!hasStages) return
+        if (!hasTip) return
         e.stopPropagation()
         if (open) hide()
         else show()
       }}
       onKeyDown={(e) => e.stopPropagation()}
-      tabIndex={hasStages ? 0 : undefined}
-      role={hasStages ? 'button' : undefined}
+      tabIndex={hasTip ? 0 : undefined}
+      role={hasTip ? 'button' : undefined}
     >
       <RingSvg tones={resolvedTones} size={size} />
-      {open && hasStages && stages
+      {open && hasTip && tipList
         ? createPortal(
             <div
               role="tooltip"
@@ -154,7 +160,7 @@ export function LifecycleRing({
               onClick={(e) => e.stopPropagation()}
             >
               <p className="mb-2.5 text-xs font-semibold text-ink-muted">{label}</p>
-              <LifecycleRail stages={stages} />
+              <LifecycleRail stages={tipList} />
             </div>,
             document.body,
           )

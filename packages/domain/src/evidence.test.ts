@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canArchivePack,
+  canCancelPack,
   createEmptyPack,
   DECLARE_GUIDANCE_WINDOW_MS,
   deriveNowStep,
@@ -114,6 +115,24 @@ describe('archive eligibility', () => {
     ).toBe(false)
     expect(isPackArchived({ archivedAt: '2026-09-23T10:00:00.000Z' })).toBe(true)
     expect(isPackArchived({ archivedAt: null })).toBe(false)
+  })
+})
+
+describe('cancel eligibility', () => {
+  it('allows draft and saved', () => {
+    expect(canCancelPack(createEmptyPack())).toBe(true)
+    expect(canCancelPack({ ...createEmptyPack(), status: 'saved' })).toBe(true)
+  })
+
+  it('blocks stopped, expired, and archived', () => {
+    expect(canCancelPack({ ...createEmptyPack(), status: 'stopped' })).toBe(false)
+    expect(canCancelPack({ ...createEmptyPack(), status: 'expired' })).toBe(false)
+    expect(
+      canCancelPack({
+        ...createEmptyPack(),
+        archivedAt: '2026-09-23T10:00:00.000Z',
+      }),
+    ).toBe(false)
   })
 })
 

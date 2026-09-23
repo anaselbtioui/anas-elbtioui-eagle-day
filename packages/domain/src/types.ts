@@ -78,6 +78,8 @@ export type Incident = {
   vehicleImmobilised: boolean
   otherPartyId: string | null
   workCommute: boolean | null
+  /** ISO timestamp when motorist archived; null = active in récents. */
+  archivedAt: string | null
 }
 
 export type DamageZone = {

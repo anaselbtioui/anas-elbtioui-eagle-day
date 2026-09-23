@@ -33,6 +33,7 @@ function domainPack(id: string, injury: EvidencePack['incident']['injury'] = 'no
       vehicleImmobilised: false,
       otherPartyId: null,
       workCommute: null,
+      archivedAt: null,
     },
     otherParty: null,
     evidence: {

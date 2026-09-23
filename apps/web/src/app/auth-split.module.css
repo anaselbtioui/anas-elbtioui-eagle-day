@@ -4,7 +4,8 @@
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  background: var(--color-sand);
+  /* Transparent so body paper + motif show through */
+  background: transparent;
   scrollbar-gutter: stable;
 }
 
@@ -51,11 +52,12 @@
   inset: 0;
   pointer-events: none;
   background-image: url("/textures/pattern.svg");
-  background-repeat: repeat;
-  background-size: 420px auto;
-  opacity: 0.05;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.04;
   mix-blend-mode: soft-light;
-  filter: invert(1) contrast(0.85) brightness(0.9);
+  filter: invert(1) contrast(0.9) brightness(1.05);
 }
 
 .orb {
@@ -207,6 +209,7 @@
   color: #f4efe6;
   letter-spacing: -0.01em;
   text-shadow: 0 1px 28px rgba(0, 0, 0, 0.22);
+  text-wrap: balance;
 }
 
 .brandBody {
@@ -215,6 +218,7 @@
   line-height: 1.55;
   color: color-mix(in srgb, #f4efe6 88%, var(--color-brand-blush));
   text-shadow: 0 1px 18px rgba(0, 0, 0, 0.18);
+  text-wrap: pretty;
 }
 
 .brandCopyright {
@@ -252,7 +256,7 @@
     padding: 2.5rem 2rem 3rem calc(2rem + 28px);
     border-top-left-radius: 22px;
     border-bottom-left-radius: 22px;
-    background: var(--color-sand);
+    background: transparent;
     box-shadow: -8px 0 32px -12px rgba(16, 40, 96, 0.12);
   }
 }
@@ -329,12 +333,12 @@
   inset: 0;
   background-color: color-mix(in srgb, var(--color-ink) 55%, var(--color-moss));
   background-image: url("/textures/pattern.svg");
-  background-repeat: repeat;
-  background-size: 420px auto;
+  background-repeat: no-repeat;
+  background-size: cover;
   background-position: center top;
   background-blend-mode: lighten;
   mix-blend-mode: soft-light;
-  opacity: 0.35;
+  opacity: 0.12;
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.5) 42%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.5) 42%, transparent 100%);
   pointer-events: none;
@@ -366,12 +370,32 @@
   color: var(--color-ink-muted);
 }
 
+.flowPane {
+  width: 100%;
+  animation: labasFlowIn 200ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes labasFlowIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .orbMoss,
   .orbBlush,
   .orbInk {
     animation: none;
     will-change: auto;
+  }
+
+  .flowPane {
+    animation: none;
   }
 }
 

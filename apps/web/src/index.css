@@ -61,7 +61,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Hamssah motif — whisper opacity over paper grain */
+  /* Hamssah motif — one cover, barely there */
   body::before {
     content: "";
     pointer-events: none;
@@ -69,9 +69,10 @@
     inset: 0;
     z-index: 0;
     background-image: url("/textures/pattern.svg");
-    background-size: 520px auto;
-    background-repeat: repeat;
-    opacity: 0.04;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.02;
     mix-blend-mode: multiply;
   }
 

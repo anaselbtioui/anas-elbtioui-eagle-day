@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
   canArchivePack,
+  canCancelPack,
   createEmptyPack,
   evidenceReducer,
   expireDraftPack,
@@ -38,26 +39,13 @@ interface EvidenceState {
   hydrateFromDomain: (packs: DomainPack[]) => void
   archivePack: (id: string) => boolean
   unarchivePack: (id: string) => boolean
+  /** Stop an in-progress draft/saved pack (user cancel). */
+  cancelPack: (id: string) => boolean
   clearActive: () => void
   resetAll: () => void
 }
 
-/** Keep device-local archive stamps across server hydrate. */
-export function mergeArchivedAt(
-  packs: EvidencePack[],
-  previous: { pack: EvidencePack | null; history: EvidencePack[] },
-): EvidencePack[] {
-  const stamps = new Map<string, string>()
-  for (const h of previous.history) {
-    if (h.archivedAt) stamps.set(h.id, h.archivedAt)
-  }
-  if (previous.pack?.archivedAt) stamps.set(previous.pack.id, previous.pack.archivedAt)
-  return packs.map((p) => {
-    const archivedAt = stamps.get(p.id)
-    return archivedAt ? { ...p, archivedAt } : p
-  })
-}
-
+/** Apply a patch to the active pack or a history row by id. */
 function patchPackById(
   pack: EvidencePack | null,
   history: EvidencePack[],
@@ -113,7 +101,8 @@ function applyRemaps(remaps: OfflineIdRemap[]) {
 }
 
 function pushPack(ui: EvidencePack): Promise<void> {
-  if (!ui.injury) return Promise.resolve()
+  // Skip untouched empty drafts. Everything else (incl. archive / cancel) hits the API.
+  if (ui.status === 'draft' && !ui.injury && !ui.stopReason) return Promise.resolve()
   persistChain = persistChain
     .catch(() => undefined)
     .then(async () => {
@@ -278,18 +267,9 @@ export const useEvidenceStore = create<EvidenceState>()(
         await pushPack(current)
       },
       hydrateFromDomain: (packs) => {
-        const prev = { pack: get().pack, history: get().history }
-        const mapped = mergeArchivedAt(
-          packs.filter(packLooksStarted).map(fromDomainPack),
-          prev,
-        )
-        const activeStamp = prev.pack?.archivedAt ?? null
+        const mapped = packs.filter(packLooksStarted).map(fromDomainPack)
         const { pack, history } = applyNowExpiry(get().pack, mapped)
-        const nextPack =
-          pack && activeStamp && !pack.archivedAt
-            ? { ...pack, archivedAt: activeStamp }
-            : pack
-        set({ pack: nextPack, history })
+        set({ pack, history })
       },
       archivePack: (id) => {
         get().sweepExpired()
@@ -297,13 +277,13 @@ export const useEvidenceStore = create<EvidenceState>()(
         const target = pack?.id === id ? pack : history.find((h) => h.id === id)
         if (!target || !canArchivePack(target)) return false
         const at = new Date().toISOString()
-        const next = patchPackById(pack, history, id, (p) => ({
-          ...p,
-          archivedAt: at,
-          updatedAt: at,
-        }))
+        const archived = { ...target, archivedAt: at, updatedAt: at }
+        const next = patchPackById(pack, history, id, () => archived)
         if (!next) return false
         set(next)
+        void pushPack(archived).catch((err) => {
+          set({ error: err instanceof Error ? err.message : 'save_failed' })
+        })
         return true
       },
       unarchivePack: (id) => {
@@ -311,13 +291,34 @@ export const useEvidenceStore = create<EvidenceState>()(
         const target = pack?.id === id ? pack : history.find((h) => h.id === id)
         if (!target?.archivedAt) return false
         const at = new Date().toISOString()
-        const next = patchPackById(pack, history, id, (p) => ({
-          ...p,
-          archivedAt: null,
-          updatedAt: at,
-        }))
+        const restored = { ...target, archivedAt: null, updatedAt: at }
+        const next = patchPackById(pack, history, id, () => restored)
         if (!next) return false
         set(next)
+        void pushPack(restored).catch((err) => {
+          set({ error: err instanceof Error ? err.message : 'save_failed' })
+        })
+        return true
+      },
+      cancelPack: (id) => {
+        get().sweepExpired()
+        const { pack, history } = get()
+        const target = pack?.id === id ? pack : history.find((h) => h.id === id)
+        if (!target || !canCancelPack(target)) return false
+        const stopped = evidenceReducer(target, { type: 'STOP', reason: 'other' })
+        if (pack?.id === id) {
+          set({
+            pack: stopped,
+            history: [stopped, ...history.filter((h) => h.id !== id)].slice(0, 20),
+          })
+        } else {
+          set({
+            history: history.map((h) => (h.id === id ? stopped : h)),
+          })
+        }
+        void pushPack(stopped).catch((err) => {
+          set({ error: err instanceof Error ? err.message : 'save_failed' })
+        })
         return true
       },
       clearActive: () => set({ pack: null }),

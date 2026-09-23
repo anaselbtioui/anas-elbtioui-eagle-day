@@ -16794,7 +16794,8 @@ function nadiaMissingConstatPack() {
       injury: "no",
       vehicleImmobilised: false,
       otherPartyId: "O-1",
-      workCommute: false
+      workCommute: false,
+      archivedAt: null
     },
     otherParty: {
       id: "O-1",
@@ -16823,7 +16824,8 @@ function saraInjuryPack() {
       injury: "yes",
       vehicleImmobilised: false,
       otherPartyId: null,
-      workCommute: null
+      workCommute: null,
+      archivedAt: null
     },
     otherParty: null,
     evidence: {
@@ -17730,7 +17732,8 @@ function newEmptyPack(db, body) {
       injury: body.injury ?? "no",
       vehicleImmobilised: body.vehicleImmobilised ?? false,
       otherPartyId: null,
-      workCommute: body.workCommute ?? null
+      workCommute: body.workCommute ?? null,
+      archivedAt: null
     },
     otherParty: null,
     evidence: emptyEvidence(id)
@@ -26027,7 +26030,8 @@ async function loadDb2() {
       injury: r.injury,
       vehicleImmobilised: r.vehicle_immobilised,
       otherPartyId: r.other_party_id,
-      workCommute: r.work_commute
+      workCommute: r.work_commute,
+      archivedAt: r.archived_at
     })),
     evidences: rows.evidences.map((r) => ({
       incidentId: r.incident_id,
@@ -26238,7 +26242,8 @@ async function persistAll(db) {
       injury: r.injury,
       vehicle_immobilised: r.vehicleImmobilised,
       other_party_id: r.otherPartyId,
-      work_commute: r.workCommute
+      work_commute: r.workCommute,
+      archived_at: r.archivedAt
     }))
   );
   await insertAll(
@@ -26417,7 +26422,8 @@ function createImportBundle(input) {
       injury: "unknown",
       vehicleImmobilised: false,
       otherPartyId: null,
-      workCommute: null
+      workCommute: null,
+      archivedAt: null
     },
     otherParty: null,
     evidence: {

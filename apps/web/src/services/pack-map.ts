@@ -30,6 +30,7 @@ export function toDomainPack(
       vehicleImmobilised: ui.driveable === false,
       otherPartyId: otherParty?.id ?? null,
       workCommute: null,
+      archivedAt: ui.archivedAt,
     },
     otherParty,
     evidence: {
@@ -67,7 +68,7 @@ export function fromDomainPack(pack: DomainPack): UiPack {
     createdAt: pack.incident.occurredAt ?? base.createdAt,
     updatedAt: pack.incident.occurredAt ?? base.updatedAt,
     city: pack.incident.city,
-    status: pack.incident.injury !== 'no' && pack.evidence.pv === 'required' ? 'stopped' : 'saved',
+    status: pack.evidence.pv === 'required' ? 'stopped' : 'saved',
     injury: pack.incident.injury,
     otherDriver: otherDriverFromDomain(pack),
     constat: {
@@ -85,9 +86,12 @@ export function fromDomainPack(pack: DomainPack): UiPack {
     stopReason:
       pack.incident.injury === 'yes' || pack.incident.injury === 'unknown'
         ? 'injury'
-        : pack.otherParty && pack.otherParty.status !== 'known'
+        : pack.evidence.pv === 'required'
           ? 'other'
-          : null,
+          : pack.otherParty && pack.otherParty.status !== 'known'
+            ? 'other'
+            : null,
+    archivedAt: pack.incident.archivedAt ?? null,
   }
 }
 

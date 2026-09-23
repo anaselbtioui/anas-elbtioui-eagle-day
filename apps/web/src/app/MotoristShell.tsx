@@ -12,6 +12,7 @@ import { packDeclareBlocked, packLifecycleStages } from '@/domain/lifecycle.ts'
 import { ProfileSettingsModal } from '@/features/home/ProfileSettingsModal'
 import { WalletNudgeDrawer } from '@/features/home/WalletNudgeDrawer'
 import { openMotoristPack } from '@/features/home/openMotoristPack'
+import { RecentPackRow } from '@/components/RecentPackRow'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
 import { useSessionStore } from '@/store/session'
@@ -23,7 +24,6 @@ import {
   accidentLabelCopyFromT,
 } from '@/lib/accident-label'
 import { fullTimestampFr, shortRelativeFr } from '@/lib/relative-time'
-import { cn } from '@/lib/utils'
 
 export function MotoristShell({ children }: { children?: ReactNode }) {
   const { t } = useTranslation()
@@ -37,6 +37,8 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
   const start = useEvidenceStore((s) => s.start)
   const starting = useEvidenceStore((s) => s.starting)
   const resume = useEvidenceStore((s) => s.resume)
+  const archivePack = useEvidenceStore((s) => s.archivePack)
+  const cancelPack = useEvidenceStore((s) => s.cancelPack)
   const claimReady = walletClaimReady(profile)
   const { packId } = useParams()
   const { pathname } = useLocation()
@@ -183,45 +185,45 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
               ) : (
                 recentPacks.map((p) => {
                   const declareBlocked = packDeclareBlocked(p.status, claimReady)
-                  const activeBlock = packLifecycleStages(p.status, {
+                  const stages = packLifecycleStages(p.status, {
                     walletReady: claimReady,
                     createdAt: p.createdAt,
-                  }).find((stage) => stage.state === 'active')?.block
+                  })
                   const title = accidentDisplayTitle(
                     { ...p, city: p.city || cityFallback },
                     labelCopy,
                   )
                   const ref = displayAccidentRef(p.ref, p.id)
                   return (
-                    <li key={p.id}>
-                      <button
-                        type="button"
-                        disabled={declareBlocked}
-                        title={activeBlock ? t(activeBlock.titleKey) : ref}
-                        onClick={() => openRecentPack(p.id)}
-                        data-fluid-item
-                        {...(declareBlocked ? { 'data-fluid-disabled': '' } : {})}
-                        className={cn(
-                          'relative z-[1] flex min-h-10 w-full items-center gap-2 rounded-[var(--radius-labas)] px-3 py-2.5 text-left text-sm leading-none',
-                          declareBlocked && 'cursor-not-allowed text-ink-muted opacity-45',
-                          !declareBlocked &&
-                            (packId === p.id
-                              ? shellActiveEntry
-                              : 'bg-transparent text-ink-muted hover:text-ink'),
-                        )}
-                        data-testid={`nav-pack-${p.id}`}
-                      >
-                        <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-semibold leading-normal">
-                          {title}
-                        </span>
-                        <span
-                          className="shrink-0 self-center tabular-nums text-[0.6875rem] font-medium leading-none text-ink-muted/80"
-                          title={fullTimestampFr(p.createdAt)}
-                        >
-                          {shortRelativeFr(p.createdAt)}
-                        </span>
-                      </button>
-                    </li>
+                    <RecentPackRow
+                      key={p.id}
+                      pack={p}
+                      stages={stages}
+                      title={title}
+                      refLabel={ref}
+                      relative={shortRelativeFr(p.createdAt)}
+                      absoluteTime={fullTimestampFr(p.createdAt)}
+                      active={packId === p.id}
+                      declareBlocked={declareBlocked}
+                      activeClassName={shellActiveEntry}
+                      idleClassName="bg-transparent text-ink-muted hover:text-ink"
+                      onOpen={() => openRecentPack(p.id)}
+                      onArchive={() => {
+                        if (archivePack(p.id) && packId === p.id) {
+                          navigate('/past', { replace: true })
+                        }
+                      }}
+                      onCancel={() => {
+                        if (!cancelPack(p.id)) return
+                        const onFlow =
+                          pathname === '/now' ||
+                          pathname.startsWith('/now/') ||
+                          pathname === '/later' ||
+                          pathname.startsWith('/later/') ||
+                          packId === p.id
+                        if (onFlow) navigate('/', { replace: true })
+                      }}
+                    />
                   )
                 })
               )}

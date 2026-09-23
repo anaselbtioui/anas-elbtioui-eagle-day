@@ -255,6 +255,7 @@ export function createImportBundle(input: {
       vehicleImmobilised: false,
       otherPartyId: null,
       workCommute: null,
+      archivedAt: null,
     },
     otherParty: null,
     evidence: {

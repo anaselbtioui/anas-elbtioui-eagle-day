@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { RolePickerPage } from '@/app/RolePickerPage'
 import { MotoristShell } from '@/app/MotoristShell'
 import { DeskShell } from '@/app/DeskShell'
 import { SessionExpiryWarning } from '@/components/SessionExpiryWarning'
@@ -24,11 +23,9 @@ const queryClient = new QueryClient()
 
 function RootEntry() {
   const user = useSessionStore((s) => s.user)
-  const role = useSessionStore((s) => s.role)
   if (user?.role === 'broker') return <Navigate to="/desk" replace />
   if (user?.role === 'motorist') return <MotoristShell />
-  if (role && !user) return <Navigate to="/auth" replace />
-  return <RolePickerPage />
+  return <AuthPage />
 }
 
 function RequireAuth({

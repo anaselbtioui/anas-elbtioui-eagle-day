@@ -540,6 +540,7 @@ export function newEmptyPack(db: Db, body: CreatePackInput): EvidencePack | { er
       vehicleImmobilised: body.vehicleImmobilised ?? false,
       otherPartyId: null,
       workCommute: body.workCommute ?? null,
+      archivedAt: null,
     },
     otherParty: null,
     evidence: emptyEvidence(id),

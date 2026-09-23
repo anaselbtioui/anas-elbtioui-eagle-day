@@ -1,59 +1,44 @@
 import { describe, expect, it } from 'vitest'
-import { createEmptyPack } from '@/domain/evidence'
-import { mergeArchivedAt } from '@/store/evidencePack'
+import { createEmptyPack, evidenceReducer } from '@/domain/evidence'
+import { fromDomainPack, toDomainPack } from '@/services/pack-map.ts'
 
-describe('mergeArchivedAt', () => {
-  it('keeps device archive stamp when server pack has none', () => {
-    const stamped = {
-      ...createEmptyPack(),
-      id: 'PACK-1',
-      status: 'stopped' as const,
-      archivedAt: '2026-09-20T12:00:00.000Z',
-    }
-    const fromServer = {
-      ...createEmptyPack(),
-      id: 'PACK-1',
-      status: 'stopped' as const,
-      archivedAt: null,
-    }
-    const merged = mergeArchivedAt([fromServer], {
-      pack: null,
-      history: [stamped],
-    })
-    expect(merged[0]?.archivedAt).toBe('2026-09-20T12:00:00.000Z')
+describe('archive round-trip', () => {
+  it('persists archivedAt on the domain incident', () => {
+    let ui = createEmptyPack()
+    ui.id = 'INC-arch'
+    ui.injury = 'no'
+    ui.status = 'stopped'
+    ui.stopReason = 'other'
+    ui.archivedAt = '2026-09-23T15:00:00.000Z'
+    const domain = toDomainPack(ui, { motoristId: 'M-1', policyId: null, city: 'Fès' })
+    expect(domain.incident.archivedAt).toBe('2026-09-23T15:00:00.000Z')
+    const back = fromDomainPack(domain)
+    expect(back.archivedAt).toBe('2026-09-23T15:00:00.000Z')
+    expect(back.status).toBe('stopped')
   })
 
-  it('leaves unstamped packs without archivedAt', () => {
-    const fromServer = {
+  it('clears archive on unarchive mapping', () => {
+    const ui = {
       ...createEmptyPack(),
-      id: 'PACK-2',
+      id: 'INC-arch-2',
+      injury: 'no' as const,
       status: 'expired' as const,
       archivedAt: null,
     }
-    const merged = mergeArchivedAt([fromServer], {
-      pack: null,
-      history: [],
-    })
-    expect(merged[0]?.archivedAt).toBeNull()
+    const domain = toDomainPack(ui, { motoristId: 'M-1', policyId: null, city: null })
+    expect(domain.incident.archivedAt).toBeNull()
   })
 
-  it('reads stamp from active pack', () => {
-    const active = {
-      ...createEmptyPack(),
-      id: 'PACK-3',
-      status: 'expired' as const,
-      archivedAt: '2026-09-21T08:00:00.000Z',
-    }
-    const fromServer = {
-      ...createEmptyPack(),
-      id: 'PACK-3',
-      status: 'expired' as const,
-      archivedAt: null,
-    }
-    const merged = mergeArchivedAt([fromServer], {
-      pack: active,
-      history: [],
-    })
-    expect(merged[0]?.archivedAt).toBe('2026-09-21T08:00:00.000Z')
+  it('round-trips user cancel (stopped) without injury answer', () => {
+    let ui = createEmptyPack()
+    ui.id = 'INC-cancel'
+    ui = evidenceReducer(ui, { type: 'STOP', reason: 'other' })
+    expect(ui.status).toBe('stopped')
+    const domain = toDomainPack(ui, { motoristId: 'M-1', policyId: null, city: 'Fès' })
+    expect(domain.evidence.pv).toBe('required')
+    expect(domain.incident.injury).toBe('no')
+    const back = fromDomainPack(domain)
+    expect(back.status).toBe('stopped')
+    expect(back.stopReason).toBe('other')
   })
 })

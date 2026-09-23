@@ -81,6 +81,7 @@ export function nadiaMissingConstatPack(): EvidencePack {
       vehicleImmobilised: false,
       otherPartyId: 'O-1',
       workCommute: false,
+      archivedAt: null,
     },
     otherParty: {
       id: 'O-1',
@@ -111,6 +112,7 @@ export function saraInjuryPack(): EvidencePack {
       vehicleImmobilised: false,
       otherPartyId: null,
       workCommute: null,
+      archivedAt: null,
     },
     otherParty: null,
     evidence: {
@@ -177,6 +179,7 @@ export function omarImmobilisedPack(): EvidencePack {
       vehicleImmobilised: true,
       otherPartyId: null,
       workCommute: false,
+      archivedAt: null,
     },
     otherParty: null,
     evidence: {

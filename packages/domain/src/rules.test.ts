@@ -46,6 +46,7 @@ describe('applyEvidenceRules', () => {
           vehicleImmobilised: false,
           otherPartyId: null,
           workCommute: null,
+          archivedAt: null,
         },
       }),
     )
@@ -67,6 +68,7 @@ describe('applyEvidenceRules', () => {
           vehicleImmobilised: false,
           otherPartyId: 'O-1',
           workCommute: false,
+          archivedAt: null,
         },
         otherParty: { id: 'O-1', status: 'known', name: 'X', plate: null },
         evidence: { ...emptyEvidence('INC-1'), constat: 'absent', pv: 'not_needed' },

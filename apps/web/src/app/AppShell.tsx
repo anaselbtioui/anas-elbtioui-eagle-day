@@ -100,7 +100,7 @@ export function AppShell({
   children,
 }: AppShellProps) {
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-sand text-ink md:flex-row">
+    <div className="flex h-dvh flex-col overflow-hidden bg-transparent text-ink md:flex-row">
       <aside
         className="z-20 flex w-full shrink-0 flex-col border-b border-border/50 bg-[#faf8f3] px-3 py-4 backdrop-blur-md md:h-full md:w-60 md:border-b-0 md:border-r"
         aria-label={navLabel}

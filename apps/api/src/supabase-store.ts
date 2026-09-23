@@ -153,6 +153,7 @@ export async function loadDb(): Promise<Db> {
         vehicle_immobilised: boolean
         other_party_id: string | null
         work_commute: boolean | null
+        archived_at: string | null
       }[]
     ).map((r) => ({
       id: r.id,
@@ -165,6 +166,7 @@ export async function loadDb(): Promise<Db> {
       vehicleImmobilised: r.vehicle_immobilised,
       otherPartyId: r.other_party_id,
       workCommute: r.work_commute,
+      archivedAt: r.archived_at,
     })),
     evidences: (
       rows.evidences as {
@@ -490,6 +492,7 @@ async function persistAll(db: Db): Promise<void> {
       vehicle_immobilised: r.vehicleImmobilised,
       other_party_id: r.otherPartyId,
       work_commute: r.workCommute,
+      archived_at: r.archivedAt,
     })),
   )
   await insertAll(

@@ -1,14 +1,15 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { AuthFormCard, AuthSplitLayout } from '@/app/AuthSplitLayout'
+import { AuthFormCard, AuthSplitLayout, authSplitStyles } from '@/app/AuthSplitLayout'
+import { BrandMark } from '@/components/BrandLogo'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { isPersonName } from '@/domain/ma-fields.ts'
 import { api } from '@/services/api.ts'
-import { useSessionStore } from '@/store/session'
+import { useSessionStore, type AppRole } from '@/store/session'
 import { cn } from '@/lib/utils'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -80,15 +81,54 @@ function AuthField({
   )
 }
 
+function RolePickerCard({ onPick }: { onPick: (role: AppRole) => void }) {
+  const { t } = useTranslation()
+  return (
+    <AuthFormCard title={t('role.choose')} lead={t('role.lead')}>
+      <div className="space-y-3">
+        <Button
+          className="h-auto w-full justify-start gap-4 py-4 pl-[18px] pr-5 text-left"
+          onClick={() => onPick('motorist')}
+          data-testid="role-motorist"
+        >
+          <LabasIcon name="car" className="h-7 w-7" tone="onInk" aria-hidden />
+          <span>
+            <span className="block text-lg">{t('role.motorist')}</span>
+            <span className="mt-0.5 block text-sm font-normal text-sand/80">
+              {t('role.motoristHint')}
+            </span>
+          </span>
+        </Button>
+        <Button
+          variant="outline"
+          className="h-auto w-full justify-start gap-4 py-4 text-left"
+          onClick={() => onPick('broker')}
+          data-testid="role-broker"
+        >
+          <LabasIcon name="briefcase" className="h-7 w-7" tone="onSand" aria-hidden />
+          <span>
+            <span className="block text-lg">{t('role.broker')}</span>
+            <span className="mt-0.5 block text-sm font-normal text-ink-muted">
+              {t('role.brokerHint')}
+            </span>
+          </span>
+        </Button>
+      </div>
+    </AuthFormCard>
+  )
+}
+
+/** Guest gate: role picker + credentials share one AuthSplitLayout (no remount flicker). */
 export function AuthPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const role = useSessionStore((s) => s.role)
   const brokerName = useSessionStore((s) => s.brokerName)
   const user = useSessionStore((s) => s.user)
+  const setRole = useSessionStore((s) => s.setRole)
   const applyAuth = useSessionStore((s) => s.applyAuth)
   const clearRole = useSessionStore((s) => s.clearRole)
-  const [mode, setMode] = useState<'signin' | 'signup'>('signup')
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [firstName, setFirstName] = useState(brokerName ?? '')
   const [lastName, setLastName] = useState(brokerName ? 'Desk' : '')
   const [email, setEmail] = useState('')
@@ -98,7 +138,6 @@ export function AuthPage() {
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
-  if (!role) return <Navigate to="/" replace />
   if (user) {
     if (user.role === 'broker') return <Navigate to="/desk" replace />
     return <Navigate to={user.onboarded ? '/' : '/onboarding'} replace />
@@ -130,6 +169,7 @@ export function AuthPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (!picked) return
     setError(null)
     const next = validate()
     setFieldErrors(next)
@@ -167,151 +207,195 @@ export function AuthPage() {
   }
 
   const title = mode === 'signup' ? t('auth.signupTitle') : t('auth.signinTitle')
-  const brandBody = picked === 'broker' ? t('auth.brokerBody') : t('auth.motoristBody')
+  const brandTitle = picked ? t('app.tagline') : t('role.title')
+  const brandBody = !picked
+    ? t('role.body')
+    : picked === 'broker'
+      ? t('auth.brokerBody')
+      : t('auth.motoristBody')
 
   return (
     <AuthSplitLayout
-      brandTitle={t('app.tagline')}
+      brandTitle={brandTitle}
       brandBody={brandBody}
       mobileHero={
-        <div className="mb-2 space-y-1 text-center">
-          <p className="font-display text-lg font-bold text-ink">{t('app.tagline')}</p>
+        <div className="mb-2 space-y-2 text-center">
+          <BrandMark size="lg" className="mx-auto" />
+          <p className="font-display text-2xl font-bold text-ink">{brandTitle}</p>
           <p className="text-sm text-ink-muted">{brandBody}</p>
         </div>
       }
     >
-      <AuthFormCard title={title}>
-        <form className="space-y-4" noValidate onSubmit={(e) => void onSubmit(e)}>
-          {mode === 'signup' ? (
-            <div className="grid grid-cols-2 gap-3">
+      <div>
+        {!picked ? (
+          <RolePickerCard onPick={setRole} />
+        ) : (
+          <div className={authSplitStyles.flowPane}>
+          <AuthFormCard title={title}>
+            <form className="space-y-4" noValidate onSubmit={(e) => void onSubmit(e)}>
+              <div
+                role="tablist"
+                aria-label={t('auth.modeLabel')}
+                className="grid grid-cols-2 gap-2"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === 'signin'}
+                  data-testid="auth-mode-signin"
+                  className={cn(
+                    'min-h-11 rounded-full border-2 px-3 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.98]',
+                    mode === 'signin'
+                      ? 'border-sand-deep bg-sand-deep text-ink'
+                      : 'border-border bg-transparent text-ink hover:border-ink/40',
+                  )}
+                  onClick={() => {
+                    setMode('signin')
+                    setError(null)
+                    setFieldErrors({})
+                  }}
+                >
+                  {t('auth.tabSignin')}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === 'signup'}
+                  data-testid="auth-mode-signup"
+                  className={cn(
+                    'min-h-11 rounded-full border-2 px-3 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.98]',
+                    mode === 'signup'
+                      ? 'border-sand-deep bg-sand-deep text-ink'
+                      : 'border-border bg-transparent text-ink hover:border-ink/40',
+                  )}
+                  onClick={() => {
+                    setMode('signup')
+                    setError(null)
+                    setFieldErrors({})
+                  }}
+                >
+                  {t('auth.tabSignup')}
+                </button>
+              </div>
+              {mode === 'signup' ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <AuthField
+                    id="auth-first-name"
+                    label={t('auth.firstName')}
+                    icon="user"
+                    name="given-name"
+                    autoComplete="given-name"
+                    value={firstName}
+                    error={fieldErrors.firstName}
+                    errorId="auth-first-name-error"
+                    onChange={(e) => {
+                      setFirstName(e.target.value)
+                      if (fieldErrors.firstName) {
+                        setFieldErrors((f) => ({ ...f, firstName: undefined }))
+                      }
+                    }}
+                  />
+                  <AuthField
+                    id="auth-last-name"
+                    label={t('auth.lastName')}
+                    icon="user"
+                    name="family-name"
+                    autoComplete="family-name"
+                    value={lastName}
+                    error={fieldErrors.lastName}
+                    errorId="auth-last-name-error"
+                    onChange={(e) => {
+                      setLastName(e.target.value)
+                      if (fieldErrors.lastName) {
+                        setFieldErrors((f) => ({ ...f, lastName: undefined }))
+                      }
+                    }}
+                  />
+                </div>
+              ) : null}
               <AuthField
-                id="auth-first-name"
-                label={t('auth.firstName')}
-                icon="user"
-                name="given-name"
-                autoComplete="given-name"
-                value={firstName}
-                error={fieldErrors.firstName}
-                errorId="auth-first-name-error"
+                id="auth-email"
+                label={t('auth.email')}
+                icon="mail"
+                name="email"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                error={fieldErrors.email}
+                errorId="auth-email-error"
                 onChange={(e) => {
-                  setFirstName(e.target.value)
-                  if (fieldErrors.firstName) {
-                    setFieldErrors((f) => ({ ...f, firstName: undefined }))
-                  }
+                  setEmail(e.target.value)
+                  if (fieldErrors.email) setFieldErrors((f) => ({ ...f, email: undefined }))
                 }}
               />
               <AuthField
-                id="auth-last-name"
-                label={t('auth.lastName')}
-                icon="user"
-                name="family-name"
-                autoComplete="family-name"
-                value={lastName}
-                error={fieldErrors.lastName}
-                errorId="auth-last-name-error"
+                id="auth-password"
+                label={t('auth.password')}
+                icon="lock"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                value={password}
+                error={fieldErrors.password}
+                errorId="auth-password-error"
                 onChange={(e) => {
-                  setLastName(e.target.value)
-                  if (fieldErrors.lastName) {
-                    setFieldErrors((f) => ({ ...f, lastName: undefined }))
-                  }
+                  setPassword(e.target.value)
+                  if (fieldErrors.password) setFieldErrors((f) => ({ ...f, password: undefined }))
                 }}
+                trailing={
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 flex min-w-12 items-center justify-center text-ink-muted transition-[transform,color] duration-150 ease-out hover:text-ink active:scale-[0.96]"
+                    aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((v) => !v)}
+                    data-testid="auth-toggle-password"
+                  >
+                    <LabasIcon
+                      name={showPassword ? 'eyeOff' : 'eye'}
+                      className="h-5 w-5"
+                      tone="onSand"
+                      aria-hidden
+                    />
+                  </button>
+                }
               />
-            </div>
-          ) : null}
-          <AuthField
-            id="auth-email"
-            label={t('auth.email')}
-            icon="mail"
-            name="email"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            value={email}
-            error={fieldErrors.email}
-            errorId="auth-email-error"
-            onChange={(e) => {
-              setEmail(e.target.value)
-              if (fieldErrors.email) setFieldErrors((f) => ({ ...f, email: undefined }))
-            }}
-          />
-          <AuthField
-            id="auth-password"
-            label={t('auth.password')}
-            icon="lock"
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-            value={password}
-            error={fieldErrors.password}
-            errorId="auth-password-error"
-            onChange={(e) => {
-              setPassword(e.target.value)
-              if (fieldErrors.password) setFieldErrors((f) => ({ ...f, password: undefined }))
-            }}
-            trailing={
+              {error ? (
+                <p className="text-sm text-alert" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <Button className="w-full" type="submit" loading={busy} data-testid="auth-submit">
+                {mode === 'signup' ? t('auth.submitSignup') : t('auth.submitSignin')}
+              </Button>
               <button
                 type="button"
-                className="absolute inset-y-0 right-0 flex min-w-12 items-center justify-center text-ink-muted transition-[transform,color] duration-150 ease-out hover:text-ink active:scale-[0.96]"
-                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                aria-pressed={showPassword}
-                onClick={() => setShowPassword((v) => !v)}
-                data-testid="auth-toggle-password"
+                className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
+                onClick={() => {
+                  clearRole()
+                  navigate('/', { replace: true })
+                }}
               >
-                <LabasIcon
-                  name={showPassword ? 'eyeOff' : 'eye'}
-                  className="h-5 w-5"
-                  tone="onSand"
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 shrink-0 rtl:-scale-x-100"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                   aria-hidden
-                />
+                >
+                  <path d="M19 12H5M11 18l-6-6 6-6" />
+                </svg>
+                {t('app.back')}
               </button>
-            }
-          />
-          {error ? (
-            <p className="text-sm text-alert" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <Button className="w-full" type="submit" loading={busy} data-testid="auth-submit">
-            {mode === 'signup' ? t('auth.submitSignup') : t('auth.submitSignin')}
-          </Button>
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <button
-              type="button"
-              className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
-              onClick={() => {
-                clearRole()
-                navigate('/', { replace: true })
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4 shrink-0 rtl:-scale-x-100"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M19 12H5M11 18l-6-6 6-6" />
-              </svg>
-              {t('app.back')}
-            </button>
-            <button
-              type="button"
-              className="min-h-10 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"
-              data-testid="auth-toggle"
-              onClick={() => {
-                setMode(mode === 'signup' ? 'signin' : 'signup')
-                setError(null)
-                setFieldErrors({})
-              }}
-            >
-              {mode === 'signup' ? t('auth.hasAccount') : t('auth.noAccount')}
-            </button>
+            </form>
+          </AuthFormCard>
           </div>
-        </form>
-      </AuthFormCard>
+        )}
+      </div>
     </AuthSplitLayout>
   )
 }

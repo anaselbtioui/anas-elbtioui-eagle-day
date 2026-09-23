@@ -117,12 +117,7 @@ async function signInBroker(page: import('@playwright/test').Page, email: string
   })
   await page.goto('/')
   await page.getByTestId('role-broker').click()
-  await page.getByTestId('auth-mode-signin').click().catch(() => undefined)
-  // Prefer sign-in if available
-  const hasAccount = page.getByText(/J’ai déjà un compte|déjà un compte/i)
-  if (await hasAccount.isVisible().catch(() => false)) {
-    await hasAccount.click()
-  }
+  await page.getByTestId('auth-mode-signin').click()
   await page.locator('#auth-email').fill(email)
   await page.locator('#auth-password').fill('test-pass-12')
   await page.getByTestId('auth-submit').click()
