@@ -23,10 +23,10 @@ import {
   accidentDisplayTitle,
   accidentLabelCopyFromT,
 } from '@/lib/accident-label'
-import { fullTimestampFr, shortRelativeFr } from '@/lib/relative-time'
+import { fullTimestamp, shortRelative } from '@/lib/relative-time'
 
 export function MotoristShell({ children }: { children?: ReactNode }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const user = useSessionStore((s) => s.user)
   const profile = useProfileStore((s) => s.profile)
@@ -201,8 +201,8 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
                       stages={stages}
                       title={title}
                       refLabel={ref}
-                      relative={shortRelativeFr(p.createdAt)}
-                      absoluteTime={fullTimestampFr(p.createdAt)}
+                      relative={shortRelative(p.createdAt, i18n.language)}
+                      absoluteTime={fullTimestamp(p.createdAt, i18n.language)}
                       active={packId === p.id}
                       declareBlocked={declareBlocked}
                       activeClassName={shellActiveEntry}

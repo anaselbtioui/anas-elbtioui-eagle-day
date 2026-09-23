@@ -8,6 +8,7 @@ export default defineConfig({
   retries: 0,
   use: {
     baseURL: 'http://127.0.0.1:5173',
+    locale: 'fr-MA',
     trace: 'on-first-retry',
     serviceWorkers: 'block',
   },

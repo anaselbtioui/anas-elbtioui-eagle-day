@@ -122,7 +122,7 @@ export function DeskShell({ children }: { children?: ReactNode }) {
             className="border-b border-ink/15 bg-ink-soft px-4 py-2 text-center text-sm font-medium text-ink"
             role="status"
           >
-            <span>{toast}</span>
+            <span>{toast.includes('.') ? t(toast) : toast}</span>
             <button type="button" className="ml-3 text-ink underline" onClick={clearToast}>
               {t('app.close')}
             </button>

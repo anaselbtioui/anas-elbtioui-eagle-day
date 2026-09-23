@@ -11,6 +11,7 @@ import {
   sameDay,
   startOfMonth,
 } from '@/lib/iso-date.ts'
+import { uiLocale } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 type DatePickerProps = {
@@ -37,10 +38,17 @@ function stickyFooterTop(): number {
 
 type PanelPos = { top: number; left: number; width: number; maxHeight: number }
 
-const WEEKDAYS_FR = ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as const
+function weekdayLetters(locale: string): string[] {
+  // 2024-01-01 is a Monday — Monday-first grid.
+  const base = new Date(2024, 0, 1)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i)
+    return new Intl.DateTimeFormat(locale, { weekday: 'narrow' }).format(d)
+  })
+}
 
 /**
- * Labas date field: ISO value in, French UI out.
+ * Labas date field: ISO value in, locale-aware UI out.
  * Popover portals above sticky footers; clamps to viewport.
  */
 export function DatePicker({
@@ -112,7 +120,9 @@ export function DatePicker({
 
   const cells = useMemo(() => monthGrid(view), [view])
   const today = useMemo(() => new Date(), [])
-  const monthLabel = view.toLocaleDateString(i18n.language?.startsWith('fr') ? 'fr-MA' : 'fr-MA', {
+  const locale = uiLocale(i18n.language)
+  const weekdays = useMemo(() => weekdayLetters(locale), [locale])
+  const monthLabel = view.toLocaleDateString(locale, {
     month: 'long',
     year: 'numeric',
   })
@@ -162,7 +172,7 @@ export function DatePicker({
             </div>
 
             <div className="grid grid-cols-7 gap-0.5 px-2 pt-2" aria-hidden>
-              {WEEKDAYS_FR.map((d, i) => (
+              {weekdays.map((d, i) => (
                 <span
                   key={`${d}-${i}`}
                   className="flex h-8 items-center justify-center text-xs font-semibold text-ink-muted"

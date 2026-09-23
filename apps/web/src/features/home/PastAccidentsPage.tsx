@@ -25,7 +25,7 @@ import {
   accidentDisplayTitle,
   accidentLabelCopyFromT,
 } from '@/lib/accident-label'
-import { fullTimestampFr, relativeFr } from '@/lib/relative-time'
+import { fullTimestamp, relativeTime } from '@/lib/relative-time'
 import { cn } from '@/lib/utils'
 
 type PastFilter = 'all' | 'archived'
@@ -48,7 +48,7 @@ function isPasse(status: EvidencePackStatus): boolean {
 }
 
 export function PastAccidentsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { packId } = useParams()
   const profile = useProfileStore((s) => s.profile)
@@ -147,9 +147,9 @@ export function PastAccidentsPage() {
         cell: ({ row }) => (
           <span
             className="text-sm text-ink-muted"
-            title={fullTimestampFr(row.original.updatedAt)}
+            title={fullTimestamp(row.original.updatedAt, i18n.language)}
           >
-            {relativeFr(row.original.updatedAt)}
+            {relativeTime(row.original.updatedAt, i18n.language)}
           </span>
         ),
       },
@@ -224,7 +224,7 @@ export function PastAccidentsPage() {
         },
       },
     ],
-    [t, packId, labelCopy, cityFallback, archivePack, unarchivePack],
+    [t, packId, labelCopy, cityFallback, archivePack, unarchivePack, i18n.language],
   )
 
   if (!profile.onboarded) {
@@ -276,7 +276,7 @@ export function PastAccidentsPage() {
                 {t('motorist.colStatus')}: {t(`motorist.packStatus.${detail.status}`)}
               </p>
               <p>
-                {t('motorist.colUpdated')}: {fullTimestampFr(detail.updatedAt)}
+                {t('motorist.colUpdated')}: {fullTimestamp(detail.updatedAt, i18n.language)}
               </p>
               <p className="text-ink-muted">{t(`motorist.packStatusHint.${detail.status}`)}</p>
             </CardDescription>

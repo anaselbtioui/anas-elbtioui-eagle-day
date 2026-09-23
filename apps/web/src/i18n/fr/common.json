@@ -19,6 +19,7 @@
     "skipStep": "Passer cette étape",
     "skipAll": "Passer toutes les étapes",
     "close": "Fermer",
+    "loading": "Chargement…",
     "notAClaim": "Ceci n’ouvre pas un dossier assureur.",
     "noFault": "Décrivez les faits. Ne concluez pas sur la responsabilité.",
     "resetProfile": "Effacer mon profil",
@@ -99,7 +100,8 @@
     "expiringBody": "Vous serez déconnecté(e) dans :",
     "stay": "Rester connecté(e)",
     "dismiss": "Ignorer",
-    "extending": "Prolongation…"
+    "extending": "Prolongation…",
+    "timeRemaining": "Temps restant : {{time}}"
   },
   "fields": {
     "citySearch": "Rechercher une ville…",
@@ -432,6 +434,10 @@
     "humanCheck": "Approuvé",
     "approveLocal": "Approuver",
     "draftApprovedLocal": "Brouillon approuvé",
+    "toastRequestSaved": "Demande enregistrée",
+    "toastImpossible": "Impossible",
+    "toastValidationRequired": "Validation requise",
+    "toastNotFound": "Introuvable",
     "navLabel": "Navigation",
     "navQueue": "Dossiers",
     "navClients": "Clients",

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type TransitionEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import styles from './CountdownFlipClock.module.css'
 
 type CountdownFlipClockProps = {
@@ -68,6 +69,7 @@ function FlipDigit({ value }: { value: number }) {
 
 /** MM:SS flip-clock countdown (wa-pharma / hamssah pattern). */
 export function CountdownFlipClock({ totalMs, className }: CountdownFlipClockProps) {
+  const { t } = useTranslation()
   const sec = Math.max(0, Math.floor(totalMs / 1000))
   const m = Math.floor(sec / 60)
   const s = sec % 60
@@ -77,7 +79,7 @@ export function CountdownFlipClock({ totalMs, className }: CountdownFlipClockPro
     <div
       className={[styles.flipRoot, className].filter(Boolean).join(' ')}
       role="timer"
-      aria-label={`Temps restant : ${label}`}
+      aria-label={t('session.timeRemaining', { time: label })}
     >
       <span className={styles.flipSr} aria-live="polite" aria-atomic="true">
         {label}

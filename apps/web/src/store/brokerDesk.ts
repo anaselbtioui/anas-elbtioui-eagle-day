@@ -72,7 +72,7 @@ export const useBrokerDeskStore = create<BrokerDeskState>((set, get) => ({
     const next = await api.requestBrokerPiece(dossierId, piece, note)
     set((s) => ({
       bundles: replaceBundle(s.bundles, next),
-      toast: 'Demande enregistrée',
+      toast: 'broker.toastRequestSaved',
     }))
   },
   addDraft: async (dossierId, intent, pieceLabel) => {
@@ -97,13 +97,13 @@ export const useBrokerDeskStore = create<BrokerDeskState>((set, get) => ({
       const next = await api.handoffBrokerDossier(dossierId)
       set((s) => ({
         bundles: replaceBundle(s.bundles, next),
-        toast: 'Transmis',
+        toast: 'broker.handoffDone',
       }))
       return true
     } catch (err) {
       const message = err instanceof Error ? err.message : ''
       set({
-        toast: message === 'has_gaps' ? 'Écarts présents' : 'Impossible',
+        toast: message === 'has_gaps' ? 'broker.handoffBlocked' : 'broker.toastImpossible',
       })
       return false
     }
@@ -113,13 +113,16 @@ export const useBrokerDeskStore = create<BrokerDeskState>((set, get) => ({
       const next = await api.approveBrokerDraft(dossierId, draftId)
       set((s) => ({
         bundles: replaceBundle(s.bundles, next),
-        toast: 'Brouillon approuvé',
+        toast: 'broker.draftApprovedLocal',
       }))
       return true
     } catch (err) {
       const message = err instanceof Error ? err.message : ''
       set({
-        toast: message === 'not_human_approved' ? 'Validation requise' : 'Introuvable',
+        toast:
+          message === 'not_human_approved'
+            ? 'broker.toastValidationRequired'
+            : 'broker.toastNotFound',
       })
       return false
     }

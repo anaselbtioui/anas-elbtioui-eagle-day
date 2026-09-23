@@ -14,6 +14,17 @@ Docs stay under `docs/`. `_old/` is reference / fixtures only — not the produc
 
 ---
 
+## i18n (UI languages)
+
+- Locales: `fr` (fallback) + `en`. Copy lives in `apps/web/src/i18n/{fr,en}/common.json`.
+- Detection order (browser): `?lng=` query → `localStorage` → `navigator` → `fr`.
+- Override for demos/jury: open `/?lng=en` (cached in `localStorage` as `i18nextLng`).
+- `document.documentElement.lang` tracks the active language.
+- **Stays French on purpose:** server-stored desk/timeline/`nextHumanStep` strings (domain + API), and constat / aide-mémoire PDFs (`accident-docs.ts`) — Moroccan legal form.
+- Vitest forces `lng: 'fr'`. Playwright pins `locale: 'fr-MA'` so FR e2e selectors stay stable.
+
+---
+
 ## Three doors + role picker
 
 First visit: role picker (Automobiliste vs Courtier). Two products, not one nav.

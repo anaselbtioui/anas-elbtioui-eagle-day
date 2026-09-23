@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 type TraceSpinnerProps = {
@@ -24,8 +25,10 @@ export function TraceSpinner({
   size = 18,
   className,
   decorative = false,
-  label = 'Chargement…',
+  label,
 }: TraceSpinnerProps) {
+  const { t } = useTranslation()
+  const aria = label ?? t('app.loading')
   return (
     <svg
       width={size}
@@ -35,7 +38,7 @@ export function TraceSpinner({
       className={cn('labas-trace-spinner shrink-0', className)}
       role={decorative ? undefined : 'status'}
       aria-hidden={decorative || undefined}
-      aria-label={decorative ? undefined : label}
+      aria-label={decorative ? undefined : aria}
     >
       <rect
         x={INSET}

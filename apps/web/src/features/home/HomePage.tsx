@@ -26,7 +26,7 @@ import { useProfileStore } from '@/store/profile'
 import { openMotoristPack } from '@/features/home/openMotoristPack'
 import { showToast } from '@/store/toast'
 import { walletClaimReady } from '@/services/wallet.ts'
-import { fullTimestampFr, relativeFr } from '@/lib/relative-time'
+import { fullTimestamp, relativeTime } from '@/lib/relative-time'
 import { cn } from '@/lib/utils'
 
 function statusTone(status: EvidencePackStatus): string {
@@ -54,7 +54,7 @@ function isAccidentRowDisabled(pack: EvidencePack, claimReady: boolean): boolean
 }
 
 export function HomePage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const profile = useProfileStore((s) => s.profile)
   const history = useEvidenceStore((s) => s.history)
@@ -118,9 +118,9 @@ export function HomePage() {
         cell: ({ row }) => (
           <span
             className="text-sm text-ink-muted"
-            title={fullTimestampFr(row.original.updatedAt)}
+            title={fullTimestamp(row.original.updatedAt, i18n.language)}
           >
-            {relativeFr(row.original.updatedAt)}
+            {relativeTime(row.original.updatedAt, i18n.language)}
           </span>
         ),
       },
@@ -196,7 +196,7 @@ export function HomePage() {
         },
       },
     ],
-    [archivePack, claimReady, labelCopy, profile.city, t],
+    [archivePack, claimReady, labelCopy, profile.city, t, i18n.language],
   )
 
   if (!profile.onboarded) {

@@ -1,4 +1,4 @@
-/** Compact French relative age: `1m` `1h` `1j` `1sem` `1mo` `1a`. */
+/** Compact / spoken relative age, locale-aware. */
 
 const MIN_MS = 60_000
 const HOUR_MS = 60 * MIN_MS
@@ -7,59 +7,71 @@ const WEEK_MS = 7 * DAY_MS
 const MONTH_MS = 30 * DAY_MS
 const YEAR_MS = 365 * DAY_MS
 
-export function shortRelativeFr(iso: string, now = Date.now()): string {
+type ShortUnit = { limit: number; div: number; fr: string; en: string }
+
+const SHORT_UNITS: ShortUnit[] = [
+  { limit: HOUR_MS, div: MIN_MS, fr: 'm', en: 'm' },
+  { limit: DAY_MS, div: HOUR_MS, fr: 'h', en: 'h' },
+  { limit: WEEK_MS, div: DAY_MS, fr: 'j', en: 'd' },
+  { limit: MONTH_MS, div: WEEK_MS, fr: 'sem', en: 'w' },
+  { limit: YEAR_MS, div: MONTH_MS, fr: 'mo', en: 'mo' },
+]
+
+function langBase(lng: string): 'fr' | 'en' {
+  return lng.toLowerCase().startsWith('en') ? 'en' : 'fr'
+}
+
+function intlLocale(lng: string): string {
+  return langBase(lng) === 'en' ? 'en-GB' : 'fr-MA'
+}
+
+export function shortRelative(iso: string, lng = 'fr', now = Date.now()): string {
   const t = Date.parse(iso)
   if (Number.isNaN(t)) return '—'
   const diff = Math.max(0, now - t)
   if (diff < MIN_MS) return '<1m'
-  if (diff < HOUR_MS) return `${Math.floor(diff / MIN_MS)}m`
-  if (diff < DAY_MS) return `${Math.floor(diff / HOUR_MS)}h`
-  if (diff < WEEK_MS) return `${Math.floor(diff / DAY_MS)}j`
-  if (diff < MONTH_MS) return `${Math.floor(diff / WEEK_MS)}sem`
-  if (diff < YEAR_MS) return `${Math.floor(diff / MONTH_MS)}mo`
-  return `${Math.floor(diff / YEAR_MS)}a`
+  const base = langBase(lng)
+  for (const u of SHORT_UNITS) {
+    if (diff < u.limit) return `${Math.floor(diff / u.div)}${base === 'en' ? u.en : u.fr}`
+  }
+  return `${Math.floor(diff / YEAR_MS)}${base === 'en' ? 'y' : 'a'}`
 }
 
-function pluralFr(n: number, one: string, many: string): string {
-  return n === 1 ? one : many
+type RtfUnit = Intl.RelativeTimeFormatUnit
+
+function pickUnit(diff: number): { value: number; unit: RtfUnit } {
+  if (diff < HOUR_MS) return { value: Math.floor(diff / MIN_MS), unit: 'minute' }
+  if (diff < DAY_MS) return { value: Math.floor(diff / HOUR_MS), unit: 'hour' }
+  if (diff < WEEK_MS) return { value: Math.floor(diff / DAY_MS), unit: 'day' }
+  if (diff < MONTH_MS) return { value: Math.floor(diff / WEEK_MS), unit: 'week' }
+  if (diff < YEAR_MS) return { value: Math.floor(diff / MONTH_MS), unit: 'month' }
+  return { value: Math.floor(diff / YEAR_MS), unit: 'year' }
 }
 
-/** Spoken French relative age: `il y a 1 heure`, `il y a 2 jours`. */
-export function relativeFr(iso: string, now = Date.now()): string {
+/** Spoken relative age: `il y a 1 heure` / `1 hour ago`. */
+export function relativeTime(iso: string, lng = 'fr', now = Date.now()): string {
   const t = Date.parse(iso)
   if (Number.isNaN(t)) return '—'
   const diff = Math.max(0, now - t)
-  if (diff < MIN_MS) return 'à l’instant'
-  if (diff < HOUR_MS) {
-    const n = Math.floor(diff / MIN_MS)
-    return `il y a ${n} ${pluralFr(n, 'minute', 'minutes')}`
-  }
-  if (diff < DAY_MS) {
-    const n = Math.floor(diff / HOUR_MS)
-    return `il y a ${n} ${pluralFr(n, 'heure', 'heures')}`
-  }
-  if (diff < WEEK_MS) {
-    const n = Math.floor(diff / DAY_MS)
-    return `il y a ${n} ${pluralFr(n, 'jour', 'jours')}`
-  }
-  if (diff < MONTH_MS) {
-    const n = Math.floor(diff / WEEK_MS)
-    return `il y a ${n} ${pluralFr(n, 'semaine', 'semaines')}`
-  }
-  if (diff < YEAR_MS) {
-    const n = Math.floor(diff / MONTH_MS)
-    return `il y a ${n} mois`
-  }
-  const n = Math.floor(diff / YEAR_MS)
-  return `il y a ${n} ${pluralFr(n, 'an', 'ans')}`
+  if (diff < MIN_MS) return langBase(lng) === 'en' ? 'just now' : 'à l’instant'
+  const { value, unit } = pickUnit(diff)
+  const rtf = new Intl.RelativeTimeFormat(intlLocale(lng), { numeric: 'always' })
+  return rtf.format(-value, unit)
 }
 
-/** Full local timestamp for tooltip (fr-FR). */
-export function fullTimestampFr(iso: string): string {
+/** Full local timestamp for tooltip. */
+export function fullTimestamp(iso: string, lng = 'fr'): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return new Intl.DateTimeFormat('fr-FR', {
+  return new Intl.DateTimeFormat(intlLocale(lng), {
     dateStyle: 'long',
     timeStyle: 'short',
   }).format(d)
 }
+
+/** @deprecated Prefer `shortRelative`. */
+export const shortRelativeFr = (iso: string, now = Date.now()) => shortRelative(iso, 'fr', now)
+/** @deprecated Prefer `relativeTime`. */
+export const relativeFr = (iso: string, now = Date.now()) => relativeTime(iso, 'fr', now)
+/** @deprecated Prefer `fullTimestamp`. */
+export const fullTimestampFr = (iso: string) => fullTimestamp(iso, 'fr')
