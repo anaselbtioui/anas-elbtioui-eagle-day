@@ -200,7 +200,7 @@
     "settingsCatHint": {
       "identite": "Nom, téléphone, CIN, ville et permis",
       "vehicule": "Immatriculation et description du véhicule",
-      "contrat": "Assureur, police, attestation et assistance",
+      "contrat": "Assureur, n° de contrat, attestation et assistance",
       "courtier": "Associé via Med Assurance — le courtier fournit ses coordonnées",
       "compte": "Compte et données sur cet appareil"
     },
@@ -285,7 +285,7 @@
     "vehicleOtherPh": "Marque, modèle, année",
     "insurer": "Assureur",
     "insurerPick": "Choisir l’assureur…",
-    "policy": "Numéro de police (facultatif)",
+    "policy": "Numéro de contrat (facultatif)",
     "broker": "Courtier",
     "brokerPhone": "Téléphone courtier",
     "brokerEmail": "E-mail courtier",
@@ -447,7 +447,7 @@
     "colEmail": "E-mail",
     "colPhone": "Téléphone",
     "colPlate": "Immatriculation",
-    "colPolicy": "Police",
+    "colPolicy": "Contrat",
     "colStatus": "Statut",
     "colGaps": "Écarts",
     "colOwner": "Référent",
@@ -501,7 +501,7 @@
     },
     "importOutcomeHint": {
       "new": "Nouvelle fiche",
-      "duplicate": "Police déjà présente",
+      "duplicate": "Contrat déjà présent",
       "conflict": "Revue requise",
       "interrupted": "Annulé"
     },
@@ -516,7 +516,7 @@
     "piece": {
       "constat_or_pv": "Constat ou PV",
       "photos": "Photos",
-      "policy_number": "N° de police",
+      "policy_number": "N° de contrat",
       "other": "Autre",
       "assistance_verify": "Assistance",
       "pv": "PV"
@@ -544,7 +544,7 @@
     "field": {
       "motorist": "Client",
       "vehicle": "Véhicule",
-      "policy": "Police",
+      "policy": "Contrat",
       "broker": "Courtier",
       "assistance": "Assistance",
       "source": "Source",

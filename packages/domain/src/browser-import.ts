@@ -41,7 +41,7 @@ export type ClassifyResult = {
 const FIELD_LABELS: Record<ImportFieldKey, string> = {
   name: 'Client',
   phone: 'Téléphone',
-  policy: 'Police',
+  policy: 'Contrat',
   vehicle: 'Véhicule',
   plate: 'Immatriculation',
   city: 'Ville',
@@ -187,7 +187,7 @@ export function classifyImport(
     outcome: 'duplicate',
     matchDossierId: match.dossierId,
     rows,
-    reason: 'Police déjà présente: aucun doublon créé.',
+    reason: 'Contrat déjà présent: aucun doublon créé.',
   }
 }
 
@@ -270,7 +270,7 @@ export function createImportBundle(input: {
   const city = input.extracted.city?.trim() || 'Sans ville'
   const bundle: DeskBundle = {
     dossierId,
-    title: `Police importée · ${city}`,
+    title: `Contrat importé · ${city}`,
     profile,
     pack,
     declaration: {
@@ -369,7 +369,7 @@ export function mergeImport(input: MergeImportInput): MergeImportResult {
   if (classification.outcome === 'duplicate') {
     return {
       ok: false,
-      reason: classification.reason ?? 'Police déjà présente: aucun doublon créé.',
+      reason: classification.reason ?? 'Contrat déjà présent: aucun doublon créé.',
     }
   }
   if (classification.outcome === 'new') {

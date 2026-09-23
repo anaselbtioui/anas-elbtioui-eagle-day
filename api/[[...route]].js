@@ -16874,7 +16874,7 @@ function taskLabelForPiece(piece) {
     case "photos":
       return "Collecter les photos";
     case "policy_number":
-      return "V\xE9rifier le n\xB0 de police";
+      return "V\xE9rifier le n\xB0 de contrat";
     case "other":
       return "Pi\xE8ce compl\xE9mentaire";
     default:
@@ -17262,7 +17262,7 @@ function requestDocument(bundle, piece, note, now = (/* @__PURE__ */ new Date())
     note,
     createdAt: now
   };
-  const taskLabel = piece === "constat_or_pv" ? "Relancer : constat ou PV" : piece === "photos" ? "Relancer : photos" : piece === "policy_number" ? "Relancer : n\xB0 de police" : piece === "assistance_verify" ? "V\xE9rifier le n\xB0 d\u2019assistance avec le client" : piece === "pv" ? "Relancer : PV" : "Relancer : autre pi\xE8ce";
+  const taskLabel = piece === "constat_or_pv" ? "Relancer : constat ou PV" : piece === "photos" ? "Relancer : photos" : piece === "policy_number" ? "Relancer : n\xB0 de contrat" : piece === "assistance_verify" ? "V\xE9rifier le n\xB0 d\u2019assistance avec le client" : piece === "pv" ? "Relancer : PV" : "Relancer : autre pi\xE8ce";
   const missing = new Set(bundle.dossier.missingPieces);
   if (piece === "constat_or_pv" || piece === "photos" || piece === "policy_number" || piece === "other") {
     missing.add(piece);
@@ -26436,7 +26436,7 @@ function createImportBundle(input) {
   const city = input.extracted.city?.trim() || "Sans ville";
   const bundle = {
     dossierId,
-    title: `Police import\xE9e \xB7 ${city}`,
+    title: `Contrat import\xE9 \xB7 ${city}`,
     profile,
     pack,
     declaration: {
@@ -26513,7 +26513,7 @@ function mergeImport(input) {
   if (classification.outcome === "duplicate") {
     return {
       ok: false,
-      reason: classification.reason ?? "Police d\xE9j\xE0 pr\xE9sente: aucun doublon cr\xE9\xE9."
+      reason: classification.reason ?? "Contrat d\xE9j\xE0 pr\xE9sent: aucun doublon cr\xE9\xE9."
     };
   }
   if (classification.outcome === "new") {

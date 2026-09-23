@@ -89,7 +89,7 @@ export type DeskQueueFilters = {
   brokerName: string | null
 }
 
-/** Client-side queue search: name / police / city + status + owner. */
+/** Client-side queue search: name / contrat / city + status + owner. */
 export function filterDeskBundles(
   bundles: DeskBundle[],
   filters: DeskQueueFilters,
@@ -151,7 +151,7 @@ export function requestDocument(
       : piece === 'photos'
         ? 'Relancer : photos'
         : piece === 'policy_number'
-          ? 'Relancer : n° de police'
+          ? 'Relancer : n° de contrat'
           : piece === 'assistance_verify'
             ? 'Vérifier le n° d’assistance avec le client'
             : piece === 'pv'

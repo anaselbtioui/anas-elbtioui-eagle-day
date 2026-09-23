@@ -48,7 +48,7 @@ function taskLabelForPiece(piece: string): string {
     case 'photos':
       return 'Collecter les photos'
     case 'policy_number':
-      return 'Vérifier le n° de police'
+      return 'Vérifier le n° de contrat'
     case 'other':
       return 'Pièce complémentaire'
     default:

@@ -293,7 +293,7 @@ Desk types live in `packages/domain/src/desk.ts`. Persisted beside the motorist 
 
 Handoff: blocked while `missingPieces.length > 0` (`has_gaps`). Otherwise `Dossier.status = with_insurer`. Next step names the insurer as actor only.
 
-Queue filter (client): name / police / city search, status chips, optional “mes dossiers” by `provenance.owner`, sort by `provenance.freshness`.
+Queue filter (client): name / contrat / city search, status chips, optional “mes dossiers” by `provenance.owner`, sort by `provenance.freshness`.
 
 ---
 

@@ -87,7 +87,7 @@ export async function fillOnboardingEssentials(
   // attestation
   await page.getByLabel(/^Assureur/i).fill(opts.insurer)
   if (opts.policy) {
-    await page.getByLabel(/Numéro de police/i).fill(opts.policy)
+    await page.getByLabel(/Numéro de contrat/i).fill(opts.policy)
   }
   await page.getByRole('button', { name: /Continuer/i }).click()
   // broker → Passer

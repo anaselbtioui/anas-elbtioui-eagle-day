@@ -99,7 +99,7 @@ export function downloadAideMemoirePdf(
   y = field(doc, 'Nom', displayName(profile), 14, y, 170)
   y = field(doc, 'Tél. / CIN / permis', `${profile.phone} · ${profile.cin} · ${profile.licenseNumber}`, 14, y, 170)
   y = field(doc, 'Véhicule / plaque', `${profile.vehicle} · ${profile.plate}`, 14, y, 170)
-  y = field(doc, 'Assureur / police', `${profile.insurer} · ${profile.policy}`, 14, y, 170)
+  y = field(doc, 'Assureur / contrat', `${profile.insurer} · ${profile.policy}`, 14, y, 170)
   y += 2
 
   doc.setFont('helvetica', 'bold')
@@ -218,7 +218,7 @@ export function downloadConstatDraftPdf(
   ya = field(doc, 'Adresse / ville', profile.city, colA + 2, ya, colW - 6)
   ya = field(doc, 'Véhicule', profile.vehicle, colA + 2, ya, colW - 6)
   ya = field(doc, 'Immatriculation', profile.plate, colA + 2, ya, colW - 6)
-  ya = field(doc, 'Assurance / police', `${profile.insurer} · ${profile.policy}`, colA + 2, ya, colW - 6)
+  ya = field(doc, 'Assurance / contrat', `${profile.insurer} · ${profile.policy}`, colA + 2, ya, colW - 6)
   ya = field(doc, 'Attestation valable jusqu’au', profile.attestationValidUntil, colA + 2, ya, colW - 6)
   ya = field(doc, 'Permis', profile.licenseNumber, colA + 2, ya, colW - 6)
   ya = field(
@@ -236,7 +236,7 @@ export function downloadConstatDraftPdf(
   yb = field(doc, 'Immatriculation', pack.constat.otherPlate, colB + 2, yb, colW - 6)
   yb = field(doc, 'Téléphone', pack.constat.otherPhone, colB + 2, yb, colW - 6)
   yb = field(doc, 'Assurance', pack.constat.otherInsurer, colB + 2, yb, colW - 6)
-  yb = field(doc, 'N° police', '', colB + 2, yb, colW - 6)
+  yb = field(doc, 'N° de contrat', '', colB + 2, yb, colW - 6)
   yb = field(doc, 'Permis', '', colB + 2, yb, colW - 6)
   yb = field(doc, 'Dégâts apparents / point de choc', '', colB + 2, yb, colW - 6)
   field(doc, 'Observations', '', colB + 2, yb, colW - 6)
