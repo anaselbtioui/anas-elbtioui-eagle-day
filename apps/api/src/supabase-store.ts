@@ -389,23 +389,20 @@ async function wipeAllTables(sb: SupabaseClient): Promise<void> {
 }
 
 /** Normal writes: upsert only. Never delete-all (serverless races emptied prod). */
+/** Do not nest withWriteLock — exclusiveDbWrite already holds that chain. */
 export async function saveDb(db: Db): Promise<void> {
   invalidateDbCache()
-  await withWriteLock(async () => {
-    await upsertAllTables(db)
-    memoryCache = { db, at: Date.now() }
-  })
+  await upsertAllTables(db)
+  memoryCache = { db, at: Date.now() }
 }
 
 /** Gated full replace — /api/reset only. */
 export async function replaceDb(db: Db): Promise<void> {
   invalidateDbCache()
-  await withWriteLock(async () => {
-    const sb = client()
-    await wipeAllTables(sb)
-    await upsertAllTables(db)
-    memoryCache = { db, at: Date.now() }
-  })
+  const sb = client()
+  await wipeAllTables(sb)
+  await upsertAllTables(db)
+  memoryCache = { db, at: Date.now() }
 }
 
 async function upsertAllTables(db: Db): Promise<void> {

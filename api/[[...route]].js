@@ -26155,19 +26155,15 @@ async function wipeAllTables(sb) {
 }
 async function saveDb2(db) {
   invalidateDbCache();
-  await withWriteLock(async () => {
-    await upsertAllTables(db);
-    memoryCache = { db, at: Date.now() };
-  });
+  await upsertAllTables(db);
+  memoryCache = { db, at: Date.now() };
 }
 async function replaceDb(db) {
   invalidateDbCache();
-  await withWriteLock(async () => {
-    const sb = client();
-    await wipeAllTables(sb);
-    await upsertAllTables(db);
-    memoryCache = { db, at: Date.now() };
-  });
+  const sb = client();
+  await wipeAllTables(sb);
+  await upsertAllTables(db);
+  memoryCache = { db, at: Date.now() };
 }
 async function upsertAllTables(db) {
   const sb = client();
