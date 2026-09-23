@@ -2,6 +2,7 @@
   "installCommand": "pnpm install",
   "buildCommand": "pnpm build",
   "outputDirectory": "dist",
+  "regions": ["dub1"],
   "rewrites": [
     { "source": "/api", "destination": "/api/[[...route]]" },
     { "source": "/api/(.*)", "destination": "/api/[[...route]]" },
