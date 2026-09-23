@@ -205,10 +205,17 @@ export const PORTEFEUILLE_PROGRESS_FIELDS = [
   'attestationValidUntil',
 ] as const satisfies ReadonlyArray<keyof Wallet>
 
+/** Provision placeholder. Not a real insurer the motorist chose. */
+export const PLACEHOLDER_INSURER = 'Assureur'
+
 export function walletFieldFilled(profile: Wallet, key: keyof Wallet): boolean {
   if (key === 'phoneVerified') return profile.phoneVerified
   if (key === 'assistanceOnContract') return profile.assistanceOnContract !== 'unknown'
-  return String(profile[key] ?? '').trim().length > 0
+  const value = String(profile[key] ?? '').trim()
+  if (!value) return false
+  if (key === 'insurer' && value === PLACEHOLDER_INSURER) return false
+  if (key === 'broker' && (value === '—' || value === 'Courtier')) return false
+  return true
 }
 
 /** Filled + format rules for claim gates. */
@@ -281,7 +288,7 @@ export function walletToDomain(wallet: Wallet): DomainProfile {
     },
     insurer: {
       id: wallet.insurerId,
-      displayName: wallet.insurer.trim() || 'Assureur',
+      displayName: wallet.insurer.trim() || PLACEHOLDER_INSURER,
     },
     broker: {
       id: wallet.brokerId,
@@ -307,7 +314,6 @@ export function domainToWallet(profile: DomainProfile, extra?: Partial<Wallet>):
   return {
     ...emptyWallet,
     ...extra,
-    onboarded: true,
     motoristId: profile.motorist.id,
     vehicleId: profile.vehicle.id,
     insurerId: profile.insurer.id,

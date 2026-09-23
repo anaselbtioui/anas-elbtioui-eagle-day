@@ -122,4 +122,14 @@ describe('walletRemainingPercent', () => {
     expect(pct).toBeGreaterThan(0)
     expect(pct).toBeLessThan(100)
   })
+
+  it('ignores the provision insurer placeholder', () => {
+    const partial: Wallet = {
+      ...emptyWallet,
+      firstName: 'Nadia',
+      lastName: 'El Mansouri',
+      insurer: 'Assureur',
+    }
+    expect(walletRemainingPercent(partial)).toBe(85)
+  })
 })

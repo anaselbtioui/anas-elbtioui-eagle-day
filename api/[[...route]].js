@@ -17138,6 +17138,11 @@ function provisionBroker(db, displayName) {
 function insertUser(db, row) {
   return { ...db, users: upsert(db.users, row) };
 }
+function markOnboarded(db, userId) {
+  const row = db.users.find((u) => u.id === userId);
+  if (!row) return db;
+  return insertUser(db, { ...row, onboarded: true });
+}
 function assignMotoristBroker(db, userId, policyId, brokerId) {
   const user = db.users.find((u) => u.id === userId);
   const policy = db.policies.find((p) => p.id === policyId);
@@ -17148,7 +17153,7 @@ function assignMotoristBroker(db, userId, policyId, brokerId) {
   return {
     ...db,
     policies: upsert(db.policies, { ...policy, brokerId }),
-    users: upsert(db.users, { ...user, brokerId, onboarded: true })
+    users: upsert(db.users, { ...user, brokerId })
   };
 }
 function listRegisteredBrokers(db) {
@@ -26823,6 +26828,19 @@ function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
     });
     if (err) return c.json({ error: err }, 400);
     return c.json(saved);
+  });
+  app2.post("/api/profile/complete", async (c) => {
+    const denied = needMotorist(c);
+    if (denied) return denied;
+    const auth = c.get("auth");
+    let user = auth;
+    await write((db) => {
+      const next = markOnboarded(db, auth.id);
+      const row = next.users.find((u) => u.id === auth.id);
+      if (row) user = publicUser(row);
+      return next;
+    });
+    return c.json({ token: await signToken(user), user });
   });
   app2.post("/api/profile/docs", async (c) => {
     const denied = needMotorist(c);

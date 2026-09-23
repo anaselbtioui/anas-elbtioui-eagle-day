@@ -68,6 +68,7 @@ export const httpApi: LabasHttpApi = {
   },
   saveProfile: (profile) =>
     req<Profile>('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }),
+  completeProfile: () => req<AuthSession>('/api/profile/complete', { method: 'POST', body: '{}' }),
   uploadProfileDoc: (kind, dataUrl) =>
     req('/api/profile/docs', {
       method: 'POST',

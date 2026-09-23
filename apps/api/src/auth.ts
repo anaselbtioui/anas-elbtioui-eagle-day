@@ -169,7 +169,7 @@ export function assignMotoristBroker(
   return {
     ...db,
     policies: upsert(db.policies, { ...policy, brokerId }),
-    users: upsert(db.users, { ...user, brokerId, onboarded: true }),
+    users: upsert(db.users, { ...user, brokerId }),
   }
 }
 

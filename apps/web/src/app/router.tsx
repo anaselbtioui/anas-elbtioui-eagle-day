@@ -16,6 +16,7 @@ import { BrokerDossierPage } from '@/features/broker/BrokerDossierPage'
 import { BrokerImportPage } from '@/features/broker/BrokerImportPage'
 import { BrokerClientsPage } from '@/features/broker/BrokerClientsPage'
 import { AppToast } from '@/components/ui/app-toast'
+import { useProfileStore } from '@/store/profile'
 import { useSessionStore } from '@/store/session'
 import type { AppRole } from '@/domain/auth.ts'
 
@@ -23,8 +24,13 @@ const queryClient = new QueryClient()
 
 function RootEntry() {
   const user = useSessionStore((s) => s.user)
+  const profileOnboarded = useProfileStore((s) => s.profile.onboarded)
   if (user?.role === 'broker') return <Navigate to="/desk" replace />
-  if (user?.role === 'motorist') return <MotoristShell />
+  if (user?.role === 'motorist') {
+    // Fresh signup: shell must not mount (its profile pull used to mark onboarded).
+    if (!user.onboarded && !profileOnboarded) return <Navigate to="/onboarding" replace />
+    return <MotoristShell />
+  }
   return <AuthPage />
 }
 

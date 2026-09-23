@@ -159,7 +159,7 @@ export const useProfileStore = create<ProfileState>()(
             carteGrisePhotoLocal: cur.carteGrisePhotoLocal,
             attestationPhotoLocal: cur.attestationPhotoLocal,
             onboardingStep: cur.onboardingStep,
-            onboarded: cur.onboarded || next.onboarded,
+            onboarded: cur.onboarded,
             phoneVerified: cur.phoneVerified,
           }
           const fillPhoto = async (
@@ -212,6 +212,7 @@ export const useProfileStore = create<ProfileState>()(
             throw new Error('broker_required')
           }
           await api.saveProfile(walletToDomain(next))
+          await api.completeProfile()
           set({ profile: next, saving: false })
         } catch (err) {
           const message = err instanceof Error ? err.message : 'save_failed'

@@ -9,6 +9,7 @@ import {
   isRole,
   listBrokerClients,
   listRegisteredBrokers,
+  markOnboarded,
   normalizeEmail,
   provisionBroker,
   provisionMotorist,
@@ -378,6 +379,20 @@ export function createApp(
     })
     if (err) return c.json({ error: err }, 400)
     return c.json(saved)
+  })
+
+  app.post('/api/profile/complete', async (c) => {
+    const denied = needMotorist(c)
+    if (denied) return denied
+    const auth = c.get('auth')!
+    let user = auth
+    await write((db) => {
+      const next = markOnboarded(db, auth.id)
+      const row = next.users.find((u) => u.id === auth.id)
+      if (row) user = publicUser(row)
+      return next
+    })
+    return c.json({ token: await signToken(user), user })
   })
 
   /** Upload a wallet document photo (permis / carte grise / attestation). */
