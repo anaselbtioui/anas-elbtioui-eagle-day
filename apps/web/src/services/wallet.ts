@@ -189,7 +189,8 @@ export const CLAIM_READY_FIELDS = [
   'brokerId',
 ] as const satisfies ReadonlyArray<keyof Wallet>
 
-/** Broader portefeuille fields for drawer progress (onboarding surface). */
+/** Broader portefeuille fields for drawer progress (onboarding surface).
+ * `policy` is UI-optional and excluded from % / gap resume. */
 export const PORTEFEUILLE_PROGRESS_FIELDS = [
   'firstName',
   'lastName',
@@ -199,7 +200,6 @@ export const PORTEFEUILLE_PROGRESS_FIELDS = [
   'plate',
   'vehicle',
   'insurer',
-  'policy',
   'brokerId',
   'licenseNumber',
   'attestationValidUntil',
@@ -276,13 +276,20 @@ const STEP_FIELDS: Record<WalletGapStepId, ReadonlyArray<keyof Wallet>> = {
   identity: ['firstName', 'lastName', 'cin', 'city'],
   permis: ['licenseNumber'],
   carteGrise: ['plate', 'vehicle'],
-  attestation: ['insurer', 'policy', 'attestationValidUntil'],
+  attestation: ['insurer', 'attestationValidUntil'],
   broker: ['brokerId'],
 }
 
 /** Whether a specific wallet field still needs attention on this profile. */
 export function walletFieldNeedsInput(profile: Wallet, key: keyof Wallet): boolean {
   return !walletFieldFilled(profile, key)
+}
+
+/** True when `key` counts toward portefeuille progress / gap highlight. */
+export function walletFieldIsProgress(
+  key: keyof Wallet,
+): key is (typeof PORTEFEUILLE_PROGRESS_FIELDS)[number] {
+  return (PORTEFEUILLE_PROGRESS_FIELDS as readonly string[]).includes(key)
 }
 
 /** Steps that still have at least one missing portefeuille field. */

@@ -3,19 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { LabasIcon } from '@/components/LabasIcon'
 import { Progress } from '@/components/ui/progress'
 import { StickyActionsProvider } from '@/components/ui/sticky-actions'
-import {
-  ONBOARDING_STEPS,
-  OnboardingWizardBody,
-} from '@/features/onboarding/OnboardingPage'
+import { OnboardingWizardBody } from '@/features/onboarding/OnboardingPage'
 import {
   deriveOnboardingPhase,
   onboardingGapCount,
   onboardingRemainingPercent,
 } from '@/services/onboarding-phase.ts'
-import {
-  walletIncompleteSteps,
-  type Wallet,
-} from '@/services/wallet.ts'
+import { type Wallet } from '@/services/wallet.ts'
 import { cn } from '@/lib/utils'
 
 export type WalletNudgeKind = 'empty' | 'expired' | 'expiring' | 'complete' | null
@@ -69,13 +63,8 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
 
   const remainingPct = useMemo(() => onboardingRemainingPercent(profile), [profile])
   const gapCount = useMemo(() => onboardingGapCount(profile), [profile])
-  const stepPct = useMemo(() => {
-    if (kind === 'complete') return 100
-    const gaps = walletIncompleteSteps(profile)
-    if (gaps.length === 0) return 100
-    const filledish = ONBOARDING_STEPS.length - gaps.length
-    return Math.min(100, Math.round((filledish / ONBOARDING_STEPS.length) * 100))
-  }, [profile, kind])
+  // Same axis as the title (“X% left”): filled share of portefeuille fields.
+  const stepPct = kind === 'complete' ? 100 : Math.max(0, 100 - remainingPct)
 
   if (!kind) return null
 
@@ -198,7 +187,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
             footerClassName="px-5 pt-3"
           >
             <OnboardingWizardBody
-              key={`gaps-${profile.motoristId}-${remainingPct}`}
+              key={`gaps-${profile.motoristId}`}
               onClose={() => setExpanded(false)}
               onFinished={() => setExpanded(false)}
               showStepTitle={false}

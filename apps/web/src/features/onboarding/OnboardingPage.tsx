@@ -33,6 +33,7 @@ import { api } from '@/services/api.ts'
 import { resumeStepId } from '@/services/onboarding-phase.ts'
 import {
   attestationDaysRemaining,
+  walletFieldIsProgress,
   walletFieldNeedsInput,
   walletIncompleteSteps,
 } from '@/services/wallet.ts'
@@ -63,7 +64,9 @@ function gapClass(
   profile: Parameters<typeof walletFieldNeedsInput>[0],
   key: Parameters<typeof walletFieldNeedsInput>[1],
 ) {
-  if (!gapsOnly || !walletFieldNeedsInput(profile, key)) return undefined
+  if (!gapsOnly || !walletFieldIsProgress(key) || !walletFieldNeedsInput(profile, key)) {
+    return undefined
+  }
   return 'border-alert ring-2 ring-alert/35 focus-visible:ring-alert'
 }
 
@@ -72,7 +75,9 @@ function gapAttr(
   profile: Parameters<typeof walletFieldNeedsInput>[0],
   key: Parameters<typeof walletFieldNeedsInput>[1],
 ) {
-  return gapsOnly && walletFieldNeedsInput(profile, key) ? true : undefined
+  return gapsOnly && walletFieldIsProgress(key) && walletFieldNeedsInput(profile, key)
+    ? true
+    : undefined
 }
 
 function stepTitleKey(id: OnboardingStepId): string {
@@ -322,8 +327,13 @@ export function OnboardingSteps({
   gapsOnly?: boolean
 }) {
   const { t } = useTranslation()
-  const { profile, setProfile } = useProfileStore()
+  const { profile, setProfile, persistDraft } = useProfileStore()
   const id = ONBOARDING_STEPS[Math.min(Math.max(step, 0), STEP_COUNT - 1)]
+
+  function patchProfile(patch: Parameters<typeof setProfile>[0]) {
+    setProfile(patch)
+    void persistDraft()
+  }
 
   function nextGapOr(fallback: number) {
     if (!gapsOnly) {
@@ -359,10 +369,20 @@ export function OnboardingSteps({
 
   useEffect(() => {
     if (!gapsOnly) return
+    const active = document.activeElement
+    if (active instanceof HTMLElement && active.closest('[data-testid="wallet-nudge-drawer"]')) {
+      // Already typing in the drawer — don't steal focus on every profile tick.
+      if (
+        active.matches('input, textarea, select, button, [contenteditable="true"]') ||
+        active.getAttribute('role') === 'combobox'
+      ) {
+        return
+      }
+    }
     const el = document.querySelector<HTMLElement>('[data-wallet-gap="true"]')
     el?.focus()
     el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, [gapsOnly, id, profile])
+  }, [gapsOnly, id])
 
   if (id === 'welcome') {
     return (
@@ -390,7 +410,7 @@ export function OnboardingSteps({
             id="otp-phone"
             label={t('onboarding.phone')}
             value={profile.phone}
-            onChange={(e164) => setProfile({ phone: e164, phoneVerified: false })}
+            onChange={(e164) => patchProfile({ phone: e164, phoneVerified: false })}
             required
             highlight={Boolean(gapAttr(gapsOnly, profile, 'phone'))}
           />
@@ -402,7 +422,7 @@ export function OnboardingSteps({
           continueDisabled={!phoneOk}
           onContinue={() => {
             // Phase 1: no SMS — valid number counts as accepted.
-            setProfile({ phoneVerified: true })
+            patchProfile({ phoneVerified: true })
             next()
           }}
         />
@@ -424,7 +444,7 @@ export function OnboardingSteps({
             <Input
               id="firstName"
               value={profile.firstName}
-              onChange={(e) => setProfile({ firstName: e.target.value })}
+              onChange={(e) => patchProfile({ firstName: e.target.value })}
               autoComplete="given-name"
               aria-invalid={!firstOk}
               className={gapClass(gapsOnly, profile, 'firstName')}
@@ -439,7 +459,7 @@ export function OnboardingSteps({
             <Input
               id="lastName"
               value={profile.lastName}
-              onChange={(e) => setProfile({ lastName: e.target.value })}
+              onChange={(e) => patchProfile({ lastName: e.target.value })}
               autoComplete="family-name"
               aria-invalid={!lastOk}
               className={gapClass(gapsOnly, profile, 'lastName')}
@@ -455,7 +475,7 @@ export function OnboardingSteps({
           <Input
             id="cin"
             value={profile.cin}
-            onChange={(e) => setProfile({ cin: normalizeCin(e.target.value) })}
+            onChange={(e) => patchProfile({ cin: normalizeCin(e.target.value) })}
             autoComplete="off"
             aria-invalid={!cinOk}
             className={gapClass(gapsOnly, profile, 'cin')}
@@ -468,7 +488,7 @@ export function OnboardingSteps({
           <CitySelect
             id="city"
             value={profile.city}
-            onChange={(city) => setProfile({ city })}
+            onChange={(city) => patchProfile({ city })}
             highlight={Boolean(gapAttr(gapsOnly, profile, 'city'))}
           />
           {!cityOk ? <p className="text-sm text-alert">{t('fields.errorCity')}</p> : null}
@@ -491,14 +511,14 @@ export function OnboardingSteps({
           label={t('onboarding.licensePhoto')}
           hint={t('onboarding.photoLocalOnly')}
           value={profile.licensePhotoLocal}
-          onChange={(licensePhotoLocal) => setProfile({ licensePhotoLocal })}
+          onChange={(licensePhotoLocal) => patchProfile({ licensePhotoLocal })}
         />
         <div className="space-y-2">
           <Label htmlFor="licenseNumber">{t('onboarding.licenseNumber')}</Label>
           <Input
             id="licenseNumber"
             value={profile.licenseNumber}
-            onChange={(e) => setProfile({ licenseNumber: e.target.value })}
+            onChange={(e) => patchProfile({ licenseNumber: e.target.value })}
             className={gapClass(gapsOnly, profile, 'licenseNumber')}
             data-wallet-gap={gapAttr(gapsOnly, profile, 'licenseNumber')}
           />
@@ -515,14 +535,14 @@ export function OnboardingSteps({
           label={t('onboarding.carteGrisePhoto')}
           hint={t('onboarding.photoLocalOnly')}
           value={profile.carteGrisePhotoLocal}
-          onChange={(carteGrisePhotoLocal) => setProfile({ carteGrisePhotoLocal })}
+          onChange={(carteGrisePhotoLocal) => patchProfile({ carteGrisePhotoLocal })}
         />
         <div className="space-y-2">
           <Label htmlFor="plate">{t('onboarding.plate')}</Label>
           <Input
             id="plate"
             value={profile.plate}
-            onChange={(e) => setProfile({ plate: e.target.value.toUpperCase() })}
+            onChange={(e) => patchProfile({ plate: e.target.value.toUpperCase() })}
             aria-invalid={Boolean(profile.plate.trim()) && !isMoroccanPlate(profile.plate)}
             className={gapClass(gapsOnly, profile, 'plate')}
             data-wallet-gap={gapAttr(gapsOnly, profile, 'plate')}
@@ -537,7 +557,7 @@ export function OnboardingSteps({
             <VehicleSelect
               id="vehicle"
               value={profile.vehicle}
-              onChange={(vehicle) => setProfile({ vehicle })}
+              onChange={(vehicle) => patchProfile({ vehicle })}
               highlight={Boolean(gapAttr(gapsOnly, profile, 'vehicle'))}
             />
           </div>
@@ -548,7 +568,7 @@ export function OnboardingSteps({
           onSkipAll={canSkipAll ? skipAll : undefined}
           onContinue={() => {
             if (profile.plate.trim()) {
-              setProfile({ plate: normalizePlate(profile.plate) })
+              patchProfile({ plate: normalizePlate(profile.plate) })
             }
             next()
           }}
@@ -565,7 +585,7 @@ export function OnboardingSteps({
           label={t('onboarding.attestationPhoto')}
           hint={t('onboarding.photoLocalOnly')}
           value={profile.attestationPhotoLocal}
-          onChange={(attestationPhotoLocal) => setProfile({ attestationPhotoLocal })}
+          onChange={(attestationPhotoLocal) => patchProfile({ attestationPhotoLocal })}
         />
         <div className="space-y-2">
           <Label htmlFor="insurer">{t('onboarding.insurer')}</Label>
@@ -573,7 +593,7 @@ export function OnboardingSteps({
             <InsurerSelect
               id="insurer"
               value={profile.insurer}
-              onChange={(insurer) => setProfile({ insurer })}
+              onChange={(insurer) => patchProfile({ insurer })}
               placeholder={t('onboarding.insurerPick')}
               className={gapClass(gapsOnly, profile, 'insurer')}
             />
@@ -584,7 +604,7 @@ export function OnboardingSteps({
           <Input
             id="policy"
             value={profile.policy}
-            onChange={(e) => setProfile({ policy: e.target.value })}
+            onChange={(e) => patchProfile({ policy: e.target.value })}
             className={gapClass(gapsOnly, profile, 'policy')}
             data-wallet-gap={gapAttr(gapsOnly, profile, 'policy')}
           />
@@ -595,7 +615,7 @@ export function OnboardingSteps({
             <DatePicker
               id="attestationValidUntil"
               value={profile.attestationValidUntil}
-              onChange={(attestationValidUntil) => setProfile({ attestationValidUntil })}
+              onChange={(attestationValidUntil) => patchProfile({ attestationValidUntil })}
               data-testid="attestation-valid-until"
               highlight={Boolean(gapAttr(gapsOnly, profile, 'attestationValidUntil'))}
             />
@@ -621,7 +641,7 @@ export function OnboardingSteps({
             id="assistance"
             inputMode="tel"
             value={profile.assistanceNumber}
-            onChange={(e) => setProfile({ assistanceNumber: e.target.value })}
+            onChange={(e) => patchProfile({ assistanceNumber: e.target.value })}
           />
         </div>
         <StepNav onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />

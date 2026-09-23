@@ -34,12 +34,16 @@ describe('deriveOnboardingPhase', () => {
   it('is claimReady when claim fields filled but portefeuille incomplete', () => {
     const partial: Wallet = {
       ...full,
-      policy: '',
       licenseNumber: '',
       attestationValidUntil: '',
     }
     expect(deriveOnboardingPhase(partial)).toBe('claimReady')
     expect(onboardingGapCount(partial)).toBeGreaterThan(0)
+  })
+
+  it('treats empty optional policy as complete when other fields filled', () => {
+    expect(deriveOnboardingPhase({ ...full, policy: '' })).toBe('complete')
+    expect(onboardingRemainingPercent({ ...full, policy: '' })).toBe(0)
   })
 
   it('is complete when fully filled and attestation far out', () => {

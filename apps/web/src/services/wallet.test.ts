@@ -133,8 +133,30 @@ describe('walletRemainingPercent', () => {
       lastName: 'El Mansouri',
       insurer: 'Assureur',
     }
-    // 2 of 12 filled → 10/12 ≈ 83%
-    expect(walletRemainingPercent(partial)).toBe(83)
+    // 2 of 11 filled → 9/11 ≈ 82%
+    expect(walletRemainingPercent(partial)).toBe(82)
+  })
+
+  it('does not count optional policy toward remaining %', () => {
+    const withoutPolicy: Wallet = {
+      ...emptyWallet,
+      firstName: 'Nadia',
+      lastName: 'El Mansouri',
+      phone: '0612345678',
+      phoneVerified: true,
+      cin: 'AB123456',
+      city: 'Casablanca',
+      plate: '12345-A-50',
+      vehicle: 'Dacia',
+      insurer: 'Sanlam',
+      policy: '',
+      brokerId: 'B-1',
+      licenseNumber: 'P-1',
+      attestationValidUntil: '2027-01-01',
+    }
+    expect(walletRemainingPercent(withoutPolicy)).toBe(0)
+    expect(firstWalletGapStep(withoutPolicy)).toBe('review')
+    expect(walletFullyComplete(withoutPolicy)).toBe(true)
   })
 
   it('does not require phoneVerified for progress', () => {

@@ -64,6 +64,16 @@ let persistTimer: ReturnType<typeof setTimeout> | null = null
 let persistWaiters: Array<() => void> = []
 let persistChain: Promise<void> = Promise.resolve()
 
+/** Test helper — cancel debounce so pulls/asserts stay deterministic. */
+export function resetProfilePersistForTests(): void {
+  if (persistTimer) {
+    clearTimeout(persistTimer)
+    persistTimer = null
+  }
+  persistWaiters = []
+  persistChain = Promise.resolve()
+}
+
 function keepInflightPhoto(local: string): string {
   return local.startsWith('data:') ? local : ''
 }
@@ -226,15 +236,21 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
   persistDraft: () => schedulePersist(get, set),
   persistDraftNow: () => flushPersistNow(get, set),
   pullRemoteProfile: async () => {
+    // Don't clobber in-progress edits — wait out debounce / in-flight PUT first.
+    if (persistTimer) return
+    await persistChain
     const cur = get().profile
     if (!cur.motoristId.trim()) return
     try {
       const remote = await api.getProfile()
-      // Remote wins for all domain fields; keep only in-flight data: photo uploads.
+      // Remote wins for domain fields; keep inflight photos + client-only wallet fields.
       let next = domainToWallet(remote, {
         licensePhotoLocal: keepInflightPhoto(cur.licensePhotoLocal),
         carteGrisePhotoLocal: keepInflightPhoto(cur.carteGrisePhotoLocal),
         attestationPhotoLocal: keepInflightPhoto(cur.attestationPhotoLocal),
+        assistanceNumber: cur.assistanceNumber,
+        brokerPhone: cur.brokerPhone,
+        onboardingStep: cur.onboardingStep,
       })
       // Auth onboarded is source of truth (JWT / app_users).
       let onboarded = cur.onboarded
@@ -252,6 +268,9 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         onboarded,
         // Phase 1: valid stored phone counts as accepted (no SMS).
         phoneVerified: Boolean(next.phone.trim()) || cur.phoneVerified,
+        assistanceNumber: cur.assistanceNumber,
+        brokerPhone: cur.brokerPhone,
+        onboardingStep: cur.onboardingStep,
       }
 
       const fillPhoto = async (

@@ -4,6 +4,7 @@ import { emptyWallet, walletRemainingPercent } from '@/services/wallet.ts'
 import {
   migrateLegacyProfileStorage,
   PROFILE_STORAGE_KEY,
+  resetProfilePersistForTests,
   useProfileStore,
 } from '@/store/profile.ts'
 
@@ -79,6 +80,7 @@ function remoteProfile(overrides?: {
 
 describe('pullRemoteProfile remote-wins', () => {
   beforeEach(() => {
+    resetProfilePersistForTests()
     getProfile.mockReset()
     saveProfile.mockClear()
     localStorage.clear()
@@ -111,17 +113,38 @@ describe('pullRemoteProfile remote-wins', () => {
     expect(p.phoneVerified).toBe(true)
   })
 
-  it('keeps in-flight data: photo uploads only', async () => {
+  it('keeps in-flight photos and client-only wallet fields', async () => {
     const dataUrl = 'data:image/png;base64,abc'
     useProfileStore.setState({
       profile: {
         ...useProfileStore.getState().profile,
         licensePhotoLocal: dataUrl,
+        assistanceNumber: '0800123456',
+        brokerPhone: '+212612000000',
+        onboardingStep: 4,
       },
     })
     getProfile.mockResolvedValue(remoteProfile())
     await useProfileStore.getState().pullRemoteProfile()
-    expect(useProfileStore.getState().profile.licensePhotoLocal).toBe(dataUrl)
+    const p = useProfileStore.getState().profile
+    expect(p.licensePhotoLocal).toBe(dataUrl)
+    expect(p.assistanceNumber).toBe('0800123456')
+    expect(p.brokerPhone).toBe('+212612000000')
+    expect(p.onboardingStep).toBe(4)
+  })
+
+  it('skips pull while a draft persist is pending', async () => {
+    vi.useFakeTimers()
+    try {
+      getProfile.mockResolvedValue(remoteProfile())
+      useProfileStore.getState().setProfile({ firstName: 'Typing' })
+      void useProfileStore.getState().persistDraft()
+      await useProfileStore.getState().pullRemoteProfile()
+      expect(getProfile).not.toHaveBeenCalled()
+      expect(useProfileStore.getState().profile.firstName).toBe('Typing')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('two store resets from same remote yield same remaining %', async () => {

@@ -32,8 +32,8 @@ describe('syncProfile', () => {
 
   it('counts signup names in portefeuille remaining %', () => {
     syncProfile(motoristAuth('Nadia El Mansouri'))
-    // 12 progress fields; 2 names filled → 10/12 ≈ 83%
-    expect(walletRemainingPercent(useProfileStore.getState().profile)).toBe(83)
+    // 11 progress fields; 2 names filled → 9/11 ≈ 82%
+    expect(walletRemainingPercent(useProfileStore.getState().profile)).toBe(82)
   })
 
   it('keeps existing names on same-motorist refresh', () => {
