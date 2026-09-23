@@ -250,12 +250,8 @@ function walletMissingProgressFields(
 /** Exported for resume-gaps UI (which fields still empty). */
 export function walletMissingFields(
   profile: Wallet,
-): Array<(typeof PORTEFEUILLE_PROGRESS_FIELDS)[number] | 'phoneVerified'> {
-  const fields = [...walletMissingProgressFields(profile)] as Array<
-    (typeof PORTEFEUILLE_PROGRESS_FIELDS)[number] | 'phoneVerified'
-  >
-  if (!profile.phoneVerified) fields.push('phoneVerified')
-  return fields
+): Array<(typeof PORTEFEUILLE_PROGRESS_FIELDS)[number]> {
+  return walletMissingProgressFields(profile)
 }
 
 /** True when portefeuille progress is fully filled (remaining 0%). */
@@ -275,8 +271,8 @@ export const WALLET_GAP_STEPS = [
 
 export type WalletGapStepId = (typeof WALLET_GAP_STEPS)[number]
 
-const STEP_FIELDS: Record<WalletGapStepId, ReadonlyArray<keyof Wallet | 'phoneVerified'>> = {
-  otp: ['phone', 'phoneVerified'],
+const STEP_FIELDS: Record<WalletGapStepId, ReadonlyArray<keyof Wallet>> = {
+  otp: ['phone'],
   identity: ['firstName', 'lastName', 'cin', 'city'],
   permis: ['licenseNumber'],
   carteGrise: ['plate', 'vehicle'],
@@ -285,11 +281,7 @@ const STEP_FIELDS: Record<WalletGapStepId, ReadonlyArray<keyof Wallet | 'phoneVe
 }
 
 /** Whether a specific wallet field still needs attention on this profile. */
-export function walletFieldNeedsInput(
-  profile: Wallet,
-  key: keyof Wallet | 'phoneVerified',
-): boolean {
-  if (key === 'phoneVerified') return !profile.phoneVerified
+export function walletFieldNeedsInput(profile: Wallet, key: keyof Wallet): boolean {
   return !walletFieldFilled(profile, key)
 }
 
@@ -311,9 +303,8 @@ export function firstWalletGapStep(profile: Wallet): WalletGapStepId | 'review' 
 /** Share of portefeuille progress still missing (0–100). */
 export function walletRemainingPercent(profile: Wallet): number {
   const missing = walletMissingProgressFields(profile).length
-  const phoneGap = profile.phoneVerified ? 0 : 1
-  const total = PORTEFEUILLE_PROGRESS_FIELDS.length + 1
-  return Math.max(0, Math.min(100, Math.round(((missing + phoneGap) / total) * 100)))
+  const total = PORTEFEUILLE_PROGRESS_FIELDS.length
+  return Math.max(0, Math.min(100, Math.round((missing / total) * 100)))
 }
 
 export function walletEssentialsFilled(profile: Wallet): boolean {

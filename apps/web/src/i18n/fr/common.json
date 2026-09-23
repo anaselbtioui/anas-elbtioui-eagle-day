@@ -240,7 +240,7 @@
     "welcomePoint1Title": "Synchro",
     "welcomePoint2Title": "Passer",
     "welcomePoint3Title": "Plus tard",
-    "otpHint": "Vérification téléphone (mock Phase 1 — aucun SMS réel).",
+    "otpHint": "Numéro mobile marocain. SMS réel plus tard — pour l’instant, saisissez le numéro et continuez.",
     "otpSend": "Envoyer le code",
     "otpCode": "Code reçu",
     "otpMockNote": "Saisissez au moins 4 chiffres (ex. 123456) pour simuler la validation.",

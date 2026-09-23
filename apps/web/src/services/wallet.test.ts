@@ -9,6 +9,7 @@ import {
   migrateWalletNames,
   firstWalletGapStep,
   walletClaimReady,
+  walletFieldNeedsInput,
   walletFullyComplete,
   walletRemainingPercent,
   type Wallet,
@@ -132,12 +133,23 @@ describe('walletRemainingPercent', () => {
       lastName: 'El Mansouri',
       insurer: 'Assureur',
     }
-    expect(walletRemainingPercent(partial)).toBe(85)
+    // 2 of 12 filled → 10/12 ≈ 83%
+    expect(walletRemainingPercent(partial)).toBe(83)
+  })
+
+  it('does not require phoneVerified for progress', () => {
+    const partial: Wallet = {
+      ...emptyWallet,
+      phone: '+212612345678',
+      phoneVerified: false,
+    }
+    expect(walletFieldNeedsInput(partial, 'phone')).toBe(false)
+    expect(firstWalletGapStep(partial)).not.toBe('otp')
   })
 })
 
 describe('firstWalletGapStep', () => {
-  it('starts at otp when phone not verified', () => {
+  it('starts at otp when phone missing', () => {
     expect(firstWalletGapStep(emptyWallet)).toBe('otp')
   })
 

@@ -323,8 +323,6 @@ export function OnboardingSteps({
 }) {
   const { t } = useTranslation()
   const { profile, setProfile } = useProfileStore()
-  const [otpCode, setOtpCode] = useState('')
-  const [otpSent, setOtpSent] = useState(false)
   const id = ONBOARDING_STEPS[Math.min(Math.max(step, 0), STEP_COUNT - 1)]
 
   function nextGapOr(fallback: number) {
@@ -392,45 +390,19 @@ export function OnboardingSteps({
             id="otp-phone"
             label={t('onboarding.phone')}
             value={profile.phone}
-            onChange={(e164) => setProfile({ phone: e164 })}
+            onChange={(e164) => setProfile({ phone: e164, phoneVerified: false })}
             required
             highlight={Boolean(gapAttr(gapsOnly, profile, 'phone'))}
           />
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          className="w-full"
-          disabled={!phoneOk}
-          onClick={() => setOtpSent(true)}
-        >
-          {t('onboarding.otpSend')}
-        </Button>
-        {otpSent || (gapsOnly && walletFieldNeedsInput(profile, 'phoneVerified')) ? (
-          <div className="space-y-2">
-            <Label htmlFor="otp-code">{t('onboarding.otpCode')}</Label>
-            <Input
-              id="otp-code"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="one-time-code"
-              maxLength={6}
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="123456"
-              className={gapClass(gapsOnly, profile, 'phoneVerified')}
-              data-wallet-gap={gapAttr(gapsOnly, profile, 'phoneVerified')}
-            />
-            <p className="text-xs text-ink-muted">{t('onboarding.otpMockNote')}</p>
-          </div>
-        ) : null}
         <StepNav
           onBack={prev}
           onSkip={skip}
           onSkipAll={canSkipAll ? skipAll : undefined}
           continueDisabled={!phoneOk}
           onContinue={() => {
-            if (otpCode.trim().length >= 4) setProfile({ phoneVerified: true })
+            // Phase 1: no SMS — valid number counts as accepted.
+            setProfile({ phoneVerified: true })
             next()
           }}
         />

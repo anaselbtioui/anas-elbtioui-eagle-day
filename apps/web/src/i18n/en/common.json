@@ -240,7 +240,7 @@
     "welcomePoint1Title": "Sync",
     "welcomePoint2Title": "Skip",
     "welcomePoint3Title": "Later",
-    "otpHint": "Phone verification (Phase 1 mock — no real SMS).",
+    "otpHint": "Moroccan mobile number. Real SMS later — for now enter the number and continue.",
     "otpSend": "Send the code",
     "otpCode": "Code received",
     "otpMockNote": "Enter at least 4 digits (e.g. 123456) to simulate validation.",
