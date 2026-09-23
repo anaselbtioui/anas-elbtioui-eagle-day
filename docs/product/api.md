@@ -103,3 +103,16 @@ Logged on submit, document request, draft create/approve, task toggle, owner cha
 `apps/web/src/services/http-api.ts` — `httpApi` implementation.
 
 Phase 0 UI may keep Zustand local; swap to `httpApi` when the NOW door is ready to persist.
+
+## Latency ledger
+
+Measured against production with curl, 5 samples, median. Reads = `GET /api/profile`; writes = `PUT /api/packs/:id`. Budget: reads < 300 ms, writes < 500 ms.
+
+| Date | Change | Reads | Writes | Verdict |
+| --- | --- | --- | --- | --- |
+| 2026-09-23 | Baseline: lambda in `iad1`, Supabase in `eu-west-1`, 16 sequential upserts per save | 0.24 s | 1.93 s | — |
+| 2026-09-23 | `saveDb` nested `withWriteLock` inside `exclusiveDbWrite` (deadlock, 30 s timeout on every write) | — | 30 s | fixed |
+| 2026-09-23 | `vercel.json` `regions: ["dub1"]` | 0.17 s | 0.47 s | kept |
+| 2026-09-23 | Upserts parallel per FK tier (6 round trips instead of 16) | 0.17 s | 0.30 s | kept |
+
+Remaining write cost is one `loadDb` (13 parallel selects) plus 6 upsert tiers. Next candidate, only if measured over budget: upsert only the tables the mutation touched.
