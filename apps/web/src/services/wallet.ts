@@ -247,6 +247,67 @@ function walletMissingProgressFields(
   return PORTEFEUILLE_PROGRESS_FIELDS.filter((key) => !walletFieldFilled(profile, key))
 }
 
+/** Exported for resume-gaps UI (which fields still empty). */
+export function walletMissingFields(
+  profile: Wallet,
+): Array<(typeof PORTEFEUILLE_PROGRESS_FIELDS)[number] | 'phoneVerified'> {
+  const fields = [...walletMissingProgressFields(profile)] as Array<
+    (typeof PORTEFEUILLE_PROGRESS_FIELDS)[number] | 'phoneVerified'
+  >
+  if (!profile.phoneVerified) fields.push('phoneVerified')
+  return fields
+}
+
+/** True when portefeuille progress is fully filled (remaining 0%). */
+export function walletFullyComplete(profile: Wallet): boolean {
+  return walletRemainingPercent(profile) === 0
+}
+
+/** Onboarding step ids that hold portefeuille inputs (ordered). */
+export const WALLET_GAP_STEPS = [
+  'otp',
+  'identity',
+  'permis',
+  'carteGrise',
+  'attestation',
+  'broker',
+] as const
+
+export type WalletGapStepId = (typeof WALLET_GAP_STEPS)[number]
+
+const STEP_FIELDS: Record<WalletGapStepId, ReadonlyArray<keyof Wallet | 'phoneVerified'>> = {
+  otp: ['phone', 'phoneVerified'],
+  identity: ['firstName', 'lastName', 'cin', 'city'],
+  permis: ['licenseNumber'],
+  carteGrise: ['plate', 'vehicle'],
+  attestation: ['insurer', 'policy', 'attestationValidUntil'],
+  broker: ['brokerId'],
+}
+
+/** Whether a specific wallet field still needs attention on this profile. */
+export function walletFieldNeedsInput(
+  profile: Wallet,
+  key: keyof Wallet | 'phoneVerified',
+): boolean {
+  if (key === 'phoneVerified') return !profile.phoneVerified
+  return !walletFieldFilled(profile, key)
+}
+
+/** Steps that still have at least one missing portefeuille field. */
+export function walletIncompleteSteps(profile: Wallet): WalletGapStepId[] {
+  return WALLET_GAP_STEPS.filter((step) =>
+    STEP_FIELDS[step].some((key) => walletFieldNeedsInput(profile, key)),
+  )
+}
+
+/**
+ * First onboarding step with a gap, or `review` when portefeuille is complete.
+ * Skips welcome — used when resuming the wallet drawer.
+ */
+export function firstWalletGapStep(profile: Wallet): WalletGapStepId | 'review' {
+  return walletIncompleteSteps(profile)[0] ?? 'review'
+}
+
 /** Share of portefeuille progress still missing (0–100). */
 export function walletRemainingPercent(profile: Wallet): number {
   const missing = walletMissingProgressFields(profile).length

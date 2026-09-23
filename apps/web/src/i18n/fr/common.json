@@ -208,8 +208,11 @@
     },
     "walletNudgePeek": "À compléter",
     "walletNudgeRemaining": "Il vous reste {{pct}} % pour compléter votre portefeuille",
+    "walletNudgeGaps": "{{count}} étape(s) à compléter — seuls les champs manquants",
     "walletNudgeExpired": "Attestation expirée",
     "walletNudgeExpiring": "Attestation bientôt expirée",
+    "walletNudgeComplete": "Portefeuille prêt",
+    "walletNudgeCompleteHint": "Identité, véhicule et contrat sont complets.",
     "walletNudgeOpen": "Voir",
     "walletNudgeSettings": "Profil",
     "packStatus": {

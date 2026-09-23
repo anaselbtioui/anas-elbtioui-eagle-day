@@ -7,7 +7,9 @@ import {
   LEGACY_SHARED_MOTORIST_ID,
   migrateDeviceWallet,
   migrateWalletNames,
+  firstWalletGapStep,
   walletClaimReady,
+  walletFullyComplete,
   walletRemainingPercent,
   type Wallet,
 } from './wallet.ts'
@@ -131,5 +133,45 @@ describe('walletRemainingPercent', () => {
       insurer: 'Assureur',
     }
     expect(walletRemainingPercent(partial)).toBe(85)
+  })
+})
+
+describe('firstWalletGapStep', () => {
+  it('starts at otp when phone not verified', () => {
+    expect(firstWalletGapStep(emptyWallet)).toBe('otp')
+  })
+
+  it('skips filled steps and lands on first gap', () => {
+    const partial: Wallet = {
+      ...emptyWallet,
+      firstName: 'Nadia',
+      lastName: 'El Mansouri',
+      phone: '+212612345678',
+      phoneVerified: true,
+      cin: 'AB123456',
+      city: 'Casablanca',
+    }
+    expect(firstWalletGapStep(partial)).toBe('permis')
+  })
+
+  it('returns review when fully complete', () => {
+    const full: Wallet = {
+      ...emptyWallet,
+      firstName: 'Nadia',
+      lastName: 'El Mansouri',
+      phone: '+212612345678',
+      phoneVerified: true,
+      cin: 'AB123456',
+      city: 'Casablanca',
+      plate: '12345-A-50',
+      vehicle: 'Dacia',
+      insurer: 'Sanlam',
+      policy: 'MA-1',
+      brokerId: 'B-1',
+      licenseNumber: 'P-1',
+      attestationValidUntil: '2027-01-01',
+    }
+    expect(firstWalletGapStep(full)).toBe('review')
+    expect(walletFullyComplete(full)).toBe(true)
   })
 })

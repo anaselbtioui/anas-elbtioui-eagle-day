@@ -30,7 +30,12 @@ import { LocalPhotoField } from '@/features/onboarding/LocalPhotoField'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { cn } from '@/lib/utils'
 import { api } from '@/services/api.ts'
-import { attestationDaysRemaining } from '@/services/wallet.ts'
+import {
+  attestationDaysRemaining,
+  firstWalletGapStep,
+  walletFieldNeedsInput,
+  walletIncompleteSteps,
+} from '@/services/wallet.ts'
 import { useProfileStore } from '@/store/profile'
 import { useSessionStore } from '@/store/session'
 
@@ -51,6 +56,16 @@ export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number]
 
 const STEP_COUNT = ONBOARDING_STEPS.length
 const REVIEW_STEP = ONBOARDING_STEPS.indexOf('review')
+
+/** Ring missing portefeuille inputs so resume gaps are obvious. */
+function gapClass(
+  profile: Parameters<typeof walletFieldNeedsInput>[0],
+  key: Parameters<typeof walletFieldNeedsInput>[1],
+) {
+  return walletFieldNeedsInput(profile, key)
+    ? 'border-alert ring-2 ring-alert/35 focus-visible:ring-alert'
+    : undefined
+}
 
 function stepTitleKey(id: OnboardingStepId): string {
   return `onboarding.steps.${id}`
@@ -205,7 +220,15 @@ function BrokerPickStep({
         </p>
       ) : null}
       <FluidHover>
-        <ul className="space-y-2" data-testid="broker-pick-list">
+        <ul
+          className={cn(
+            'space-y-2',
+            walletFieldNeedsInput(profile, 'brokerId') &&
+              'rounded-[var(--radius-labas)] ring-2 ring-alert/35',
+          )}
+          data-testid="broker-pick-list"
+          data-wallet-gap={walletFieldNeedsInput(profile, 'brokerId') || undefined}
+        >
           {brokers.map((b) => {
             const selected = profile.brokerId === b.id
             return (
@@ -279,11 +302,14 @@ export function OnboardingSteps({
   goTo,
   onLeave,
   onFinish,
+  gapsOnly = false,
 }: {
   step: number
   goTo: (n: number) => void
   onLeave: () => void
   onFinish: () => void
+  /** Skip completed steps — resume wallet gaps only. */
+  gapsOnly?: boolean
 }) {
   const { t } = useTranslation()
   const { profile, setProfile } = useProfileStore()
@@ -291,14 +317,44 @@ export function OnboardingSteps({
   const [otpSent, setOtpSent] = useState(false)
   const id = ONBOARDING_STEPS[Math.min(Math.max(step, 0), STEP_COUNT - 1)]
 
-  const next = () => goTo(Math.min(step + 1, STEP_COUNT - 1))
+  function nextGapOr(fallback: number) {
+    if (!gapsOnly) {
+      goTo(fallback)
+      return
+    }
+    const incomplete = walletIncompleteSteps(profile)
+    const currentId = ONBOARDING_STEPS[step]
+    const idx = incomplete.findIndex((s) => s === currentId)
+    const nextId = incomplete[idx + 1]
+    if (nextId) {
+      goTo(ONBOARDING_STEPS.indexOf(nextId))
+      return
+    }
+    goTo(REVIEW_STEP >= 0 ? REVIEW_STEP : STEP_COUNT - 1)
+  }
+
+  const next = () => nextGapOr(Math.min(step + 1, STEP_COUNT - 1))
   const prev = () => {
     if (step <= 0) onLeave()
-    else goTo(step - 1)
+    else if (gapsOnly) {
+      const incomplete = walletIncompleteSteps(profile)
+      const currentId = ONBOARDING_STEPS[step]
+      const idx = incomplete.findIndex((s) => s === currentId)
+      const prevId = incomplete[idx - 1]
+      if (prevId) goTo(ONBOARDING_STEPS.indexOf(prevId))
+      else onLeave()
+    } else goTo(step - 1)
   }
   const skip = () => next()
   const skipAll = () => goTo(REVIEW_STEP >= 0 ? REVIEW_STEP : STEP_COUNT - 1)
   const canSkipAll = step < REVIEW_STEP
+
+  useEffect(() => {
+    if (!gapsOnly) return
+    const el = document.querySelector<HTMLElement>('[data-wallet-gap="true"]')
+    el?.focus()
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [gapsOnly, id, profile])
 
   if (id === 'welcome') {
     return (
@@ -321,13 +377,16 @@ export function OnboardingSteps({
     return (
       <div className="space-y-4">
         <p className="text-sm text-ink-muted">{t('onboarding.otpHint')}</p>
-        <PhoneInput
-          id="otp-phone"
-          label={t('onboarding.phone')}
-          value={profile.phone}
-          onChange={(e164) => setProfile({ phone: e164 })}
-          required
-        />
+        <div data-wallet-gap={walletFieldNeedsInput(profile, 'phone') || undefined}>
+          <PhoneInput
+            id="otp-phone"
+            label={t('onboarding.phone')}
+            value={profile.phone}
+            onChange={(e164) => setProfile({ phone: e164 })}
+            required
+            className={gapClass(profile, 'phone')}
+          />
+        </div>
         <Button
           type="button"
           variant="secondary"
@@ -337,7 +396,7 @@ export function OnboardingSteps({
         >
           {t('onboarding.otpSend')}
         </Button>
-        {otpSent ? (
+        {otpSent || walletFieldNeedsInput(profile, 'phoneVerified') ? (
           <div className="space-y-2">
             <Label htmlFor="otp-code">{t('onboarding.otpCode')}</Label>
             <Input
@@ -349,6 +408,8 @@ export function OnboardingSteps({
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="123456"
+              className={gapClass(profile, 'phoneVerified')}
+              data-wallet-gap={walletFieldNeedsInput(profile, 'phoneVerified') || undefined}
             />
             <p className="text-xs text-ink-muted">{t('onboarding.otpMockNote')}</p>
           </div>
@@ -384,6 +445,8 @@ export function OnboardingSteps({
               onChange={(e) => setProfile({ firstName: e.target.value })}
               autoComplete="given-name"
               aria-invalid={!firstOk}
+              className={gapClass(profile, 'firstName')}
+              data-wallet-gap={walletFieldNeedsInput(profile, 'firstName') || undefined}
             />
             {!firstOk ? (
               <p className="text-sm text-alert">{t('fields.errorPersonName')}</p>
@@ -397,6 +460,8 @@ export function OnboardingSteps({
               onChange={(e) => setProfile({ lastName: e.target.value })}
               autoComplete="family-name"
               aria-invalid={!lastOk}
+              className={gapClass(profile, 'lastName')}
+              data-wallet-gap={walletFieldNeedsInput(profile, 'lastName') || undefined}
             />
             {!lastOk ? (
               <p className="text-sm text-alert">{t('fields.errorPersonName')}</p>
@@ -411,15 +476,21 @@ export function OnboardingSteps({
             onChange={(e) => setProfile({ cin: normalizeCin(e.target.value) })}
             autoComplete="off"
             aria-invalid={!cinOk}
+            className={gapClass(profile, 'cin')}
+            data-wallet-gap={walletFieldNeedsInput(profile, 'cin') || undefined}
           />
           {!cinOk ? <p className="text-sm text-alert">{t('fields.errorCin')}</p> : null}
         </div>
-        <div className="space-y-2">
+        <div
+          className={cn('space-y-2 rounded-[var(--radius-labas)]', gapClass(profile, 'city') && 'p-1')}
+          data-wallet-gap={walletFieldNeedsInput(profile, 'city') || undefined}
+        >
           <Label htmlFor="city">{t('onboarding.city')}</Label>
           <CitySelect
             id="city"
             value={profile.city}
             onChange={(city) => setProfile({ city })}
+            className={gapClass(profile, 'city')}
           />
           {!cityOk ? <p className="text-sm text-alert">{t('fields.errorCity')}</p> : null}
         </div>
@@ -449,6 +520,8 @@ export function OnboardingSteps({
             id="licenseNumber"
             value={profile.licenseNumber}
             onChange={(e) => setProfile({ licenseNumber: e.target.value })}
+            className={gapClass(profile, 'licenseNumber')}
+            data-wallet-gap={walletFieldNeedsInput(profile, 'licenseNumber') || undefined}
           />
         </div>
         <StepNav onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
@@ -472,6 +545,8 @@ export function OnboardingSteps({
             value={profile.plate}
             onChange={(e) => setProfile({ plate: e.target.value.toUpperCase() })}
             aria-invalid={Boolean(profile.plate.trim()) && !isMoroccanPlate(profile.plate)}
+            className={gapClass(profile, 'plate')}
+            data-wallet-gap={walletFieldNeedsInput(profile, 'plate') || undefined}
           />
           {profile.plate.trim() && !isMoroccanPlate(profile.plate) ? (
             <p className="text-sm text-alert">{t('fields.errorPlate')}</p>
@@ -479,11 +554,14 @@ export function OnboardingSteps({
         </div>
         <div className="space-y-2">
           <Label htmlFor="vehicle">{t('onboarding.vehicle')}</Label>
-          <VehicleSelect
-            id="vehicle"
-            value={profile.vehicle}
-            onChange={(vehicle) => setProfile({ vehicle })}
-          />
+          <div data-wallet-gap={walletFieldNeedsInput(profile, 'vehicle') || undefined}>
+            <VehicleSelect
+              id="vehicle"
+              value={profile.vehicle}
+              onChange={(vehicle) => setProfile({ vehicle })}
+              className={gapClass(profile, 'vehicle')}
+            />
+          </div>
         </div>
         <StepNav
           onBack={prev}
@@ -512,12 +590,15 @@ export function OnboardingSteps({
         />
         <div className="space-y-2">
           <Label htmlFor="insurer">{t('onboarding.insurer')}</Label>
-          <InsurerSelect
-            id="insurer"
-            value={profile.insurer}
-            onChange={(insurer) => setProfile({ insurer })}
-            placeholder={t('onboarding.insurerPick')}
-          />
+          <div data-wallet-gap={walletFieldNeedsInput(profile, 'insurer') || undefined}>
+            <InsurerSelect
+              id="insurer"
+              value={profile.insurer}
+              onChange={(insurer) => setProfile({ insurer })}
+              placeholder={t('onboarding.insurerPick')}
+              className={gapClass(profile, 'insurer')}
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="policy">{t('onboarding.policy')}</Label>
@@ -525,16 +606,21 @@ export function OnboardingSteps({
             id="policy"
             value={profile.policy}
             onChange={(e) => setProfile({ policy: e.target.value })}
+            className={gapClass(profile, 'policy')}
+            data-wallet-gap={walletFieldNeedsInput(profile, 'policy') || undefined}
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="attestationValidUntil">{t('onboarding.attestationValidUntil')}</Label>
-          <DatePicker
-            id="attestationValidUntil"
-            value={profile.attestationValidUntil}
-            onChange={(attestationValidUntil) => setProfile({ attestationValidUntil })}
-            data-testid="attestation-valid-until"
-          />
+          <div data-wallet-gap={walletFieldNeedsInput(profile, 'attestationValidUntil') || undefined}>
+            <DatePicker
+              id="attestationValidUntil"
+              value={profile.attestationValidUntil}
+              onChange={(attestationValidUntil) => setProfile({ attestationValidUntil })}
+              data-testid="attestation-valid-until"
+              className={gapClass(profile, 'attestationValidUntil')}
+            />
+          </div>
         </div>
         <ExpiryReminder validUntil={profile.attestationValidUntil} />
         <StepNav onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
@@ -614,14 +700,21 @@ export function OnboardingSteps({
 export function useOnboardingWizard(opts: {
   onClose: () => void
   onFinished: () => void
+  /** Resume only incomplete portefeuille steps (wallet nudge). */
+  gapsOnly?: boolean
 }) {
   const { t } = useTranslation()
   const { profile, completeOnboarding, error, saving, setProfile, persistDraft } =
     useProfileStore()
   const user = useSessionStore((s) => s.user)
-  const [step, setStep] = useState(() =>
-    Math.min(Math.max(profile.onboardingStep || 0, 0), STEP_COUNT - 1),
-  )
+  const [step, setStep] = useState(() => {
+    if (opts.gapsOnly) {
+      const gap = firstWalletGapStep(profile)
+      const idx = ONBOARDING_STEPS.indexOf(gap)
+      return idx >= 0 ? idx : 0
+    }
+    return Math.min(Math.max(profile.onboardingStep || 0, 0), STEP_COUNT - 1)
+  })
 
   const stepId = ONBOARDING_STEPS[step] ?? 'welcome'
   const stepTitle = t(stepTitleKey(stepId))
@@ -632,6 +725,19 @@ export function useOnboardingWizard(opts: {
     setProfile({ onboardingStep: clamped })
     void persistDraft()
   }
+
+  // If gaps close while drawer open, jump to next remaining gap (or review).
+  useEffect(() => {
+    if (!opts.gapsOnly) return
+    const gap = firstWalletGapStep(profile)
+    const idx = ONBOARDING_STEPS.indexOf(gap)
+    if (idx < 0 || idx === step) return
+    const currentId = ONBOARDING_STEPS[step]
+    const stillNeeded = walletIncompleteSteps(profile)
+    if (currentId && stillNeeded.includes(currentId as (typeof stillNeeded)[number])) return
+    setStep(idx)
+    setProfile({ onboardingStep: idx })
+  }, [opts.gapsOnly, profile, step, setProfile])
 
   useEffect(() => {
     if (!user?.motoristId) return
@@ -706,6 +812,7 @@ export function useOnboardingWizard(opts: {
         goTo={goTo}
         onLeave={opts.onClose}
         onFinish={() => void finish()}
+        gapsOnly={opts.gapsOnly}
       />
       {error ? (
         <p className="mt-3 text-sm text-alert">
@@ -727,15 +834,22 @@ export function OnboardingWizardBody({
   onFinished,
   showStepTitle = true,
   showProgress = true,
+  gapsOnly = false,
 }: {
   onClose: () => void
   onFinished: () => void
   showStepTitle?: boolean
   /** Inline bar under title. Wallet drawer uses header-edge bar instead. */
   showProgress?: boolean
+  /** Jump to incomplete portefeuille steps only. */
+  gapsOnly?: boolean
 }) {
   const { t } = useTranslation()
-  const { stepId, stepTitle, progress, form } = useOnboardingWizard({ onClose, onFinished })
+  const { stepId, stepTitle, progress, form } = useOnboardingWizard({
+    onClose,
+    onFinished,
+    gapsOnly,
+  })
   return (
     <div
       className={cn(showStepTitle ? 'space-y-5' : 'space-y-4')}
@@ -771,7 +885,7 @@ export function OnboardingEditSheet({
         data-testid="onboarding-edit-drawer"
       >
         {open ? (
-          <OnboardingWizardBody onClose={close} onFinished={close} showStepTitle />
+          <OnboardingWizardBody onClose={close} onFinished={close} showStepTitle gapsOnly />
         ) : null}
       </SheetContent>
     </Sheet>
