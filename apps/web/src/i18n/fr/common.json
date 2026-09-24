@@ -16,6 +16,7 @@
     "back": "Retour",
     "continue": "Continuer",
     "save": "Enregistrer",
+    "saveChanges": "Enregistrer {{count}} modification(s)",
     "finish": "Terminer",
     "skip": "Passer",
     "skipStep": "Passer cette étape",

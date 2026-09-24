@@ -16,6 +16,7 @@
     "back": "Back",
     "continue": "Continue",
     "save": "Save",
+    "saveChanges": "Save {{count}} change(s)",
     "finish": "Finish",
     "skip": "Skip",
     "skipStep": "Skip this step",

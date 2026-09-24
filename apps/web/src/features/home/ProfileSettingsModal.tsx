@@ -79,6 +79,22 @@ const CATEGORY_FIELDS: Record<Exclude<ProfileCategory, 'courtier'>, FieldKey[]> 
   contrat: ['insurer', 'policy', 'attestationValidUntil', 'assistanceNumber'],
 }
 
+const EDITABLE_FIELDS: FieldKey[] = [
+  ...CATEGORY_FIELDS.identite,
+  ...CATEGORY_FIELDS.vehicule,
+  ...CATEGORY_FIELDS.contrat,
+]
+
+function countDraftChanges(draft: Wallet, baseline: Wallet): number {
+  let n = 0
+  for (const key of EDITABLE_FIELDS) {
+    const a = String(draft[key] ?? '').trim()
+    const b = String(baseline[key] ?? '').trim()
+    if (a !== b) n += 1
+  }
+  return n
+}
+
 const FIELD_LABEL: Record<FieldKey, string> = {
   firstName: 'onboarding.firstName',
   lastName: 'onboarding.lastName',
@@ -187,6 +203,7 @@ export function ProfileSettingsModal({
   const { t, i18n } = useTranslation()
   const { setProfile, persistDraft, saving, error } = useProfileStore()
   const [draft, setDraft] = useState<Wallet>(emptyWallet)
+  const [baseline, setBaseline] = useState<Wallet>(emptyWallet)
   const [category, setCategory] = useState<SettingsCategory>('identite')
   const [persistError, setPersistError] = useState<string | null>(null)
   const [persistBusy, setPersistBusy] = useState(false)
@@ -203,7 +220,9 @@ export function ProfileSettingsModal({
       return
     }
     // Snapshot once per open — typing stays local until Enregistrer.
-    setDraft({ ...useProfileStore.getState().profile })
+    const snap = { ...useProfileStore.getState().profile }
+    setDraft(snap)
+    setBaseline(snap)
   }, [open])
 
   useEffect(() => {
@@ -234,7 +253,7 @@ export function ProfileSettingsModal({
   }
 
   async function persist() {
-    if (!draftSaveOk(draft)) return
+    if (!draftSaveOk(draft) || countDraftChanges(draft, baseline) === 0) return
     setPersistBusy(true)
     setPersistError(null)
     try {
@@ -254,7 +273,8 @@ export function ProfileSettingsModal({
   }
 
   const showEditableForm = isEditableCategory(category)
-  const canSave = draftSaveOk(draft)
+  const changeCount = countDraftChanges(draft, baseline)
+  const canSave = draftSaveOk(draft) && changeCount > 0
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -415,7 +435,9 @@ export function ProfileSettingsModal({
                       onClick={() => void persist()}
                       data-testid="settings-save"
                     >
-                      {t('app.save')}
+                      {changeCount > 0
+                        ? t('app.saveChanges', { count: changeCount })
+                        : t('app.save')}
                     </Button>
                   </StickyActions>
                 </>
