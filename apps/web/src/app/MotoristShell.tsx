@@ -4,16 +4,17 @@ import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from
 import { DesktopOnlyGate } from '@/app/DesktopOnlyGate'
 import { AppShell, ShellNavLink, shellActiveEntry } from '@/app/AppShell'
 import { LabasIcon } from '@/components/LabasIcon'
+import { RecentPackRow } from '@/components/RecentPackRow'
 import { Button } from '@/components/ui/button'
 import { FluidHover } from '@/components/ui/fluid-hover'
 import { Input } from '@/components/ui/input'
+import { Skeleton, SkeletonStatus } from '@/components/ui/skeleton'
 import { displayAccidentRef } from '@/domain/accident-ref'
 import type { EvidencePack } from '@/domain/evidence'
 import { packDeclareBlocked, packLifecycleStages } from '@/domain/lifecycle.ts'
 import { ProfileSettingsModal } from '@/features/home/ProfileSettingsModal'
 import { WalletNudgeDrawer } from '@/features/home/WalletNudgeDrawer'
 import { openMotoristPack } from '@/features/home/openMotoristPack'
-import { RecentPackRow } from '@/components/RecentPackRow'
 import { useEvidenceStore } from '@/store/evidencePack'
 import { useProfileStore } from '@/store/profile'
 import { useSessionStore } from '@/store/session'
@@ -26,6 +27,43 @@ import {
 } from '@/lib/accident-label'
 import { fullTimestamp, shortRelative } from '@/lib/relative-time'
 
+function RecentPacksSkeleton({ label }: { label: string }) {
+  return (
+    <SkeletonStatus label={label}>
+      <ul className="space-y-0.5" aria-hidden data-testid="recent-packs-skeleton">
+        {Array.from({ length: 4 }, (_, i) => (
+          <li key={i} className="flex min-h-10 items-center gap-2 px-3 py-2.5">
+            <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+            <Skeleton className="h-3.5 min-w-0 flex-1" />
+            <Skeleton className="h-3 w-8 shrink-0" />
+          </li>
+        ))}
+      </ul>
+    </SkeletonStatus>
+  )
+}
+
+function WalletPeekSkeleton({ label }: { label: string }) {
+  return (
+    <SkeletonStatus
+      label={label}
+      className="border-t border-border/60 bg-[#faf8f3]/90 px-4 py-3 backdrop-blur-md"
+    >
+      <div
+        className="mx-auto flex w-full max-w-3xl items-center gap-3"
+        aria-hidden
+        data-testid="wallet-peek-skeleton"
+      >
+        <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-3.5 w-[55%] max-w-[16rem]" />
+          <Skeleton className="h-2.5 w-[35%] max-w-[10rem]" />
+        </div>
+      </div>
+    </SkeletonStatus>
+  )
+}
+
 export function MotoristShell({ children }: { children?: ReactNode }) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -35,7 +73,10 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
   const pullRemoteProfile = useProfileStore((s) => s.pullRemoteProfile)
   const history = useEvidenceStore((s) => s.history)
   const pack = useEvidenceStore((s) => s.pack)
+  const packsStatus = useEvidenceStore((s) => s.packsStatus)
   const hydrateFromDomain = useEvidenceStore((s) => s.hydrateFromDomain)
+  const beginPacksLoad = useEvidenceStore((s) => s.beginPacksLoad)
+  const finishPacksLoad = useEvidenceStore((s) => s.finishPacksLoad)
   const start = useEvidenceStore((s) => s.start)
   const starting = useEvidenceStore((s) => s.starting)
   const resume = useEvidenceStore((s) => s.resume)
@@ -108,6 +149,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
   useEffect(() => {
     if (!profile.onboarded || !profile.motoristId) return
     let cancelled = false
+    beginPacksLoad()
     void (async () => {
       const { migrateLegacyEvidenceStorage } = await import('@/store/evidencePack')
       if (cancelled) return
@@ -117,13 +159,21 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
         const packs = await api.listPacks(profile.motoristId)
         if (!cancelled) hydrateFromDomain(packs)
       } catch {
-        /* ignore */
+        /* ignore — still mark ready so empty states show */
+      } finally {
+        if (!cancelled) finishPacksLoad()
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [profile.onboarded, profile.motoristId, hydrateFromDomain])
+  }, [
+    profile.onboarded,
+    profile.motoristId,
+    hydrateFromDomain,
+    beginPacksLoad,
+    finishPacksLoad,
+  ])
 
   const recentPacks = useMemo(() => {
     const byId = new Map<string, EvidencePack>()
@@ -152,9 +202,16 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
       .slice(0, 24)
   }, [history, pack, searchQuery, labelCopy, cityFallback])
 
-  // Wallet profile is motorist name SSOT. Auth displayName is bootstrap/cache only.
-  const displayName =
-    walletDisplayName(profile) || user?.displayName?.trim() || t('role.motorist')
+  const showRecentSkeleton =
+    packsStatus !== 'ready' && recentPacks.length === 0 && !searchQuery.trim()
+
+  const walletName = walletDisplayName(profile)
+  const sessionName = user?.displayName?.trim() || ''
+  const nameLoading = !remoteHydrated && !walletName && !sessionName
+  const displayName = walletName || sessionName || t('role.motorist')
+  const avatarUrl = profile.avatarPhotoLocal.trim() || undefined
+  const avatarLoading =
+    !remoteHydrated && Boolean(profile.avatarPhotoPath.trim()) && !avatarUrl
 
   function onSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key !== 'Enter') return
@@ -182,6 +239,78 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
     navigate('/now')
   }
 
+  let recentList: ReactNode
+  if (showRecentSkeleton) {
+    recentList = <RecentPacksSkeleton label={t('motorist.loadingRecent')} />
+  } else if (recentPacks.length === 0) {
+    recentList = (
+      <ul className="space-y-0.5">
+        <li className="px-3 py-2 text-sm text-ink-muted">
+          {searchQuery.trim() ? t('motorist.noMatch') : t('motorist.pastEmpty')}
+        </li>
+      </ul>
+    )
+  } else {
+    recentList = (
+      <FluidHover>
+        <ul className="space-y-0.5">
+          {recentPacks.map((p) => {
+            const declareBlocked = packDeclareBlocked(p.status, claimReady)
+            const stages = packLifecycleStages(p.status, {
+              walletReady: claimReady,
+              createdAt: p.createdAt,
+            })
+            const title = accidentDisplayTitle(
+              { ...p, city: p.city || cityFallback },
+              labelCopy,
+            )
+            const ref = displayAccidentRef(p.ref, p.id)
+            return (
+              <RecentPackRow
+                key={p.id}
+                pack={p}
+                stages={stages}
+                title={title}
+                refLabel={ref}
+                relative={shortRelative(p.createdAt, i18n.language)}
+                absoluteTime={fullTimestamp(p.createdAt, i18n.language)}
+                active={packId === p.id}
+                declareBlocked={declareBlocked}
+                activeClassName={shellActiveEntry}
+                idleClassName="bg-transparent text-ink-muted hover:text-ink"
+                onOpen={() => openRecentPack(p.id)}
+                onArchive={() => {
+                  if (archivePack(p.id) && packId === p.id) {
+                    navigate('/past', { replace: true })
+                  }
+                }}
+                onCancel={() => {
+                  if (!cancelPack(p.id)) return
+                  const onFlow =
+                    pathname === '/now' ||
+                    pathname.startsWith('/now/') ||
+                    pathname === '/later' ||
+                    pathname.startsWith('/later/') ||
+                    packId === p.id
+                  if (onFlow) navigate('/', { replace: true })
+                }}
+              />
+            )
+          })}
+        </ul>
+      </FluidHover>
+    )
+  }
+
+  let bottomDock: ReactNode
+  if (inAccidentFlow) {
+    bottomDock = undefined
+  } else if (!remoteHydrated) {
+    bottomDock = <WalletPeekSkeleton label={t('motorist.loadingWallet')} />
+  } else {
+    bottomDock = <WalletNudgeDrawer profile={profile} />
+  }
+
   return (
     <>
       <DesktopOnlyGate>
@@ -189,7 +318,9 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
         homeTo="/"
         navLabel={t('motorist.navLabel')}
         displayName={displayName}
-        avatarUrl={profile.avatarPhotoLocal.trim() || undefined}
+        avatarUrl={avatarUrl}
+        avatarLoading={avatarLoading}
+        nameLoading={nameLoading}
         avatarTestId="motorist-avatar"
         onSettings={() => setSettingsOpen(true)}
         sidebarPrimary={
@@ -245,66 +376,8 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
           </>
         }
         listTitle={t('motorist.navRecent')}
-        list={
-          <FluidHover>
-            <ul className="space-y-0.5">
-              {recentPacks.length === 0 ? (
-                <li className="px-3 py-2 text-sm text-ink-muted">
-                  {searchQuery.trim() ? t('motorist.noMatch') : t('motorist.pastEmpty')}
-                </li>
-              ) : (
-                recentPacks.map((p) => {
-                  const declareBlocked = packDeclareBlocked(p.status, claimReady)
-                  const stages = packLifecycleStages(p.status, {
-                    walletReady: claimReady,
-                    createdAt: p.createdAt,
-                  })
-                  const title = accidentDisplayTitle(
-                    { ...p, city: p.city || cityFallback },
-                    labelCopy,
-                  )
-                  const ref = displayAccidentRef(p.ref, p.id)
-                  return (
-                    <RecentPackRow
-                      key={p.id}
-                      pack={p}
-                      stages={stages}
-                      title={title}
-                      refLabel={ref}
-                      relative={shortRelative(p.createdAt, i18n.language)}
-                      absoluteTime={fullTimestamp(p.createdAt, i18n.language)}
-                      active={packId === p.id}
-                      declareBlocked={declareBlocked}
-                      activeClassName={shellActiveEntry}
-                      idleClassName="bg-transparent text-ink-muted hover:text-ink"
-                      onOpen={() => openRecentPack(p.id)}
-                      onArchive={() => {
-                        if (archivePack(p.id) && packId === p.id) {
-                          navigate('/past', { replace: true })
-                        }
-                      }}
-                      onCancel={() => {
-                        if (!cancelPack(p.id)) return
-                        const onFlow =
-                          pathname === '/now' ||
-                          pathname.startsWith('/now/') ||
-                          pathname === '/later' ||
-                          pathname.startsWith('/later/') ||
-                          packId === p.id
-                        if (onFlow) navigate('/', { replace: true })
-                      }}
-                    />
-                  )
-                })
-              )}
-            </ul>
-          </FluidHover>
-        }
-        bottomDock={
-          inAccidentFlow || !remoteHydrated ? undefined : (
-            <WalletNudgeDrawer profile={profile} />
-          )
-        }
+        list={recentList}
+        bottomDock={bottomDock}
       >
         {children}
       </AppShell>

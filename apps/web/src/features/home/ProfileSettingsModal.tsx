@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { UnsavedExitDialog } from '@/components/UnsavedExitDialog'
 import { AvatarPhotoField } from '@/features/home/AvatarPhotoField'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
 import { CitySelect } from '@/components/CitySelect'
@@ -222,6 +223,7 @@ export function ProfileSettingsModal({
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [discardOpen, setDiscardOpen] = useState(false)
   const uiLang = (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('en')
     ? 'en'
     : 'fr'
@@ -234,6 +236,7 @@ export function ProfileSettingsModal({
       setDeleteConfirm(false)
       setDeleteBusy(false)
       setDeleteError(null)
+      setDiscardOpen(false)
       return
     }
     // Snapshot once per open — typing stays local until Enregistrer.
@@ -312,6 +315,21 @@ export function ProfileSettingsModal({
     }
   }
 
+  function requestClose() {
+    if (persistBusy || deleteBusy) return
+    if (countDraftChanges(draft, baseline) > 0) {
+      setDiscardOpen(true)
+      return
+    }
+    onOpenChange(false)
+  }
+
+  function discardAndClose() {
+    setDraft(baseline)
+    setDiscardOpen(false)
+    onOpenChange(false)
+  }
+
   const showEditableForm = isEditableCategory(category)
   const showProfil = category === 'profil'
   const showSaveBar = showEditableForm || showProfil
@@ -319,7 +337,14 @@ export function ProfileSettingsModal({
   const canSave = draftSaveOk(draft) && changeCount > 0
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (next) return
+        requestClose()
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Overlay className="labas-overlay fixed inset-0 z-50 bg-ink/40" />
         <Dialog.Content
@@ -328,15 +353,34 @@ export function ProfileSettingsModal({
             'overflow-hidden rounded-[1.25rem] border border-border bg-surface shadow-[0_24px_80px_-24px_rgba(16,40,96,0.45)] outline-none',
           )}
           data-testid="profile-settings-modal"
+          onEscapeKeyDown={(event) => {
+            if (discardOpen) {
+              event.preventDefault()
+              return
+            }
+            if (changeCount > 0) {
+              event.preventDefault()
+              setDiscardOpen(true)
+            }
+          }}
+          onPointerDownOutside={(event) => {
+            if (discardOpen || changeCount > 0) event.preventDefault()
+            if (!discardOpen && changeCount > 0) setDiscardOpen(true)
+          }}
+          onInteractOutside={(event) => {
+            if (discardOpen || changeCount > 0) event.preventDefault()
+          }}
         >
           <aside className="flex w-[14.5rem] shrink-0 flex-col border-r border-border/70 bg-[#faf8f3]">
             <div className="flex items-center gap-2 border-b border-border/50 px-3 py-3">
-              <Dialog.Close
+              <button
+                type="button"
                 className="flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-[transform,background-color] duration-150 ease-out hover:bg-sand-deep active:scale-[0.96]"
                 aria-label={t('app.close')}
+                onClick={requestClose}
               >
                 <LabasIcon name="close" className="h-5 w-5" aria-hidden />
-              </Dialog.Close>
+              </button>
               <Dialog.Title className="font-display text-sm font-bold text-ink">
                 {t('motorist.settingsTitle')}
               </Dialog.Title>
@@ -616,12 +660,15 @@ export function ProfileSettingsModal({
                     {!deleteConfirm ? (
                       <Button
                         type="button"
-                        variant="alert"
+                        variant="softAlert"
+                        size="icon"
                         className="mt-4"
+                        title={t('motorist.deleteAccount')}
+                        aria-label={t('motorist.deleteAccount')}
                         data-testid="settings-delete-account"
                         onClick={() => setDeleteConfirm(true)}
                       >
-                        {t('motorist.deleteAccount')}
+                        <LabasIcon name="trash" tone="alert" className="h-5 w-5" aria-hidden />
                       </Button>
                     ) : (
                       <div className="mt-4 flex flex-wrap gap-2">
@@ -657,5 +704,11 @@ export function ProfileSettingsModal({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+    <UnsavedExitDialog
+      open={discardOpen}
+      onStay={() => setDiscardOpen(false)}
+      onDiscard={discardAndClose}
+    />
+    </>
   )
 }

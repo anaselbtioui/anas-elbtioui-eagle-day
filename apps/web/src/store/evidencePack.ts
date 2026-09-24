@@ -26,11 +26,15 @@ import { useProfileStore } from '@/store/profile.ts'
 
 export const EVIDENCE_STORAGE_KEY = 'labas-evidence-v3'
 
+export type PacksStatus = 'idle' | 'loading' | 'ready'
+
 interface EvidenceState {
   pack: EvidencePack | null
   history: EvidencePack[]
   /** Active pack id with unsynced local edits (or pending save). */
   dirtyPackId: string | null
+  /** First remote listPacks lifecycle for motorist shell / tables. */
+  packsStatus: PacksStatus
   starting: boolean
   error: string | null
   start: () => Promise<void>
@@ -41,6 +45,10 @@ interface EvidenceState {
   dispatch: (action: EvidenceAction) => void
   persistActive: () => Promise<void>
   hydrateFromDomain: (packs: DomainPack[]) => void
+  /** Mark first remote pack fetch in flight (idempotent after ready). */
+  beginPacksLoad: () => void
+  /** Mark first remote pack fetch done (success or failure). */
+  finishPacksLoad: () => void
   archivePack: (id: string) => boolean
   unarchivePack: (id: string) => boolean
   /** Stop an in-progress draft/saved pack (user cancel). */
@@ -348,11 +356,19 @@ export const useEvidenceStore = create<EvidenceState>()((set, get) => ({
   pack: null,
   history: [],
   dirtyPackId: null,
+  packsStatus: 'idle',
   starting: false,
   error: null,
   sweepExpired: (now = Date.now()) => {
     const { pack, history } = applyNowExpiry(get().pack, get().history, now)
     set({ pack, history })
+  },
+  beginPacksLoad: () => {
+    if (get().packsStatus === 'ready') return
+    set({ packsStatus: 'loading' })
+  },
+  finishPacksLoad: () => {
+    set({ packsStatus: 'ready' })
   },
   start: async () => {
     set({ starting: true, error: null })
@@ -520,5 +536,6 @@ export const useEvidenceStore = create<EvidenceState>()((set, get) => ({
     return true
   },
   clearActive: () => set({ pack: null, dirtyPackId: null }),
-  resetAll: () => set({ pack: null, history: [], dirtyPackId: null, error: null }),
+  resetAll: () =>
+    set({ pack: null, history: [], dirtyPackId: null, packsStatus: 'idle', error: null }),
 }))

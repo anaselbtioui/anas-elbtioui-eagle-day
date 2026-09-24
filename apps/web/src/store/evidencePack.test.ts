@@ -148,6 +148,30 @@ describe('hydrateFromDomain server-wins', () => {
     useEvidenceStore.getState().resetAll()
   })
 
+  it('tracks packsStatus loading then ready', () => {
+    expect(useEvidenceStore.getState().packsStatus).toBe('idle')
+    useEvidenceStore.getState().beginPacksLoad()
+    expect(useEvidenceStore.getState().packsStatus).toBe('loading')
+    useEvidenceStore.getState().finishPacksLoad()
+    expect(useEvidenceStore.getState().packsStatus).toBe('ready')
+    // Idempotent: stay ready even if begin is called again.
+    useEvidenceStore.getState().beginPacksLoad()
+    expect(useEvidenceStore.getState().packsStatus).toBe('ready')
+  })
+
+  it('finishPacksLoad marks ready after a failed fetch path', () => {
+    useEvidenceStore.getState().beginPacksLoad()
+    useEvidenceStore.getState().finishPacksLoad()
+    expect(useEvidenceStore.getState().packsStatus).toBe('ready')
+  })
+
+  it('resetAll clears packsStatus to idle', () => {
+    useEvidenceStore.getState().beginPacksLoad()
+    useEvidenceStore.getState().finishPacksLoad()
+    useEvidenceStore.getState().resetAll()
+    expect(useEvidenceStore.getState().packsStatus).toBe('idle')
+  })
+
   it('replaces stale history with server rows', () => {
     useEvidenceStore.setState({
       pack: null,

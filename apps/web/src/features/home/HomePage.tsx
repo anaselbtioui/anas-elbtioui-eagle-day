@@ -60,6 +60,9 @@ export function HomePage() {
   const history = useEvidenceStore((s) => s.history)
   const active = useEvidenceStore((s) => s.pack)
   const hydrateFromDomain = useEvidenceStore((s) => s.hydrateFromDomain)
+  const packsStatus = useEvidenceStore((s) => s.packsStatus)
+  const beginPacksLoad = useEvidenceStore((s) => s.beginPacksLoad)
+  const finishPacksLoad = useEvidenceStore((s) => s.finishPacksLoad)
   const start = useEvidenceStore((s) => s.start)
   const resume = useEvidenceStore((s) => s.resume)
   const starting = useEvidenceStore((s) => s.starting)
@@ -68,8 +71,19 @@ export function HomePage() {
 
   useEffect(() => {
     if (!profile.onboarded) return
-    void api.listPacks(profile.motoristId).then(hydrateFromDomain).catch(() => undefined)
-  }, [profile.onboarded, profile.motoristId, hydrateFromDomain])
+    beginPacksLoad()
+    void api
+      .listPacks(profile.motoristId)
+      .then(hydrateFromDomain)
+      .catch(() => undefined)
+      .finally(() => finishPacksLoad())
+  }, [
+    profile.onboarded,
+    profile.motoristId,
+    hydrateFromDomain,
+    beginPacksLoad,
+    finishPacksLoad,
+  ])
 
   const packs = useMemo(() => {
     const byId = new Map<string, EvidencePack>()
@@ -183,14 +197,16 @@ export function HomePage() {
           return (
             <button
               type="button"
-              className="text-xs font-semibold text-ink underline-offset-4 hover:underline"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-labas)] text-ink-muted transition-colors hover:bg-sand-deep hover:text-ink"
+              title={t('motorist.archive')}
+              aria-label={t('motorist.archive')}
               data-testid={`archive-pack-${pack.id}`}
               onClick={(e) => {
                 e.stopPropagation()
                 archivePack(pack.id)
               }}
             >
-              {t('motorist.archive')}
+              <LabasIcon name="archive" className="h-4 w-4" aria-hidden />
             </button>
           )
         },
@@ -291,6 +307,8 @@ export function HomePage() {
           columns={columns}
           data={packs}
           emptyMessage={t('motorist.claimsEmpty')}
+          loading={packsStatus !== 'ready' && packs.length === 0}
+          loadingLabel={t('motorist.loadingClaims')}
           getRowTestId={(row) => `sinistre-${row.id}`}
           isRowDisabled={(row) => isAccidentRowDisabled(row, claimReady)}
           onRowClick={openPack}

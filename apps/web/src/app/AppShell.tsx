@@ -69,6 +69,8 @@ type AppShellProps = {
   navLabel: string
   displayName: string
   avatarUrl?: string
+  avatarLoading?: boolean
+  nameLoading?: boolean
   avatarTestId: string
   /** Settings entry in the account menu. */
   onSettings: () => void
@@ -90,6 +92,8 @@ export function AppShell({
   navLabel,
   displayName,
   avatarUrl,
+  avatarLoading,
+  nameLoading,
   avatarTestId,
   onSettings,
   sidebarPrimary,
@@ -143,6 +147,8 @@ export function AppShell({
           <AccountMenu
             displayName={displayName}
             avatarUrl={avatarUrl}
+            avatarLoading={avatarLoading}
+            nameLoading={nameLoading}
             avatarTestId={avatarTestId}
             onSettings={onSettings}
           />

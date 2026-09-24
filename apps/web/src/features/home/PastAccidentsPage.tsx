@@ -6,6 +6,7 @@ import { ShellListFrame, ShellScroll } from '@/app/AppShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
+import { LabasIcon } from '@/components/LabasIcon'
 import { LifecycleRing } from '@/components/LifecycleRing'
 import { displayAccidentRef } from '@/domain/accident-ref'
 import {
@@ -55,6 +56,9 @@ export function PastAccidentsPage() {
   const history = useEvidenceStore((s) => s.history)
   const active = useEvidenceStore((s) => s.pack)
   const hydrateFromDomain = useEvidenceStore((s) => s.hydrateFromDomain)
+  const packsStatus = useEvidenceStore((s) => s.packsStatus)
+  const beginPacksLoad = useEvidenceStore((s) => s.beginPacksLoad)
+  const finishPacksLoad = useEvidenceStore((s) => s.finishPacksLoad)
   const archivePack = useEvidenceStore((s) => s.archivePack)
   const unarchivePack = useEvidenceStore((s) => s.unarchivePack)
   const resume = useEvidenceStore((s) => s.resume)
@@ -63,8 +67,19 @@ export function PastAccidentsPage() {
 
   useEffect(() => {
     if (!profile.onboarded) return
-    void api.listPacks(profile.motoristId).then(hydrateFromDomain).catch(() => undefined)
-  }, [profile.onboarded, profile.motoristId, hydrateFromDomain])
+    beginPacksLoad()
+    void api
+      .listPacks(profile.motoristId)
+      .then(hydrateFromDomain)
+      .catch(() => undefined)
+      .finally(() => finishPacksLoad())
+  }, [
+    profile.onboarded,
+    profile.motoristId,
+    hydrateFromDomain,
+    beginPacksLoad,
+    finishPacksLoad,
+  ])
 
   const allPacks = useMemo(() => {
     const byId = new Map<string, EvidencePack>()
@@ -196,14 +211,16 @@ export function PastAccidentsPage() {
             return (
               <button
                 type="button"
-                className="text-xs font-semibold text-ink underline-offset-4 hover:underline"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-labas)] text-ink-muted transition-colors hover:bg-sand-deep hover:text-ink"
+                title={t('motorist.unarchive')}
+                aria-label={t('motorist.unarchive')}
                 data-testid={`unarchive-pack-${pack.id}`}
                 onClick={(e) => {
                   e.stopPropagation()
                   unarchivePack(pack.id)
                 }}
               >
-                {t('motorist.unarchive')}
+                <LabasIcon name="inbox" className="h-4 w-4" aria-hidden />
               </button>
             )
           }
@@ -211,14 +228,16 @@ export function PastAccidentsPage() {
           return (
             <button
               type="button"
-              className="text-xs font-semibold text-ink underline-offset-4 hover:underline"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-labas)] text-ink-muted transition-colors hover:bg-sand-deep hover:text-ink"
+              title={t('motorist.archive')}
+              aria-label={t('motorist.archive')}
               data-testid={`archive-pack-${pack.id}`}
               onClick={(e) => {
                 e.stopPropagation()
                 archivePack(pack.id)
               }}
             >
-              {t('motorist.archive')}
+              <LabasIcon name="archive" className="h-4 w-4" aria-hidden />
             </button>
           )
         },
@@ -288,22 +307,28 @@ export function PastAccidentsPage() {
                 <Button
                   type="button"
                   variant="secondary"
+                  size="icon"
+                  title={t('motorist.unarchive')}
+                  aria-label={t('motorist.unarchive')}
                   data-testid={`unarchive-pack-${detail.id}`}
                   onClick={() => unarchivePack(detail.id)}
                 >
-                  {t('motorist.unarchive')}
+                  <LabasIcon name="inbox" className="h-5 w-5" aria-hidden />
                 </Button>
               ) : canArchivePack(detail) ? (
                 <Button
                   type="button"
                   variant="secondary"
+                  size="icon"
+                  title={t('motorist.archive')}
+                  aria-label={t('motorist.archive')}
                   data-testid={`archive-pack-${detail.id}`}
                   onClick={() => {
                     archivePack(detail.id)
                     navigate('/past')
                   }}
                 >
-                  {t('motorist.archive')}
+                  <LabasIcon name="archive" className="h-5 w-5" aria-hidden />
                 </Button>
               ) : null}
             </div>
@@ -324,6 +349,8 @@ export function PastAccidentsPage() {
               ? t('motorist.pastEmptyArchived')
               : t('motorist.pastEmpty')
           }
+          loading={packsStatus !== 'ready' && allPacks.length === 0}
+          loadingLabel={t('motorist.loadingClaims')}
           getRowTestId={(row) => `past-pack-${row.id}`}
           onRowClick={(row) => navigate(`/past/${row.id}`)}
         />

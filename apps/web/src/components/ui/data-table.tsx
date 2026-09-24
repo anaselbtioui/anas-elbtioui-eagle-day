@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Skeleton, SkeletonStatus } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 type DataTableProps<TData, TValue> = {
@@ -26,10 +27,14 @@ type DataTableProps<TData, TValue> = {
   interactiveColumnIds?: string[]
   getRowTestId?: (row: TData) => string | undefined
   emptyMessage?: string
+  /** First-fetch skeleton rows (header stays). */
+  loading?: boolean
+  loadingLabel?: string
   className?: string
 }
 
 const DEFAULT_INTERACTIVE = ['status', 'lifecycle', 'actions']
+const SKELETON_ROWS = 4
 
 export function DataTable<TData, TValue>({
   columns,
@@ -39,13 +44,15 @@ export function DataTable<TData, TValue>({
   interactiveColumnIds = DEFAULT_INTERACTIVE,
   getRowTestId,
   emptyMessage,
+  loading = false,
+  loadingLabel,
   className,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const interactive = new Set(interactiveColumnIds)
 
   const table = useReactTable({
-    data,
+    data: loading ? [] : data,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
@@ -81,7 +88,23 @@ export function DataTable<TData, TValue>({
         ))}
       </TableHeader>
       <TableBody>
-        {table.getRowModel().rows.length ? (
+        {loading ? (
+          <TableRow className="hover:bg-transparent">
+            <TableCell colSpan={columns.length} className="p-0">
+              <SkeletonStatus label={loadingLabel ?? ''} className="block w-full">
+                <div className="divide-y divide-border/60" data-testid="data-table-skeleton">
+                  {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+                    <div key={i} className="flex items-center gap-4 px-5 py-3.5">
+                      <Skeleton className="h-4 w-[38%] max-w-[14rem]" />
+                      <Skeleton className="h-3.5 w-16 shrink-0" />
+                      <Skeleton className="ml-auto h-4 w-4 shrink-0 rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              </SkeletonStatus>
+            </TableCell>
+          </TableRow>
+        ) : table.getRowModel().rows.length ? (
           table.getRowModel().rows.map((row) => {
             const disabled = Boolean(isRowDisabled?.(row.original))
             const clickable = Boolean(onRowClick) && !disabled

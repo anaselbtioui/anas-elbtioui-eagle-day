@@ -10,6 +10,9 @@ export const labasIcons = {
   clipboard: 'streamline-color:clipboard-check',
   wrench: 'streamline-color:wrench',
   close: 'streamline-color:delete-1',
+  archive: 'streamline-color:archive-box',
+  trash: 'streamline-color:recycle-bin-2',
+  inbox: 'streamline-color:inbox-tray-1',
   eye: 'streamline-color:eye-optic',
   eyeOff: 'streamline-color:invisible-1',
   device: 'streamline-color:phone-mobile-phone',
@@ -63,7 +66,7 @@ function recolor(body: string, tone: LabasIconTone): string {
 }
 
 const cache = new Map<string, IconifyIcon>()
-const CACHE_VER = 'v5'
+const CACHE_VER = 'v6'
 
 function cacheKey(name: LabasIconName, tone: LabasIconTone) {
   return `${CACHE_VER}:${name}:${tone}`

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
+import { LabasIcon } from '@/components/LabasIcon'
 import { LifecycleRing } from '@/components/LifecycleRing'
 import { canArchivePack, canCancelPack, type EvidencePack } from '@/domain/evidence'
 import type { LifecycleStage } from '@/domain/lifecycle.ts'
@@ -35,6 +36,9 @@ type RecentPackRowProps = {
   onArchive: () => void
   onCancel: () => void
 }
+
+const iconActionClass =
+  'flex h-8 w-8 items-center justify-center rounded-[calc(var(--radius-labas)-2px)] text-ink-muted transition-[transform,background-color] duration-150 ease-out hover:bg-surface active:scale-[0.96]'
 
 export function RecentPackRow({
   pack,
@@ -114,7 +118,7 @@ export function RecentPackRow({
           {cancellable ? (
             <button
               type="button"
-              className="flex h-8 items-center justify-center rounded-[calc(var(--radius-labas)-2px)] px-2 text-[0.6875rem] font-semibold text-ink-muted transition-[transform,background-color,color] duration-150 ease-out hover:bg-surface hover:text-alert active:scale-[0.96]"
+              className={iconActionClass}
               title={t('motorist.cancel')}
               aria-label={`${t('motorist.cancel')} — ${refLabel}`}
               data-testid={`nav-pack-cancel-${pack.id}`}
@@ -124,13 +128,13 @@ export function RecentPackRow({
                 setPending('cancel')
               }}
             >
-              {t('motorist.cancel')}
+              <LabasIcon name="close" tone="alert" className="h-4 w-4" aria-hidden />
             </button>
           ) : null}
           {archivable ? (
             <button
               type="button"
-              className="flex h-8 items-center justify-center rounded-[calc(var(--radius-labas)-2px)] px-2 text-[0.6875rem] font-semibold text-ink-muted transition-[transform,background-color,color] duration-150 ease-out hover:bg-surface hover:text-ink active:scale-[0.96]"
+              className={iconActionClass}
               title={t('motorist.archive')}
               aria-label={`${t('motorist.archive')} — ${refLabel}`}
               data-testid={`nav-pack-archive-${pack.id}`}
@@ -140,7 +144,7 @@ export function RecentPackRow({
                 setPending('archive')
               }}
             >
-              {t('motorist.archive')}
+              <LabasIcon name="archive" className="h-4 w-4" aria-hidden />
             </button>
           ) : null}
         </div>

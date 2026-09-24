@@ -2,12 +2,17 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LabasIcon } from '@/components/LabasIcon'
 import { LogoutConfirmDialog } from '@/components/LogoutButton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 type AccountMenuProps = {
   displayName: string
   /** Signed URL or data URL for circular avatar; icon fallback when empty. */
   avatarUrl?: string
+  /** True while a remote avatar URL is still resolving. */
+  avatarLoading?: boolean
+  /** True while the display name is still unknown (no wallet / session cache). */
+  nameLoading?: boolean
   avatarTestId: string
   onSettings: () => void
 }
@@ -19,6 +24,8 @@ const menuItemClass =
 export function AccountMenu({
   displayName,
   avatarUrl,
+  avatarLoading = false,
+  nameLoading = false,
   avatarTestId,
   onSettings,
 }: AccountMenuProps) {
@@ -59,15 +66,21 @@ export function AccountMenu({
           className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink-soft outline outline-1 outline-ink/15"
           aria-hidden
         >
-          {avatarUrl ? (
+          {avatarLoading ? (
+            <Skeleton className="h-full w-full rounded-full" />
+          ) : avatarUrl ? (
             <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
           ) : (
             <LabasIcon name="user" className="h-5 w-5" tone="onSand" />
           )}
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink" title={displayName}>
-          {displayName}
-        </span>
+        {nameLoading ? (
+          <Skeleton className="h-4 w-24" />
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink" title={displayName}>
+            {displayName}
+          </span>
+        )}
       </button>
 
       {open ? (
