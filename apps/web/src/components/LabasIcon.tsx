@@ -20,6 +20,7 @@ export const labasIcons = {
   lock: 'streamline-color:padlock-square-1',
   settings: 'streamline-color:cog',
   logout: 'streamline-color:logout-1',
+  location: 'streamline-color:location-pin-3',
 } as const
 
 export type LabasIconName = keyof typeof labasIcons

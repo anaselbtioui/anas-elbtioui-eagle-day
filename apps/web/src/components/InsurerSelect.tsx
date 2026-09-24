@@ -2,7 +2,7 @@ import { MOROCCAN_INSURERS, isMoroccanInsurer } from '@/domain/moroccan-insurers
 import { cn } from '@/lib/utils'
 
 const selectClass =
-  'flex min-h-12 w-full rounded-[var(--radius-labas)] border-2 border-border bg-surface px-4 py-3 text-base text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:border-ink disabled:cursor-not-allowed disabled:opacity-50'
+  "min-h-12 w-full appearance-none rounded-[var(--radius-labas)] border-2 border-border bg-surface bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23102860'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")] bg-[length:1.1rem] bg-[right_0.875rem_center] bg-no-repeat py-3 pl-4 pr-10 text-base text-ink focus-visible:border-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:cursor-not-allowed disabled:opacity-50"
 
 type InsurerSelectProps = {
   id?: string

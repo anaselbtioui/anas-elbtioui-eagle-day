@@ -8,6 +8,7 @@ import {
   findNearestCity,
   isMoroccanCity,
 } from '@/domain/moroccan-cities.ts'
+import { LabasIcon } from '@/components/LabasIcon'
 import { cn } from '@/lib/utils'
 
 type CitySelectProps = {
@@ -227,12 +228,20 @@ export function CitySelect({
         {allowGeolocate ? (
           <button
             type="button"
-            className="shrink-0 rounded-[var(--radius-labas)] border-2 border-border bg-sand-deep px-3 text-xs font-semibold text-ink hover:bg-border disabled:opacity-50"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--radius-labas)] border-2 border-border bg-sand-deep text-ink transition-[transform,background-color] duration-150 ease-out hover:bg-border active:scale-[0.96] disabled:opacity-50"
             disabled={geoBusy}
             onClick={() => void useMyLocation()}
+            aria-label={t('fields.cityUseLocation')}
+            title={t('fields.cityUseLocation')}
             data-testid="city-geolocate"
           >
-            {geoBusy ? '…' : t('fields.cityUseLocation')}
+            {geoBusy ? (
+              <span className="text-sm font-semibold" aria-hidden>
+                …
+              </span>
+            ) : (
+              <LabasIcon name="location" className="h-5 w-5" tone="onSand" aria-hidden />
+            )}
           </button>
         ) : null}
       </div>

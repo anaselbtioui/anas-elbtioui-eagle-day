@@ -503,7 +503,6 @@ export function ProfileSettingsModal({
                       })}
                     </div>
                   </div>
-                  <p className="mt-3 text-sm text-ink-muted">{t('motorist.settingsLanguageHint')}</p>
                 </>
               ) : null}
 
@@ -515,7 +514,6 @@ export function ProfileSettingsModal({
                   <p className="mt-1 text-sm text-ink-muted">
                     {t('motorist.settingsCatHint.compte')}
                   </p>
-                  <p className="mt-6 text-sm text-ink-muted">{t('motorist.settingsAccountHint')}</p>
                 </>
               ) : null}
             </StickyActionsProvider>

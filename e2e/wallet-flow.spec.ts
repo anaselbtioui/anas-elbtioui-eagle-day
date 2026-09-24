@@ -95,7 +95,8 @@ async function fillCity(page: Page, city: string): Promise<void> {
 }
 
 async function fillVehicle(page: Page): Promise<void> {
-  await page.getByTestId('vehicle-make').selectOption('Dacia')
+  await page.getByTestId('vehicle-make').click()
+  await page.getByTestId('vehicle-make-option-Dacia').click({ force: true })
   await page.getByTestId('vehicle-model').selectOption('Sandero')
   await page.getByTestId('vehicle-year').selectOption('2022')
 }
