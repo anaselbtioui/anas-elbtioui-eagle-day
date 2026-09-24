@@ -16756,6 +16756,8 @@ var nadiaProfile = {
   motorist: {
     id: "M-1",
     name: "Nadia El Mansouri",
+    firstName: "Nadia",
+    lastName: "El Mansouri",
     phone: "06\u2022\u2022\u2022\u2022\u2022142",
     alsoTellEmployerIfCommute: false,
     cin: null,
@@ -16763,7 +16765,11 @@ var nadiaProfile = {
     licenseNumber: null,
     licensePhotoPath: null,
     carteGrisePhotoPath: null,
-    attestationPhotoPath: null
+    attestationPhotoPath: null,
+    assistanceNumber: null,
+    brokerPhone: null,
+    onboardingStep: 0,
+    updatedAt: null
   },
   vehicle: {
     id: "V-1",
@@ -16837,6 +16843,8 @@ function saraInjuryPack() {
 var saraMotorist = {
   id: "M-2",
   name: "Sara Amrani",
+  firstName: "Sara",
+  lastName: "Amrani",
   phone: "06\u2022\u2022\u2022\u2022\u2022881",
   alsoTellEmployerIfCommute: false,
   cin: null,
@@ -16844,7 +16852,11 @@ var saraMotorist = {
   licenseNumber: null,
   licensePhotoPath: null,
   carteGrisePhotoPath: null,
-  attestationPhotoPath: null
+  attestationPhotoPath: null,
+  assistanceNumber: null,
+  brokerPhone: null,
+  onboardingStep: 0,
+  updatedAt: null
 };
 
 // apps/api/src/desk.ts
@@ -16973,12 +16985,18 @@ async function loadDb() {
       ...parsed,
       motorists: (parsed.motorists ?? emptyDb().motorists).map((m) => ({
         ...m,
+        firstName: m.firstName ?? null,
+        lastName: m.lastName ?? null,
         cin: m.cin ?? null,
         city: m.city ?? null,
         licenseNumber: m.licenseNumber ?? null,
         licensePhotoPath: m.licensePhotoPath ?? null,
         carteGrisePhotoPath: m.carteGrisePhotoPath ?? null,
-        attestationPhotoPath: m.attestationPhotoPath ?? null
+        attestationPhotoPath: m.attestationPhotoPath ?? null,
+        assistanceNumber: m.assistanceNumber ?? null,
+        brokerPhone: m.brokerPhone ?? null,
+        onboardingStep: m.onboardingStep ?? 0,
+        updatedAt: m.updatedAt ?? null
       })),
       policies: (parsed.policies ?? emptyDb().policies).map((p) => ({
         ...p,
@@ -17102,6 +17120,8 @@ function provisionMotorist(db, displayName) {
       motorists: upsert(db.motorists, {
         id: motoristId,
         name: displayName,
+        firstName: null,
+        lastName: null,
         phone: null,
         alsoTellEmployerIfCommute: false,
         cin: null,
@@ -17109,10 +17129,14 @@ function provisionMotorist(db, displayName) {
         licenseNumber: null,
         licensePhotoPath: null,
         carteGrisePhotoPath: null,
-        attestationPhotoPath: null
+        attestationPhotoPath: null,
+        assistanceNumber: null,
+        brokerPhone: null,
+        onboardingStep: 0,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
       }),
       vehicles: upsert(db.vehicles, { id: vehicleId, plate: null, makeModel: null }),
-      insurers: upsert(db.insurers, { id: insurerId, displayName: "Assureur" }),
+      insurers: upsert(db.insurers, { id: insurerId, displayName: "" }),
       policies: upsert(db.policies, {
         id: policyId,
         number: null,
@@ -17385,6 +17409,11 @@ function packFromDb(db, incidentId) {
   return applyEvidenceRules({ incident, otherParty, evidence });
 }
 function policyForMotorist(db, motoristId) {
+  const ownPolicyId = db.users.find((u) => u.motoristId === motoristId)?.policyId;
+  if (ownPolicyId) {
+    const own = db.policies.find((p) => p.id === ownPolicyId);
+    if (own) return own;
+  }
   const fromIncident = db.incidents.find((i) => i.motoristId === motoristId && i.policyId);
   if (fromIncident?.policyId) {
     const matched = db.policies.find((p) => p.id === fromIncident.policyId);
@@ -25994,6 +26023,8 @@ async function loadDb2() {
     motorists: rows.motorists.map((r) => ({
       id: r.id,
       name: r.name,
+      firstName: r.first_name ?? null,
+      lastName: r.last_name ?? null,
       phone: r.phone,
       alsoTellEmployerIfCommute: r.also_tell_employer_if_commute,
       cin: r.cin ?? null,
@@ -26001,7 +26032,11 @@ async function loadDb2() {
       licenseNumber: r.license_number ?? null,
       licensePhotoPath: r.license_photo_path ?? null,
       carteGrisePhotoPath: r.carte_grise_photo_path ?? null,
-      attestationPhotoPath: r.attestation_photo_path ?? null
+      attestationPhotoPath: r.attestation_photo_path ?? null,
+      assistanceNumber: r.assistance_number ?? null,
+      brokerPhone: r.broker_phone ?? null,
+      onboardingStep: r.onboarding_step ?? 0,
+      updatedAt: r.updated_at ?? null
     })),
     vehicles: rows.vehicles.map(
       (r) => ({
@@ -26191,6 +26226,8 @@ async function upsertAllTables(db) {
       db.motorists.map((r) => ({
         id: r.id,
         name: r.name,
+        first_name: r.firstName,
+        last_name: r.lastName,
         phone: r.phone,
         also_tell_employer_if_commute: r.alsoTellEmployerIfCommute,
         cin: r.cin,
@@ -26198,7 +26235,11 @@ async function upsertAllTables(db) {
         license_number: r.licenseNumber,
         license_photo_path: r.licensePhotoPath,
         carte_grise_photo_path: r.carteGrisePhotoPath,
-        attestation_photo_path: r.attestationPhotoPath
+        attestation_photo_path: r.attestationPhotoPath,
+        assistance_number: r.assistanceNumber,
+        broker_phone: r.brokerPhone,
+        onboarding_step: r.onboardingStep,
+        updated_at: r.updatedAt
       })),
       "id"
     ),
@@ -26308,6 +26349,161 @@ async function upsertAllTables(db) {
   await upsertAll(sb, "dossiers", db.dossiers.map(dossierRow), "id");
   await upsertAll(sb, "desk_files", db.deskFiles.map(deskFileRow), "dossier_id");
 }
+function mapMotoristRow(r) {
+  return {
+    id: r.id,
+    name: r.name,
+    firstName: r.first_name ?? null,
+    lastName: r.last_name ?? null,
+    phone: r.phone,
+    alsoTellEmployerIfCommute: r.also_tell_employer_if_commute,
+    cin: r.cin ?? null,
+    city: r.city ?? null,
+    licenseNumber: r.license_number ?? null,
+    licensePhotoPath: r.license_photo_path ?? null,
+    carteGrisePhotoPath: r.carte_grise_photo_path ?? null,
+    attestationPhotoPath: r.attestation_photo_path ?? null,
+    assistanceNumber: r.assistance_number ?? null,
+    brokerPhone: r.broker_phone ?? null,
+    onboardingStep: r.onboarding_step ?? 0,
+    updatedAt: r.updated_at ?? null
+  };
+}
+async function fetchProfileById(motoristId) {
+  const sb = client();
+  const { data: mRow, error: mErr } = await sb.from("motorists").select("*").eq("id", motoristId).maybeSingle();
+  throwIf(mErr, "select motorist");
+  if (!mRow) return null;
+  const motorist = mapMotoristRow(mRow);
+  const { data: user, error: uErr } = await sb.from("app_users").select("policy_id, vehicle_id, insurer_id, broker_id").eq("motorist_id", motoristId).maybeSingle();
+  throwIf(uErr, "select app_user");
+  if (!user?.policy_id || !user.vehicle_id || !user.insurer_id) return null;
+  const [{ data: policy, error: pErr }, { data: vehicle, error: vErr }, { data: insurer, error: iErr }] = await Promise.all([
+    sb.from("policies").select("*").eq("id", user.policy_id).maybeSingle(),
+    sb.from("vehicles").select("*").eq("id", user.vehicle_id).maybeSingle(),
+    sb.from("insurers").select("*").eq("id", user.insurer_id).maybeSingle()
+  ]);
+  throwIf(pErr, "select policy");
+  throwIf(vErr, "select vehicle");
+  throwIf(iErr, "select insurer");
+  if (!policy || !vehicle || !insurer) return null;
+  let broker = { id: "", displayName: "" };
+  const brokerId = policy.broker_id || user.broker_id;
+  if (brokerId) {
+    const { data: b, error: bErr } = await sb.from("brokers").select("*").eq("id", brokerId).maybeSingle();
+    throwIf(bErr, "select broker");
+    if (b) broker = { id: b.id, displayName: b.display_name };
+  }
+  return {
+    motorist,
+    vehicle: { id: vehicle.id, plate: vehicle.plate, makeModel: vehicle.make_model },
+    insurer: { id: insurer.id, displayName: insurer.display_name },
+    broker,
+    policy: {
+      id: policy.id,
+      number: policy.number,
+      insurerId: policy.insurer_id,
+      brokerId: policy.broker_id,
+      vehicleId: policy.vehicle_id,
+      assistanceOnContract: policy.assistance_on_contract,
+      attestationValidUntil: policy.attestation_valid_until ?? null
+    }
+  };
+}
+async function upsertAppUserUnlocked(user) {
+  invalidateDbCache();
+  const sb = client();
+  await upsertAll(
+    sb,
+    "app_users",
+    [
+      {
+        id: user.id,
+        email: user.email,
+        password_hash: user.passwordHash,
+        role: user.role,
+        display_name: user.displayName,
+        onboarded: user.onboarded,
+        motorist_id: user.motoristId,
+        broker_id: user.brokerId,
+        vehicle_id: user.vehicleId,
+        insurer_id: user.insurerId,
+        policy_id: user.policyId
+      }
+    ],
+    "id"
+  );
+}
+async function upsertProfileEntitiesUnlocked(profile) {
+  invalidateDbCache();
+  const sb = client();
+  await Promise.all([
+    upsertAll(
+      sb,
+      "motorists",
+      [
+        {
+          id: profile.motorist.id,
+          name: profile.motorist.name,
+          first_name: profile.motorist.firstName,
+          last_name: profile.motorist.lastName,
+          phone: profile.motorist.phone,
+          also_tell_employer_if_commute: profile.motorist.alsoTellEmployerIfCommute,
+          cin: profile.motorist.cin,
+          city: profile.motorist.city,
+          license_number: profile.motorist.licenseNumber,
+          license_photo_path: profile.motorist.licensePhotoPath,
+          carte_grise_photo_path: profile.motorist.carteGrisePhotoPath,
+          attestation_photo_path: profile.motorist.attestationPhotoPath,
+          assistance_number: profile.motorist.assistanceNumber,
+          broker_phone: profile.motorist.brokerPhone,
+          onboarding_step: profile.motorist.onboardingStep,
+          updated_at: profile.motorist.updatedAt
+        }
+      ],
+      "id"
+    ),
+    upsertAll(
+      sb,
+      "vehicles",
+      [
+        {
+          id: profile.vehicle.id,
+          plate: profile.vehicle.plate,
+          make_model: profile.vehicle.makeModel
+        }
+      ],
+      "id"
+    ),
+    upsertAll(
+      sb,
+      "insurers",
+      [
+        {
+          id: profile.insurer.id,
+          display_name: profile.insurer.displayName === "Assureur" ? "" : profile.insurer.displayName
+        }
+      ],
+      "id"
+    )
+  ]);
+  await upsertAll(
+    sb,
+    "policies",
+    [
+      {
+        id: profile.policy.id,
+        number: profile.policy.number,
+        insurer_id: profile.policy.insurerId,
+        broker_id: profile.policy.brokerId,
+        vehicle_id: profile.policy.vehicleId,
+        assistance_on_contract: profile.policy.assistanceOnContract,
+        attestation_valid_until: profile.policy.attestationValidUntil
+      }
+    ],
+    "id"
+  );
+}
 
 // apps/api/src/storage.ts
 var EVIDENCE_BUCKET = "evidence";
@@ -26384,6 +26580,8 @@ function createImportBundle(input) {
     motorist: {
       id: motoristId,
       name: input.extracted.name.trim() || "Client import\xE9",
+      firstName: null,
+      lastName: null,
       phone: input.extracted.phone,
       alsoTellEmployerIfCommute: false,
       cin: null,
@@ -26391,7 +26589,11 @@ function createImportBundle(input) {
       licenseNumber: null,
       licensePhotoPath: null,
       carteGrisePhotoPath: null,
-      attestationPhotoPath: null
+      attestationPhotoPath: null,
+      assistanceNumber: null,
+      brokerPhone: null,
+      onboardingStep: 0,
+      updatedAt: now
     },
     vehicle: {
       id: vehicleId,
@@ -26585,6 +26787,12 @@ async function closeBrowser() {
 }
 
 // apps/api/src/app.ts
+function sameInstant(a, b) {
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return a === b;
+  return ta === tb;
+}
 function needAuth(c) {
   if (!c.get("auth")) return c.json({ error: "unauthorized" }, 401);
   return null;
@@ -26641,6 +26849,19 @@ function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
   const load = loadFn;
   async function write(mutator) {
     return exclusiveDbWrite(loadFn, persistFn, mutator);
+  }
+  async function writeProfile(motoristId, mutator) {
+    if (!supabaseConfigured()) return write(mutator);
+    return exclusiveDbWrite(
+      loadFn,
+      async (db) => {
+        const profile = profileFromDb(db, motoristId);
+        if (profile) await upsertProfileEntitiesUnlocked(profile);
+        const user = db.users.find((u) => u.motoristId === motoristId);
+        if (user) await upsertAppUserUnlocked(user);
+      },
+      mutator
+    );
   }
   const persist = persistFn;
   const replace = replaceFn;
@@ -26763,12 +26984,20 @@ function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
     const denied = needMotorist(c);
     if (denied) return denied;
     const auth = c.get("auth");
+    if (supabaseConfigured()) {
+      try {
+        const profile2 = await fetchProfileById(auth.motoristId);
+        if (!profile2) return c.json({ error: "no_profile" }, 404);
+        return c.json(profile2);
+      } catch {
+      }
+    }
     const db = await load();
     const profile = profileFromDb(db, auth.motoristId);
     if (!profile) return c.json({ error: "no_profile" }, 404);
     return c.json(profile);
   });
-  app2.put("/api/profile", async (c) => {
+  async function saveMotoristProfile(c) {
     const denied = needMotorist(c);
     if (denied) return denied;
     const auth = c.get("auth");
@@ -26777,7 +27006,22 @@ function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
     const chosenBrokerId = body.policy.brokerId?.trim() || body.broker.id?.trim() || "";
     let saved = null;
     let err = null;
-    await write((db) => {
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    await writeProfile(auth.motoristId, (db) => {
+      const existing = db.motorists.find((m) => m.id === auth.motoristId);
+      if (body.motorist.updatedAt && existing?.updatedAt && !sameInstant(body.motorist.updatedAt, existing.updatedAt)) {
+        err = "conflict";
+        return db;
+      }
+      const motorist = {
+        ...body.motorist,
+        firstName: body.motorist.firstName ?? null,
+        lastName: body.motorist.lastName ?? null,
+        assistanceNumber: body.motorist.assistanceNumber ?? null,
+        brokerPhone: body.motorist.brokerPhone ?? null,
+        onboardingStep: body.motorist.onboardingStep ?? 0,
+        updatedAt: now
+      };
       const registered = listRegisteredBrokers(db);
       const chosen = chosenBrokerId || (registered.length === 1 ? registered[0].id : "");
       if (!chosen) {
@@ -26788,14 +27032,22 @@ function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
         };
         const next2 = {
           ...db,
-          motorists: upsert(db.motorists, body.motorist),
+          motorists: upsert(db.motorists, motorist),
           vehicles: upsert(db.vehicles, body.vehicle),
-          insurers: upsert(db.insurers, body.insurer),
+          insurers: upsert(db.insurers, {
+            ...body.insurer,
+            displayName: body.insurer.displayName.trim() === "Assureur" ? "" : body.insurer.displayName.trim()
+          }),
           policies: upsert(db.policies, policy2)
         };
         saved = {
           ...body,
-          broker: { id: "", displayName: body.broker.displayName || "Courtier" },
+          motorist,
+          insurer: {
+            ...body.insurer,
+            displayName: body.insurer.displayName.trim() === "Assureur" ? "" : body.insurer.displayName.trim()
+          },
+          broker: { id: "", displayName: body.broker.displayName || "" },
           policy: policy2
         };
         return next2;
@@ -26813,22 +27065,33 @@ function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
       };
       let next = {
         ...db,
-        motorists: upsert(db.motorists, body.motorist),
+        motorists: upsert(db.motorists, motorist),
         vehicles: upsert(db.vehicles, body.vehicle),
-        insurers: upsert(db.insurers, body.insurer),
+        insurers: upsert(db.insurers, {
+          ...body.insurer,
+          displayName: body.insurer.displayName.trim() === "Assureur" ? "" : body.insurer.displayName.trim()
+        }),
         policies: upsert(db.policies, policy)
       };
       next = assignMotoristBroker(next, auth.id, policy.id, chosen);
       saved = {
         ...body,
+        motorist,
+        insurer: {
+          ...body.insurer,
+          displayName: body.insurer.displayName.trim() === "Assureur" ? "" : body.insurer.displayName.trim()
+        },
         broker: { id: broker.id, displayName: broker.displayName },
         policy
       };
       return next;
     });
+    if (err === "conflict") return c.json({ error: "conflict" }, 409);
     if (err) return c.json({ error: err }, 400);
     return c.json(saved);
-  });
+  }
+  app2.put("/api/profile", (c) => saveMotoristProfile(c));
+  app2.patch("/api/profile", (c) => saveMotoristProfile(c));
   app2.post("/api/profile/complete", async (c) => {
     const denied = needMotorist(c);
     if (denied) return denied;

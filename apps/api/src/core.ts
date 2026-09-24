@@ -85,6 +85,13 @@ export function packFromDb(db: Db, incidentId: string): EvidencePack | null {
 }
 
 export function policyForMotorist(db: Db, motoristId: string) {
+  // Account row is authoritative — the fallbacks below pick another motorist's policy
+  // for UUID ids with no incident, so profile writes silently skipped the real policy.
+  const ownPolicyId = db.users.find((u) => u.motoristId === motoristId)?.policyId
+  if (ownPolicyId) {
+    const own = db.policies.find((p) => p.id === ownPolicyId)
+    if (own) return own
+  }
   const fromIncident = db.incidents.find((i) => i.motoristId === motoristId && i.policyId)
   if (fromIncident?.policyId) {
     const matched = db.policies.find((p) => p.id === fromIncident.policyId)

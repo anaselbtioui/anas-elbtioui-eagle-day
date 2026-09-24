@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app.ts'
-import { seedDeskDb } from './core.ts'
+import { profileFromDb, seedDeskDb } from './core.ts'
 import { emptyDb, type Db } from './store.ts'
 import type { AuthUser } from '@labas/domain/auth.ts'
 import { nadiaMissingConstatPack } from '@labas/domain/fixtures.ts'
@@ -154,6 +154,38 @@ describe('API auth', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { user: { role: string } }
     expect(body.user.role).toBe('motorist')
+  })
+})
+
+describe('API profile writes', () => {
+  it('resolves each motorist to their own policy', async () => {
+    const { app, getDb } = memory()
+    const first = await signup(app, 'motorist', 'First Motorist')
+    const second = await signup(app, 'motorist', 'Second Motorist')
+    const db = getDb()
+    expect(profileFromDb(db, first.user.motoristId!)?.policy.id).toBe(first.user.policyId)
+    expect(profileFromDb(db, second.user.motoristId!)?.policy.id).toBe(second.user.policyId)
+  })
+
+  it('accepts the same updatedAt instant in +00:00 form', async () => {
+    const { app } = memory()
+    const motorist = await signup(app, 'motorist', 'Stamp Motorist')
+    const first = await app.request('/api/profile', { headers: motorist.headers })
+    const profile = await first.json()
+    const saved = await (
+      await app.request('/api/profile', {
+        method: 'PUT',
+        headers: motorist.headers,
+        body: JSON.stringify(profile),
+      })
+    ).json()
+    const pgStamp = String(saved.motorist.updatedAt).replace('Z', '+00:00')
+    const res = await app.request('/api/profile', {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify({ ...saved, motorist: { ...saved.motorist, updatedAt: pgStamp } }),
+    })
+    expect(res.status).toBe(200)
   })
 })
 

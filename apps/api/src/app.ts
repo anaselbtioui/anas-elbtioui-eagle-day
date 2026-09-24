@@ -97,6 +97,14 @@ export type SessionSnapshot = {
 type AppEnv = { Variables: { auth: AuthUser | null } }
 type Ctx = Context<AppEnv>
 
+/** Postgres returns `+00:00`, JS emits `Z` — compare the instant, not the string. */
+function sameInstant(a: string, b: string): boolean {
+  const ta = Date.parse(a)
+  const tb = Date.parse(b)
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return a === b
+  return ta === tb
+}
+
 function needAuth(c: Ctx) {
   if (!c.get('auth')) return c.json({ error: 'unauthorized' }, 401)
   return null
@@ -363,7 +371,7 @@ export function createApp(
       if (
         body.motorist.updatedAt &&
         existing?.updatedAt &&
-        body.motorist.updatedAt !== existing.updatedAt
+        !sameInstant(body.motorist.updatedAt, existing.updatedAt)
       ) {
         err = 'conflict'
         return db
