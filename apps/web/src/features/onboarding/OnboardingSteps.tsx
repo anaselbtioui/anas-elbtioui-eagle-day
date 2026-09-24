@@ -399,33 +399,64 @@ export function OnboardingSteps({
   }
 
   if (id === 'review') {
-    const rows: Array<[string, string]> = [
-      [t('onboarding.firstName'), profile.firstName || '—'],
-      [t('onboarding.lastName'), profile.lastName || '—'],
-      [t('onboarding.cin'), profile.cin || '—'],
-      [t('onboarding.city'), profile.city || '—'],
-      [t('onboarding.phone'), profile.phone || '—'],
-      [t('onboarding.licenseNumber'), profile.licenseNumber || '—'],
-      [t('onboarding.plate'), profile.plate || '—'],
-      [t('onboarding.vehicle'), profile.vehicle || '—'],
-      [t('onboarding.insurer'), profile.insurer || '—'],
-      [t('onboarding.policy'), profile.policy || '—'],
-      [t('onboarding.attestationValidUntil'), profile.attestationValidUntil || '—'],
-      [t('onboarding.broker'), profile.broker || '—'],
-      [t('onboarding.assistance'), profile.assistanceNumber || '—'],
+    const dash = (v: string) => v.trim() || '—'
+    const sections: Array<{ cat: string; rows: Array<[string, string]> }> = [
+      {
+        cat: 'identite',
+        rows: [
+          [t('onboarding.firstName'), dash(profile.firstName)],
+          [t('onboarding.lastName'), dash(profile.lastName)],
+          [t('onboarding.phone'), dash(profile.phone)],
+          [t('onboarding.cin'), dash(profile.cin)],
+          [t('onboarding.city'), dash(profile.city)],
+          [t('onboarding.licenseNumber'), dash(profile.licenseNumber)],
+        ],
+      },
+      {
+        cat: 'vehicule',
+        rows: [
+          [t('onboarding.plate'), dash(profile.plate)],
+          [t('onboarding.vehicle'), dash(profile.vehicle)],
+        ],
+      },
+      {
+        cat: 'contrat',
+        rows: [
+          [t('onboarding.insurer'), dash(profile.insurer)],
+          [t('onboarding.policy'), dash(profile.policy)],
+          [t('onboarding.attestationValidUntil'), dash(profile.attestationValidUntil)],
+          [t('onboarding.assistance'), dash(profile.assistanceNumber)],
+        ],
+      },
+      {
+        cat: 'courtier',
+        rows: [[t('onboarding.broker'), dash(profile.broker)]],
+      },
     ]
     return (
       <div className="space-y-4">
         <p className="text-sm text-ink-muted">{t('onboarding.reviewHint')}</p>
         <ExpiryReminder validUntil={profile.attestationValidUntil} />
-        <dl className="space-y-2 text-sm">
-          {rows.map(([label, value]) => (
-            <div key={label} className="flex justify-between gap-3 border-b border-border/60 py-1.5">
-              <dt className="text-ink-muted">{label}</dt>
-              <dd className="max-w-[55%] text-right font-medium text-ink">{value}</dd>
-            </div>
+        <div className="space-y-4">
+          {sections.map((section) => (
+            <section key={section.cat} className="space-y-2">
+              <h3 className="font-display text-base font-bold text-ink">
+                {t(`motorist.settingsCat.${section.cat}`)}
+              </h3>
+              <dl className="rounded-[var(--radius-labas)] border border-border bg-surface px-4 text-sm">
+                {section.rows.map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="flex justify-between gap-3 border-b border-border/60 py-3 last:border-b-0"
+                  >
+                    <dt className="text-ink-muted">{label}</dt>
+                    <dd className="max-w-[55%] text-right font-medium text-ink">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
           ))}
-        </dl>
+        </div>
         <p className="text-xs text-ink-muted">{t('onboarding.photoLocalOnly')}</p>
         <StepNav onBack={prev} onContinue={next} showSkip={false} />
       </div>
