@@ -97,6 +97,14 @@ export function PastAccidentsPage() {
     return filtered.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   }, [allPacks, filter])
 
+  const filterCounts = useMemo(() => {
+    const past = allPacks.filter((p) => isPasse(p.status))
+    return {
+      all: past.filter((p) => !isPackArchived(p)).length,
+      archived: past.filter((p) => isPackArchived(p)).length,
+    }
+  }, [allPacks])
+
   const selected = useMemo(
     () => (packId ? allPacks.find((p) => p.id === packId) : undefined),
     [allPacks, packId],
@@ -256,33 +264,10 @@ export function PastAccidentsPage() {
   return (
     <ShellScroll>
       <ShellListFrame className="space-y-5">
-        <header className="flex flex-wrap items-end justify-between gap-3">
+        <header>
           <h1 className="font-display text-2xl font-bold text-ink md:text-3xl">
             {t('motorist.pastTitle')}
           </h1>
-          <div className="flex flex-wrap gap-2 p-0.5">
-            {(
-              [
-                ['all', 'motorist.pastFilterAll'],
-                ['archived', 'motorist.pastFilterArchived'],
-              ] as const
-            ).map(([id, key]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setFilter(id)}
-                className={cn(
-                  'inline-flex min-h-10 items-center rounded-[var(--radius-labas)] px-3 py-2 text-xs font-semibold transition-colors',
-                  filter === id
-                    ? 'bg-ink-soft text-ink ring-1 ring-inset ring-ink/20'
-                    : 'bg-sand-deep text-ink-muted hover:text-ink',
-                )}
-                data-testid={`past-filter-${id}`}
-              >
-                {t(key)}
-              </button>
-            ))}
-          </div>
         </header>
 
         {detail ? (
@@ -341,19 +326,54 @@ export function PastAccidentsPage() {
           </p>
         ) : null}
 
-        <DataTable
-          columns={columns}
-          data={packs}
-          emptyMessage={
-            filter === 'archived'
-              ? t('motorist.pastEmptyArchived')
-              : t('motorist.pastEmpty')
-          }
-          loading={packsStatus !== 'ready' && allPacks.length === 0}
-          loadingLabel={t('motorist.loadingClaims')}
-          getRowTestId={(row) => `past-pack-${row.id}`}
-          onRowClick={(row) => navigate(`/past/${row.id}`)}
-        />
+        <div className="space-y-3">
+          <div
+            className="flex flex-wrap gap-2 p-0.5"
+            role="tablist"
+            aria-label={t('motorist.pastTitle')}
+          >
+            {(
+              [
+                ['all', 'motorist.pastFilterAll', 'clipboard', filterCounts.all],
+                ['archived', 'motorist.pastFilterArchived', 'archive', filterCounts.archived],
+              ] as const
+            ).map(([id, key, icon, count]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={filter === id}
+                onClick={() => setFilter(id)}
+                className={cn(
+                  'inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-colors',
+                  filter === id
+                    ? 'bg-ink-soft text-ink ring-1 ring-inset ring-ink/20'
+                    : 'bg-sand-deep text-ink-muted hover:text-ink',
+                )}
+                data-testid={`past-filter-${id}`}
+              >
+                <LabasIcon name={icon} className="h-4 w-4 shrink-0" tone="onSand" aria-hidden />
+                <span>
+                  {t(key)} ({count})
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <DataTable
+            columns={columns}
+            data={packs}
+            emptyMessage={
+              filter === 'archived'
+                ? t('motorist.pastEmptyArchived')
+                : t('motorist.pastEmpty')
+            }
+            loading={packsStatus !== 'ready' && allPacks.length === 0}
+            loadingLabel={t('motorist.loadingClaims')}
+            getRowTestId={(row) => `past-pack-${row.id}`}
+            onRowClick={(row) => navigate(`/past/${row.id}`)}
+          />
+        </div>
       </ShellListFrame>
     </ShellScroll>
   )
