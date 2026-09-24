@@ -31,6 +31,7 @@ vi.mock('@/store/session.ts', () => ({
         onboarded: true,
         motoristId: 'M-remote',
       },
+      applyAuth: vi.fn(),
     }),
   },
 }))

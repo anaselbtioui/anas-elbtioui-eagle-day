@@ -196,6 +196,7 @@ export function DatePicker({
                     type="button"
                     role="option"
                     aria-selected={isSelected}
+                    data-iso={formatIsoDate(day)}
                     onClick={() => pick(day)}
                     className={cn(
                       'flex h-9 items-center justify-center rounded-[var(--radius-labas)] text-sm font-medium transition-[background-color,color,transform] duration-150 ease-out',

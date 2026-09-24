@@ -255,13 +255,13 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         brokerPhone: cur.brokerPhone,
         onboardingStep: cur.onboardingStep,
       })
-      // Auth onboarded is source of truth (JWT / app_users).
+      // Auth onboarded is source of truth when true; keep local true across JWT lag after complete.
       let onboarded = cur.onboarded
       try {
         const { useSessionStore } = await import('@/store/session.ts')
         const user = useSessionStore.getState().user
         if (user?.role === 'motorist') {
-          onboarded = Boolean(user.onboarded)
+          onboarded = Boolean(user.onboarded) || cur.onboarded
         }
       } catch {
         /* circular import edge — keep cur */
@@ -329,8 +329,14 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         throw new Error('broker_required')
       }
       await api.saveProfile(walletToDomain(next))
-      await api.completeProfile()
+      const session = await api.completeProfile()
       set({ profile: next, saving: false })
+      try {
+        const { useSessionStore } = await import('@/store/session.ts')
+        useSessionStore.getState().applyAuth(session.token, session.user)
+      } catch {
+        /* session wire optional in isolated store tests */
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'save_failed'
       set({
@@ -342,3 +348,8 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
   },
   reset: () => set({ profile: createDeviceWallet(), error: null, remoteHydrated: false }),
 }))
+
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  ;(window as unknown as { __labasProfile?: typeof useProfileStore }).__labasProfile =
+    useProfileStore
+}

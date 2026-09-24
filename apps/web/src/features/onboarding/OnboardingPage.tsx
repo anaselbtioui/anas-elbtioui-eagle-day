@@ -640,8 +640,8 @@ export function OnboardingSteps({
         <ExpiryReminder validUntil={profile.attestationValidUntil} />
         <StepNav
           onBack={prev}
-          onSkip={skip}
-          onSkipAll={canSkipAll ? skipAll : undefined}
+          onSkip={attestationNotExpired ? skip : undefined}
+          onSkipAll={attestationNotExpired && canSkipAll ? skipAll : undefined}
           onContinue={next}
           continueDisabled={!attestationNotExpired}
         />
@@ -813,12 +813,6 @@ export function useOnboardingWizard(opts: {
     }
     try {
       await completeOnboarding()
-      try {
-        const session = await api.refresh()
-        useSessionStore.getState().applyAuth(session.token, session.user)
-      } catch {
-        /* wallet already saved; refresh is best-effort */
-      }
       opts.onFinished()
     } catch {
       /* error shown from store */

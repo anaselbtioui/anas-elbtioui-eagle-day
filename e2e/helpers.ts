@@ -33,6 +33,7 @@ export async function signUpAs(
 
   await resetBrowser(page)
   await page.getByTestId(`role-${role}`).click()
+  await page.getByTestId('auth-mode-signup').click()
   await page.locator('#auth-first-name').waitFor({ state: 'visible' })
   await page.locator('#auth-first-name').fill(firstName)
   await page.locator('#auth-last-name').fill(lastName)

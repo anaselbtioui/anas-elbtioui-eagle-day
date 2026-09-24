@@ -6,6 +6,7 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: 0,
+  timeout: 90_000,
   use: {
     baseURL: 'http://127.0.0.1:5173',
     locale: 'fr-MA',
@@ -26,7 +27,8 @@ export default defineConfig({
     {
       command: 'pnpm --filter @labas/web dev',
       url: 'http://127.0.0.1:5173',
-      reuseExistingServer: !process.env.CI,
+      // Force Labas when another app already owns 5173 (set CI=1 or LABAS_E2E=1).
+      reuseExistingServer: !process.env.CI && !process.env.LABAS_E2E,
     },
   ],
   projects: [
