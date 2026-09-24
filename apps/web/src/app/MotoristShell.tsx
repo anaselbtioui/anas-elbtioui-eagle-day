@@ -152,7 +152,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
   }, [history, pack, searchQuery, labelCopy, cityFallback])
 
   const displayName =
-    user?.displayName?.trim() || walletDisplayName(profile) || t('role.motorist')
+    walletDisplayName(profile) || user?.displayName?.trim() || t('role.motorist')
 
   function onSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key !== 'Enter') return
