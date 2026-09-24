@@ -215,6 +215,7 @@
     "walletNudgeExpiring": "Attestation bientôt expirée",
     "walletNudgeComplete": "Portefeuille prêt",
     "walletNudgeCompleteHint": "Identité, véhicule et contrat sont complets.",
+    "walletNudgeSettling": "Enregistrement du portefeuille…",
     "walletNudgeOpen": "Voir",
     "walletNudgeSettings": "Profil",
     "packStatus": {
