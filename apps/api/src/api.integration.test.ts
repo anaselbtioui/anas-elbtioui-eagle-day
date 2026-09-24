@@ -133,6 +133,21 @@ describe('API auth', () => {
     expect(body.user.displayName).toBe('Salma')
   })
 
+  it('rejects a signed JWT after the user row is gone', async () => {
+    const { app, getDb } = memory()
+    const motorist = await signup(app, 'motorist', 'Ghost Token')
+    const db = getDb()
+    db.users = db.users.filter((u) => u.id !== motorist.user.id)
+    const me = await app.request('/api/auth/me', { headers: motorist.headers })
+    expect(me.status).toBe(401)
+    const refresh = await app.request('/api/auth/refresh', {
+      method: 'POST',
+      headers: motorist.headers,
+      body: '{}',
+    })
+    expect(refresh.status).toBe(401)
+  })
+
   it('sign-in ignores entry role and returns the account space', async () => {
     const { app } = memory()
     const email = `mismatch.${randomUUID()}@labas.test`

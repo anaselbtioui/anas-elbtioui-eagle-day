@@ -54,30 +54,16 @@ export async function signToken(user: AuthUser): Promise<string> {
   )
 }
 
-export async function userFromToken(db: Db | null, token: string): Promise<AuthUser | null> {
+export async function userFromToken(
+  token: string,
+  findUser: (id: string) => Promise<AppUserRecord | null> | AppUserRecord | null,
+): Promise<AuthUser | null> {
   try {
     const payload = await verify(token, jwtSecret(), 'HS256')
     const id = typeof payload.sub === 'string' ? payload.sub : null
     if (!id) return null
-    const row = db?.users.find((u) => u.id === id)
-    if (row) return publicUser(row)
-    // JWT still valid but row missing (e.g. store rewrite race) — trust claims for session continuity.
-    const role = payload.role === 'broker' || payload.role === 'motorist' ? payload.role : null
-    const email = typeof payload.email === 'string' ? payload.email : ''
-    const displayName = typeof payload.displayName === 'string' ? payload.displayName : email
-    if (!role) return null
-    return {
-      id,
-      email,
-      role,
-      displayName,
-      onboarded: payload.onboarded === true || role === 'broker',
-      motoristId: typeof payload.motoristId === 'string' ? payload.motoristId : null,
-      brokerId: typeof payload.brokerId === 'string' ? payload.brokerId : null,
-      vehicleId: typeof payload.vehicleId === 'string' ? payload.vehicleId : null,
-      insurerId: typeof payload.insurerId === 'string' ? payload.insurerId : null,
-      policyId: typeof payload.policyId === 'string' ? payload.policyId : null,
-    }
+    const row = await findUser(id)
+    return row ? publicUser(row) : null
   } catch {
     return null
   }

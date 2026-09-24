@@ -32,6 +32,44 @@ function throwIf(error: { message: string } | null, action: string): void {
   if (error) throw new Error(`${action}: ${error.message}`)
 }
 
+type AppUserRow = {
+  id: string
+  email: string
+  password_hash: string
+  role: AppUserRecord['role']
+  display_name: string
+  onboarded: boolean
+  motorist_id: string | null
+  broker_id: string | null
+  vehicle_id: string | null
+  insurer_id: string | null
+  policy_id: string | null
+}
+
+function mapAppUserRow(r: AppUserRow): AppUserRecord {
+  return {
+    id: r.id,
+    email: r.email,
+    passwordHash: r.password_hash,
+    role: r.role,
+    displayName: r.display_name,
+    onboarded: r.onboarded,
+    motoristId: r.motorist_id,
+    brokerId: r.broker_id,
+    vehicleId: r.vehicle_id,
+    insurerId: r.insurer_id,
+    policyId: r.policy_id,
+  }
+}
+
+/** Targeted auth lookup — JWT is valid only while this row exists. */
+export async function fetchAppUserById(id: string): Promise<AppUserRecord | null> {
+  const sb = client()
+  const { data, error } = await sb.from('app_users').select('*').eq('id', id).maybeSingle()
+  throwIf(error, 'select app_user')
+  return data ? mapAppUserRow(data as AppUserRow) : null
+}
+
 let memoryCache: { db: Db; at: number } | null = null
 /** In-process cache — auth middleware + routes used to reload all tables per hop. */
 const CACHE_TTL_MS = 3_000
@@ -272,33 +310,7 @@ export async function loadDb(): Promise<Db> {
       drafts: r.drafts ?? [],
       events: r.events ?? [],
     })),
-    users: (
-      (rows.app_users ?? []) as {
-        id: string
-        email: string
-        password_hash: string
-        role: AppUserRecord['role']
-        display_name: string
-        onboarded: boolean
-        motorist_id: string | null
-        broker_id: string | null
-        vehicle_id: string | null
-        insurer_id: string | null
-        policy_id: string | null
-      }[]
-    ).map((r) => ({
-      id: r.id,
-      email: r.email,
-      passwordHash: r.password_hash,
-      role: r.role,
-      displayName: r.display_name,
-      onboarded: r.onboarded,
-      motoristId: r.motorist_id,
-      brokerId: r.broker_id,
-      vehicleId: r.vehicle_id,
-      insurerId: r.insurer_id,
-      policyId: r.policy_id,
-    })),
+    users: ((rows.app_users ?? []) as AppUserRow[]).map(mapAppUserRow),
   }
   memoryCache = { db, at: Date.now() }
   return db

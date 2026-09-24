@@ -17075,29 +17075,13 @@ async function signToken(user) {
     "HS256"
   );
 }
-async function userFromToken(db, token) {
+async function userFromToken(token, findUser) {
   try {
     const payload = await verify2(token, jwtSecret(), "HS256");
     const id = typeof payload.sub === "string" ? payload.sub : null;
     if (!id) return null;
-    const row = db?.users.find((u) => u.id === id);
-    if (row) return publicUser(row);
-    const role = payload.role === "broker" || payload.role === "motorist" ? payload.role : null;
-    const email = typeof payload.email === "string" ? payload.email : "";
-    const displayName = typeof payload.displayName === "string" ? payload.displayName : email;
-    if (!role) return null;
-    return {
-      id,
-      email,
-      role,
-      displayName,
-      onboarded: payload.onboarded === true || role === "broker",
-      motoristId: typeof payload.motoristId === "string" ? payload.motoristId : null,
-      brokerId: typeof payload.brokerId === "string" ? payload.brokerId : null,
-      vehicleId: typeof payload.vehicleId === "string" ? payload.vehicleId : null,
-      insurerId: typeof payload.insurerId === "string" ? payload.insurerId : null,
-      policyId: typeof payload.policyId === "string" ? payload.policyId : null
-    };
+    const row = await findUser(id);
+    return row ? publicUser(row) : null;
   } catch {
     return null;
   }
@@ -25978,6 +25962,27 @@ function client() {
 function throwIf(error, action) {
   if (error) throw new Error(`${action}: ${error.message}`);
 }
+function mapAppUserRow(r) {
+  return {
+    id: r.id,
+    email: r.email,
+    passwordHash: r.password_hash,
+    role: r.role,
+    displayName: r.display_name,
+    onboarded: r.onboarded,
+    motoristId: r.motorist_id,
+    brokerId: r.broker_id,
+    vehicleId: r.vehicle_id,
+    insurerId: r.insurer_id,
+    policyId: r.policy_id
+  };
+}
+async function fetchAppUserById(id) {
+  const sb = client();
+  const { data, error } = await sb.from("app_users").select("*").eq("id", id).maybeSingle();
+  throwIf(error, "select app_user");
+  return data ? mapAppUserRow(data) : null;
+}
 var memoryCache = null;
 var CACHE_TTL_MS = 3e3;
 function invalidateDbCache() {
@@ -26117,19 +26122,7 @@ async function loadDb2() {
       drafts: r.drafts ?? [],
       events: r.events ?? []
     })),
-    users: (rows.app_users ?? []).map((r) => ({
-      id: r.id,
-      email: r.email,
-      passwordHash: r.password_hash,
-      role: r.role,
-      displayName: r.display_name,
-      onboarded: r.onboarded,
-      motoristId: r.motorist_id,
-      brokerId: r.broker_id,
-      vehicleId: r.vehicle_id,
-      insurerId: r.insurer_id,
-      policyId: r.policy_id
-    }))
+    users: (rows.app_users ?? []).map(mapAppUserRow)
   };
   memoryCache = { db, at: Date.now() };
   return db;
@@ -26847,11 +26840,12 @@ function writeDossier(db, pack, declaration, dossier) {
 }
 function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
   const load = loadFn;
+  const usesSupabaseStore = loadFn === loadDb && supabaseConfigured();
   async function write(mutator) {
     return exclusiveDbWrite(loadFn, persistFn, mutator);
   }
   async function writeProfile(motoristId, mutator) {
-    if (!supabaseConfigured()) return write(mutator);
+    if (!usesSupabaseStore) return write(mutator);
     return exclusiveDbWrite(
       loadFn,
       async (db) => {
@@ -26884,7 +26878,14 @@ function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
     const header = c.req.header("Authorization") ?? "";
     const raw2 = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
     if (raw2) {
-      c.set("auth", await userFromToken(null, raw2));
+      c.set(
+        "auth",
+        await userFromToken(raw2, async (id) => {
+          if (usesSupabaseStore) return fetchAppUserById(id);
+          const db = await load();
+          return db.users.find((u) => u.id === id) ?? null;
+        })
+      );
     }
     await next();
   });
@@ -26984,7 +26985,7 @@ function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
     const denied = needMotorist(c);
     if (denied) return denied;
     const auth = c.get("auth");
-    if (supabaseConfigured()) {
+    if (usesSupabaseStore) {
       try {
         const profile2 = await fetchProfileById(auth.motoristId);
         if (!profile2) return c.json({ error: "no_profile" }, 404);

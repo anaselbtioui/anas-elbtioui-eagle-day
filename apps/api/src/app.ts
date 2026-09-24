@@ -70,6 +70,7 @@ import {
 import { emptyDb, loadDb, saveDb, upsert, type Db } from './store.ts'
 import { exclusiveDbWrite } from './write-lock.ts'
 import {
+  fetchAppUserById,
   fetchProfileById,
   supabaseConfigured,
   upsertAppUserUnlocked,
@@ -176,6 +177,7 @@ export function createApp(
   replaceFn: (db: Db) => Promise<void> = persistFn,
 ) {
   const load = loadFn
+  const usesSupabaseStore = loadFn === loadDb && supabaseConfigured()
   /** Serialize load→mutate→persist within one process. */
   async function write(mutator: (db: Db) => Db | Promise<Db>): Promise<Db> {
     return exclusiveDbWrite(loadFn, persistFn, mutator)
@@ -185,7 +187,7 @@ export function createApp(
     motoristId: string,
     mutator: (db: Db) => Db | Promise<Db>,
   ): Promise<Db> {
-    if (!supabaseConfigured()) return write(mutator)
+    if (!usesSupabaseStore) return write(mutator)
     return exclusiveDbWrite(
       loadFn,
       async (db) => {
@@ -224,8 +226,14 @@ export function createApp(
     const header = c.req.header('Authorization') ?? ''
     const raw = header.startsWith('Bearer ') ? header.slice(7).trim() : ''
     if (raw) {
-      // JWT claims only — do not reload full store on every request.
-      c.set('auth', await userFromToken(null, raw))
+      c.set(
+        'auth',
+        await userFromToken(raw, async (id) => {
+          if (usesSupabaseStore) return fetchAppUserById(id)
+          const db = await load()
+          return db.users.find((u) => u.id === id) ?? null
+        }),
+      )
     }
     await next()
   })
@@ -337,7 +345,7 @@ export function createApp(
     const denied = needMotorist(c)
     if (denied) return denied
     const auth = c.get('auth')!
-    if (supabaseConfigured()) {
+    if (usesSupabaseStore) {
       try {
         const profile = await fetchProfileById(auth.motoristId!)
         if (!profile) return c.json({ error: 'no_profile' }, 404)
