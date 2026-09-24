@@ -46,6 +46,15 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(text.slice(0, 80) || `http_${res.status}`)
   }
   if (!res.ok) {
+    if (res.status === 401) {
+      const authAttempt = /\/api\/auth\/(signin|signup)(?:\?|$)/.test(path)
+      if (!authAttempt) {
+        void import('@/store/session.ts').then(({ useSessionStore }) => {
+          if (useSessionStore.getState().token) useSessionStore.getState().signOut()
+        })
+      }
+      throw new Error(body.error ?? 'unauthorized')
+    }
     if (res.status === 409) throw new Error('conflict')
     throw new Error(body.error ?? `http_${res.status}`)
   }
