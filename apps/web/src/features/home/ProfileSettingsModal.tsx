@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import * as Dialog from '@radix-ui/react-dialog'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { UnsavedExitDialog } from '@/components/UnsavedExitDialog'
+import { SettingsModalShell, type SettingsNavItem } from '@/components/SettingsModalShell'
 import { AvatarPhotoField } from '@/features/home/AvatarPhotoField'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
 import { CitySelect } from '@/components/CitySelect'
@@ -13,7 +13,6 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PhoneInput } from '@/components/ui/phone-input'
-import { StickyActions, StickyActionsProvider } from '@/components/ui/sticky-actions'
 import {
   isMoroccanCin,
   isMoroccanPlate,
@@ -220,6 +219,7 @@ export function ProfileSettingsModal({
   const [persistError, setPersistError] = useState<string | null>(null)
   const [persistBusy, setPersistBusy] = useState(false)
   const [brokerEmail, setBrokerEmail] = useState<string | null>(null)
+  const [brokerPhone, setBrokerPhone] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -228,11 +228,22 @@ export function ProfileSettingsModal({
     ? 'en'
     : 'fr'
 
+  const navItems: SettingsNavItem[] = useMemo(
+    () =>
+      CATEGORIES.map((id) => ({
+        id,
+        icon: CATEGORY_ICON[id],
+        label: t(`motorist.settingsCat.${id}`),
+      })),
+    [t],
+  )
+
   useEffect(() => {
     if (!open) {
       setCategory('profil')
       setPersistError(null)
       setBrokerEmail(null)
+      setBrokerPhone(null)
       setDeleteConfirm(false)
       setDeleteBusy(false)
       setDeleteError(null)
@@ -270,6 +281,7 @@ export function ProfileSettingsModal({
   useEffect(() => {
     if (!open || !draft.brokerId) {
       setBrokerEmail(null)
+      setBrokerPhone(null)
       return
     }
     let cancelled = false
@@ -279,9 +291,13 @@ export function ProfileSettingsModal({
         if (cancelled) return
         const match = list.find((b) => b.id === draft.brokerId)
         setBrokerEmail(match?.email ?? null)
+        setBrokerPhone(match?.phone ?? null)
       })
       .catch(() => {
-        if (!cancelled) setBrokerEmail(null)
+        if (!cancelled) {
+          setBrokerEmail(null)
+          setBrokerPhone(null)
+        }
       })
     return () => {
       cancelled = true
@@ -338,377 +354,299 @@ export function ProfileSettingsModal({
 
   return (
     <>
-    <Dialog.Root
-      open={open}
-      onOpenChange={(next) => {
-        if (next) return
-        requestClose()
-      }}
-    >
-      <Dialog.Portal>
-        <Dialog.Overlay className="labas-overlay fixed inset-0 z-50 bg-ink/40" />
-        <Dialog.Content
-          className={cn(
-            'labas-dialog-panel fixed left-1/2 top-1/2 z-50 flex h-[min(36rem,calc(100dvh-2rem))] w-[min(52rem,calc(100vw-1.5rem))] -translate-x-1/2 -translate-y-1/2',
-            'overflow-hidden rounded-[1.25rem] border border-border bg-surface shadow-[0_24px_80px_-24px_rgba(16,40,96,0.45)] outline-none',
-          )}
-          data-testid="profile-settings-modal"
-          onEscapeKeyDown={(event) => {
-            if (discardOpen) {
-              event.preventDefault()
-              return
-            }
-            if (changeCount > 0) {
-              event.preventDefault()
-              setDiscardOpen(true)
-            }
-          }}
-          onPointerDownOutside={(event) => {
-            if (discardOpen || changeCount > 0) event.preventDefault()
-            if (!discardOpen && changeCount > 0) setDiscardOpen(true)
-          }}
-          onInteractOutside={(event) => {
-            if (discardOpen || changeCount > 0) event.preventDefault()
-          }}
-        >
-          <aside className="flex w-[14.5rem] shrink-0 flex-col border-r border-border/70 bg-[#faf8f3]">
-            <div className="flex items-center gap-2 border-b border-border/50 px-3 py-3">
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-[transform,background-color] duration-150 ease-out hover:bg-sand-deep active:scale-[0.96]"
-                aria-label={t('app.close')}
-                onClick={requestClose}
-              >
-                <LabasIcon name="close" className="h-5 w-5" aria-hidden />
-              </button>
-              <Dialog.Title className="font-display text-sm font-bold text-ink">
-                {t('motorist.settingsTitle')}
-              </Dialog.Title>
+      <SettingsModalShell
+        open={open}
+        title={t('motorist.settingsTitle')}
+        testId="profile-settings-modal"
+        categories={navItems}
+        category={category}
+        onCategoryChange={(id) => setCategory(id as SettingsCategory)}
+        onRequestClose={requestClose}
+        blockDismiss={discardOpen || changeCount > 0}
+        onBlockedDismiss={() => {
+          if (!discardOpen) setDiscardOpen(true)
+        }}
+        showSaveBar={showSaveBar}
+        canSave={canSave}
+        changeCount={changeCount}
+        persistBusy={persistBusy || saving}
+        onSave={() => void persist()}
+      >
+        {showProfil ? (
+          <>
+            <h2 className="font-display text-xl font-bold text-ink">
+              {t('motorist.settingsCat.profil')}
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              {t('motorist.settingsCatHint.profil')}
+            </p>
+            <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface p-4">
+              <AvatarPhotoField
+                value={draft.avatarPhotoLocal}
+                onChange={(next) =>
+                  patchDraft({
+                    avatarPhotoLocal: next,
+                    ...(next ? {} : { avatarPhotoPath: '' }),
+                  })
+                }
+              />
             </div>
-            <nav className="labas-scroll flex-1 space-y-0.5 overflow-y-auto p-2">
-              {CATEGORIES.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => {
-                    setCategory(id)
-                  }}
-                  className={cn(
-                    'flex w-full items-center gap-2.5 rounded-[var(--radius-labas)] px-3 py-2.5 text-left text-sm font-semibold transition-colors',
-                    category === id
-                      ? 'bg-ink-soft text-ink outline outline-1 outline-ink/20'
-                      : 'text-ink-muted hover:bg-sand-deep/80 hover:text-ink',
-                  )}
-                  data-testid={`settings-cat-${id}`}
-                >
-                  <LabasIcon
-                    name={CATEGORY_ICON[id]}
-                    className="h-5 w-5 shrink-0"
-                    tone="onSand"
-                    aria-hidden
-                  />
-                  {t(`motorist.settingsCat.${id}`)}
-                </button>
-              ))}
-            </nav>
-          </aside>
+            {(persistError || error) && (
+              <p className="mt-3 text-sm text-alert">{persistError || error}</p>
+            )}
+          </>
+        ) : null}
 
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-sand/30">
-            <StickyActionsProvider
-              className="min-h-0 flex-1"
-              bodyClassName="p-5"
-              footerClassName="border-border/60 bg-sand/30 px-5"
-            >
-              {showProfil ? (
-                <>
-                  <h2 className="font-display text-xl font-bold text-ink">
-                    {t('motorist.settingsCat.profil')}
-                  </h2>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    {t('motorist.settingsCatHint.profil')}
-                  </p>
-                  <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface p-4">
-                    <AvatarPhotoField
-                      value={draft.avatarPhotoLocal}
-                      onChange={(next) =>
-                        patchDraft({
-                          avatarPhotoLocal: next,
-                          ...(next ? {} : { avatarPhotoPath: '' }),
-                        })
-                      }
-                    />
-                  </div>
-                  {(persistError || error) && (
-                    <p className="mt-3 text-sm text-alert">{persistError || error}</p>
-                  )}
-                </>
-              ) : null}
+        {showEditableForm ? (
+          <>
+            <h2 className="font-display text-xl font-bold text-ink">
+              {t(`motorist.settingsCat.${category}`)}
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              {t(`motorist.settingsCatHint.${category}`)}
+            </p>
 
-              {showEditableForm ? (
-                <>
-                  <h2 className="font-display text-xl font-bold text-ink">
-                    {t(`motorist.settingsCat.${category}`)}
-                  </h2>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    {t(`motorist.settingsCatHint.${category}`)}
-                  </p>
+            <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
+              {CATEGORY_FIELDS[category].map((key) => {
+                const errKey = fieldErrorKey(draft, key)
+                return (
+                  <FieldRow key={key} label={t(FIELD_LABEL[key])}>
+                    {key === 'insurer' ? (
+                      <InsurerSelect
+                        value={draft.insurer}
+                        onChange={(insurer) => patchDraft({ insurer })}
+                        placeholder={t('onboarding.insurerPick')}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    ) : key === 'vehicle' ? (
+                      <VehicleSelect
+                        value={draft.vehicle}
+                        onChange={(vehicle) => patchDraft({ vehicle })}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                      />
+                    ) : key === 'city' ? (
+                      <CitySelect
+                        value={draft.city}
+                        onChange={(city) => patchDraft({ city })}
+                        className="min-h-10"
+                      />
+                    ) : key === 'phone' ? (
+                      <PhoneInput
+                        value={draft.phone}
+                        onChange={(phone) => patchDraft({ phone })}
+                        className="min-h-10"
+                      />
+                    ) : key === 'attestationValidUntil' ? (
+                      <DatePicker
+                        value={draft.attestationValidUntil}
+                        onChange={(attestationValidUntil) =>
+                          patchDraft({ attestationValidUntil })
+                        }
+                        className="min-h-10 [&_button]:min-h-10 [&_button]:px-3 [&_button]:py-2"
+                        aria-invalid={Boolean(errKey)}
+                        data-testid="settings-attestation-valid-until"
+                      />
+                    ) : (
+                      <Input
+                        type="text"
+                        value={draft[key]}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          if (key === 'cin') patchDraft({ cin: normalizeCin(v) })
+                          else if (key === 'plate') patchDraft({ plate: v.toUpperCase() })
+                          else patchDraft({ [key]: v })
+                        }}
+                        className="min-h-10 border-border px-3 py-2 text-base"
+                        aria-invalid={Boolean(errKey)}
+                      />
+                    )}
+                    {errKey ? (
+                      <p className="mt-1 text-sm text-alert">{t(errKey)}</p>
+                    ) : null}
+                  </FieldRow>
+                )
+              })}
+            </div>
 
-                  <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
-                    {CATEGORY_FIELDS[category].map((key) => {
-                      const errKey = fieldErrorKey(draft, key)
-                      return (
-                      <FieldRow key={key} label={t(FIELD_LABEL[key])}>
-                        {key === 'insurer' ? (
-                          <InsurerSelect
-                            value={draft.insurer}
-                            onChange={(insurer) => patchDraft({ insurer })}
-                            placeholder={t('onboarding.insurerPick')}
-                            className="min-h-10 border-border px-3 py-2 text-base"
-                          />
-                        ) : key === 'vehicle' ? (
-                          <VehicleSelect
-                            value={draft.vehicle}
-                            onChange={(vehicle) => patchDraft({ vehicle })}
-                            className="min-h-10 border-border px-3 py-2 text-base"
-                          />
-                        ) : key === 'city' ? (
-                          <CitySelect
-                            value={draft.city}
-                            onChange={(city) => patchDraft({ city })}
-                            className="min-h-10"
-                          />
-                        ) : key === 'phone' ? (
-                          <PhoneInput
-                            value={draft.phone}
-                            onChange={(phone) => patchDraft({ phone })}
-                            className="min-h-10"
-                          />
-                        ) : key === 'attestationValidUntil' ? (
-                          <DatePicker
-                            value={draft.attestationValidUntil}
-                            onChange={(attestationValidUntil) =>
-                              patchDraft({ attestationValidUntil })
-                            }
-                            className="min-h-10 [&_button]:min-h-10 [&_button]:px-3 [&_button]:py-2"
-                            aria-invalid={Boolean(errKey)}
-                            data-testid="settings-attestation-valid-until"
-                          />
-                        ) : (
-                          <Input
-                            type="text"
-                            value={draft[key]}
-                            onChange={(e) => {
-                              const v = e.target.value
-                              if (key === 'cin') patchDraft({ cin: normalizeCin(v) })
-                              else if (key === 'plate') patchDraft({ plate: v.toUpperCase() })
-                              else patchDraft({ [key]: v })
-                            }}
-                            className="min-h-10 border-border px-3 py-2 text-base"
-                            aria-invalid={Boolean(errKey)}
-                          />
+            {category === 'contrat' && days !== null && days < 0 ? (
+              <p className="mt-3 text-sm text-alert">
+                {t('onboarding.attestationExpired', {
+                  date: draft.attestationValidUntil,
+                })}
+              </p>
+            ) : null}
+            {category === 'contrat' &&
+            days !== null &&
+            days >= 0 &&
+            days <= 45 ? (
+              <p className="mt-3 text-sm text-ink-muted">
+                {t('onboarding.attestationExpiryReminder', {
+                  date: draft.attestationValidUntil,
+                  days,
+                })}
+              </p>
+            ) : null}
+
+            {(persistError || error) && (
+              <p className="mt-3 text-sm text-alert">{persistError || error}</p>
+            )}
+          </>
+        ) : null}
+
+        {category === 'courtier' ? (
+          <>
+            <h2 className="font-display text-xl font-bold text-ink">
+              {t('motorist.settingsCat.courtier')}
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              {t('motorist.settingsCatHint.courtier')}
+            </p>
+            <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
+              <FieldRow label={t('onboarding.broker')}>
+                <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-name">
+                  {draft.broker.trim() || t('motorist.brokerUnset')}
+                </p>
+              </FieldRow>
+              <FieldRow label={t('onboarding.brokerEmail')}>
+                <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-email">
+                  {brokerEmail ?? '—'}
+                </p>
+              </FieldRow>
+              <FieldRow label={t('onboarding.brokerPhone')}>
+                <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-phone">
+                  {brokerPhone?.trim() || '—'}
+                </p>
+              </FieldRow>
+            </div>
+            <p className="mt-3 text-sm text-ink-muted">{t('motorist.brokerContactHint')}</p>
+          </>
+        ) : null}
+
+        {category === 'general' ? (
+          <>
+            <h2 className="font-display text-xl font-bold text-ink">
+              {t('motorist.settingsCat.general')}
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              {t('motorist.settingsCatHint.general')}
+            </p>
+            <div className="mt-6 rounded-[var(--radius-labas)] border border-border bg-surface p-4">
+              <p
+                id="settings-language-label"
+                className="text-sm font-medium text-ink-muted"
+              >
+                {t('motorist.settingsLanguage')}
+              </p>
+              <div
+                className="mt-3 flex flex-col gap-2"
+                role="radiogroup"
+                aria-labelledby="settings-language-label"
+                data-testid="settings-language"
+              >
+                {UI_LANGUAGES.map((lang) => {
+                  const selected = uiLang === lang.id
+                  return (
+                    <button
+                      key={lang.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      data-testid={`settings-language-${lang.id}`}
+                      onClick={() => {
+                        void i18n.changeLanguage(lang.id)
+                      }}
+                      className={cn(
+                        'flex min-h-12 w-full items-center gap-3 rounded-[var(--radius-labas)] border-2 px-4 py-3 text-left text-base font-medium transition-colors',
+                        selected
+                          ? 'border-ink bg-ink-soft text-ink'
+                          : 'border-border bg-surface text-ink hover:border-ink/40',
+                      )}
+                    >
+                      <LangFlag code={lang.flag} />
+                      <span className="min-w-0 flex-1">{lang.label}</span>
+                      <span
+                        className={cn(
+                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
+                          selected ? 'border-ink bg-ink' : 'border-border',
                         )}
-                        {errKey ? (
-                          <p className="mt-1 text-sm text-alert">{t(errKey)}</p>
+                        aria-hidden
+                      >
+                        {selected ? (
+                          <span className="h-2 w-2 rounded-full bg-sand" />
                         ) : null}
-                      </FieldRow>
-                      )
-                    })}
-                  </div>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        ) : null}
 
-                  {category === 'contrat' && days !== null && days < 0 ? (
-                    <p className="mt-3 text-sm text-alert">
-                      {t('onboarding.attestationExpired', {
-                        date: draft.attestationValidUntil,
-                      })}
-                    </p>
-                  ) : null}
-                  {category === 'contrat' &&
-                  days !== null &&
-                  days >= 0 &&
-                  days <= 45 ? (
-                    <p className="mt-3 text-sm text-ink-muted">
-                      {t('onboarding.attestationExpiryReminder', {
-                        date: draft.attestationValidUntil,
-                        days,
-                      })}
-                    </p>
-                  ) : null}
-
-                  {(persistError || error) && (
-                    <p className="mt-3 text-sm text-alert">{persistError || error}</p>
-                  )}
-                </>
+        {category === 'compte' ? (
+          <>
+            <h2 className="font-display text-xl font-bold text-ink">
+              {t('motorist.settingsCat.compte')}
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              {t('motorist.settingsCatHint.compte')}
+            </p>
+            <div className="mt-6 rounded-[var(--radius-labas)] border border-alert/30 bg-alert-soft p-4">
+              <p className="text-sm font-medium text-ink">{t('motorist.deleteAccountTitle')}</p>
+              <p className="mt-1 text-sm text-ink-muted">{t('motorist.deleteAccountBody')}</p>
+              {deleteError ? (
+                <p className="mt-2 text-sm text-alert" role="alert">
+                  {deleteError}
+                </p>
               ) : null}
-
-              {showSaveBar ? (
-                <StickyActions>
+              {!deleteConfirm ? (
+                <Button
+                  type="button"
+                  variant="softAlert"
+                  size="icon"
+                  className="mt-4"
+                  title={t('motorist.deleteAccount')}
+                  aria-label={t('motorist.deleteAccount')}
+                  data-testid="settings-delete-account"
+                  onClick={() => setDeleteConfirm(true)}
+                >
+                  <LabasIcon name="trash" tone="alert" className="h-5 w-5" aria-hidden />
+                </Button>
+              ) : (
+                <div className="mt-4 flex flex-wrap gap-2">
                   <Button
                     type="button"
-                    loading={persistBusy || saving}
-                    disabled={!canSave}
-                    onClick={() => void persist()}
-                    data-testid="settings-save"
+                    variant="ghost"
+                    disabled={deleteBusy}
+                    onClick={() => {
+                      setDeleteConfirm(false)
+                      setDeleteError(null)
+                    }}
                   >
-                    {changeCount > 0
-                      ? t('app.saveChanges', { count: changeCount })
-                      : t('app.save')}
+                    {t('app.close')}
                   </Button>
-                </StickyActions>
-              ) : null}
-
-              {category === 'courtier' ? (
-                <>
-                  <h2 className="font-display text-xl font-bold text-ink">
-                    {t('motorist.settingsCat.courtier')}
-                  </h2>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    {t('motorist.settingsCatHint.courtier')}
-                  </p>
-                  <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
-                    <FieldRow label={t('onboarding.broker')}>
-                      <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-name">
-                        {draft.broker.trim() || t('motorist.brokerUnset')}
-                      </p>
-                    </FieldRow>
-                    <FieldRow label={t('onboarding.brokerEmail')}>
-                      <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-email">
-                        {brokerEmail ?? '—'}
-                      </p>
-                    </FieldRow>
-                  </div>
-                  <p className="mt-3 text-sm text-ink-muted">{t('motorist.brokerContactHint')}</p>
-                </>
-              ) : null}
-
-              {category === 'general' ? (
-                <>
-                  <h2 className="font-display text-xl font-bold text-ink">
-                    {t('motorist.settingsCat.general')}
-                  </h2>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    {t('motorist.settingsCatHint.general')}
-                  </p>
-                  <div className="mt-6 rounded-[var(--radius-labas)] border border-border bg-surface p-4">
-                    <p
-                      id="settings-language-label"
-                      className="text-sm font-medium text-ink-muted"
-                    >
-                      {t('motorist.settingsLanguage')}
-                    </p>
-                    <div
-                      className="mt-3 flex flex-col gap-2"
-                      role="radiogroup"
-                      aria-labelledby="settings-language-label"
-                      data-testid="settings-language"
-                    >
-                      {UI_LANGUAGES.map((lang) => {
-                        const selected = uiLang === lang.id
-                        return (
-                          <button
-                            key={lang.id}
-                            type="button"
-                            role="radio"
-                            aria-checked={selected}
-                            data-testid={`settings-language-${lang.id}`}
-                            onClick={() => {
-                              void i18n.changeLanguage(lang.id)
-                            }}
-                            className={cn(
-                              'flex min-h-12 w-full items-center gap-3 rounded-[var(--radius-labas)] border-2 px-4 py-3 text-left text-base font-medium transition-colors',
-                              selected
-                                ? 'border-ink bg-ink-soft text-ink'
-                                : 'border-border bg-surface text-ink hover:border-ink/40',
-                            )}
-                          >
-                            <LangFlag code={lang.flag} />
-                            <span className="min-w-0 flex-1">{lang.label}</span>
-                            <span
-                              className={cn(
-                                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
-                                selected ? 'border-ink bg-ink' : 'border-border',
-                              )}
-                              aria-hidden
-                            >
-                              {selected ? (
-                                <span className="h-2 w-2 rounded-full bg-sand" />
-                              ) : null}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </>
-              ) : null}
-
-              {category === 'compte' ? (
-                <>
-                  <h2 className="font-display text-xl font-bold text-ink">
-                    {t('motorist.settingsCat.compte')}
-                  </h2>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    {t('motorist.settingsCatHint.compte')}
-                  </p>
-                  <div className="mt-6 rounded-[var(--radius-labas)] border border-alert/30 bg-alert-soft p-4">
-                    <p className="text-sm font-medium text-ink">{t('motorist.deleteAccountTitle')}</p>
-                    <p className="mt-1 text-sm text-ink-muted">{t('motorist.deleteAccountBody')}</p>
-                    {deleteError ? (
-                      <p className="mt-2 text-sm text-alert" role="alert">
-                        {deleteError}
-                      </p>
-                    ) : null}
-                    {!deleteConfirm ? (
-                      <Button
-                        type="button"
-                        variant="softAlert"
-                        size="icon"
-                        className="mt-4"
-                        title={t('motorist.deleteAccount')}
-                        aria-label={t('motorist.deleteAccount')}
-                        data-testid="settings-delete-account"
-                        onClick={() => setDeleteConfirm(true)}
-                      >
-                        <LabasIcon name="trash" tone="alert" className="h-5 w-5" aria-hidden />
-                      </Button>
-                    ) : (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          disabled={deleteBusy}
-                          onClick={() => {
-                            setDeleteConfirm(false)
-                            setDeleteError(null)
-                          }}
-                        >
-                          {t('app.close')}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="alert"
-                          disabled={deleteBusy}
-                          data-testid="settings-delete-account-confirm"
-                          onClick={() => void confirmDeleteAccount()}
-                        >
-                          {deleteBusy
-                            ? t('motorist.deleteAccountBusy')
-                            : t('motorist.deleteAccountConfirm')}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : null}
-            </StickyActionsProvider>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
-    <UnsavedExitDialog
-      open={discardOpen}
-      onStay={() => setDiscardOpen(false)}
-      onDiscard={discardAndClose}
-    />
+                  <Button
+                    type="button"
+                    variant="alert"
+                    disabled={deleteBusy}
+                    data-testid="settings-delete-account-confirm"
+                    onClick={() => void confirmDeleteAccount()}
+                  >
+                    {deleteBusy
+                      ? t('motorist.deleteAccountBusy')
+                      : t('motorist.deleteAccountConfirm')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </>
+        ) : null}
+      </SettingsModalShell>
+      <UnsavedExitDialog
+        open={discardOpen}
+        onStay={() => setDiscardOpen(false)}
+        onDiscard={discardAndClose}
+      />
     </>
   )
 }

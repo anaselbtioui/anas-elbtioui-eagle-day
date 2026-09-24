@@ -7,6 +7,7 @@ import type { AuthUser } from '@labas/domain/auth.ts'
 import { nadiaMissingConstatPack } from '@labas/domain/fixtures.ts'
 import { applyEvidenceRules } from '@labas/domain/rules.ts'
 import type { EvidencePack } from '@labas/domain/types.ts'
+import { stubBroker } from '@labas/domain/types.ts'
 
 function memory() {
   let db: Db = emptyDb()
@@ -633,7 +634,7 @@ describe('API broker desk', () => {
         motorist: profile.motorist,
         vehicle: profile.vehicle,
         insurer: { ...profile.insurer, displayName: 'Sanlam' },
-        broker: { id: '', displayName: '' },
+        broker: stubBroker('', ''),
         policy: { ...profile.policy, brokerId: null },
       }),
     })
@@ -676,5 +677,72 @@ describe('API broker desk', () => {
     const done = (await ack.json()) as typeof profile
     expect(done.motorist.brokerAutoAssignedAckAt).toBeTruthy()
     expect(getDb().motorists.find((m) => m.id === motorist.user.motoristId)?.brokerAutoAssignedAckAt).toBeTruthy()
+  })
+})
+
+
+describe('API broker profile', () => {
+  it('updates name, phone and avatar path; syncs displayName', async () => {
+    const { app, getDb } = memory()
+    const broker = await signup(app, 'broker', 'Salma Benali')
+    const get = await app.request('/api/broker/profile', { headers: broker.headers })
+    expect(get.status).toBe(200)
+    const before = (await get.json()) as {
+      firstName: string
+      lastName: string
+      phone: string
+      displayName: string
+    }
+    expect(before.firstName).toBe('Salma')
+    expect(before.lastName).toBe('Benali')
+
+    const put = await app.request('/api/broker/profile', {
+      method: 'PUT',
+      headers: broker.headers,
+      body: JSON.stringify({
+        firstName: 'Sara',
+        lastName: 'Amrani',
+        phone: '+212612000111',
+        avatarPhotoPath: 'brokers/avatar.jpg',
+      }),
+    })
+    expect(put.status).toBe(200)
+    const body = (await put.json()) as {
+      firstName: string
+      lastName: string
+      phone: string
+      displayName: string
+      avatarPhotoPath: string | null
+      user: { displayName: string }
+    }
+    expect(body.firstName).toBe('Sara')
+    expect(body.lastName).toBe('Amrani')
+    expect(body.phone).toBe('+212612000111')
+    expect(body.displayName).toBe('Sara Amrani')
+    expect(body.avatarPhotoPath).toBe('brokers/avatar.jpg')
+    expect(body.user.displayName).toBe('Sara Amrani')
+
+    const row = getDb().brokers.find((b) => b.id === broker.user.brokerId)
+    expect(row?.phone).toBe('+212612000111')
+    expect(row?.displayName).toBe('Sara Amrani')
+    expect(getDb().users.find((u) => u.id === broker.user.id)?.displayName).toBe('Sara Amrani')
+
+    const listed = await app.request('/api/brokers', { headers: broker.headers })
+    expect(listed.status).toBe(200)
+    const brokers = (await listed.json()) as Array<{ id: string; phone: string | null }>
+    expect(brokers.find((b) => b.id === broker.user.brokerId)?.phone).toBe('+212612000111')
+  })
+
+  it('forbids motorist on broker profile routes', async () => {
+    const { app } = memory()
+    const motorist = await signup(app, 'motorist', 'Nadia')
+    const get = await app.request('/api/broker/profile', { headers: motorist.headers })
+    expect(get.status).toBe(403)
+    const put = await app.request('/api/broker/profile', {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify({ firstName: 'X', lastName: 'Y' }),
+    })
+    expect(put.status).toBe(403)
   })
 })

@@ -1,4 +1,5 @@
 import type { Contact, EvidencePack, Profile } from './types.ts'
+import { stubBroker } from './types.ts'
 import { accidentRefFromId } from './accident-ref.ts'
 import { emptyEvidence } from './rules.ts'
 
@@ -65,7 +66,7 @@ export const nadiaProfile: Profile = {
     makeModel: 'Dacia Sandero · 2022',
   },
   insurer: { id: 'I-1', displayName: 'Assureur (stub)' },
-  broker: { id: 'B-1', displayName: 'Courtier (stub)' },
+  broker: stubBroker('B-1', 'Courtier (stub)'),
   policy: {
     id: 'P-1',
     number: 'MA-AUTO-24018',
@@ -181,7 +182,7 @@ export const omarProfile: Profile = {
     makeModel: 'Renault Clio · 2021',
   },
   insurer: { id: 'I-1', displayName: 'Assureur (stub)' },
-  broker: { id: 'B-1', displayName: 'Courtier (stub)' },
+  broker: stubBroker('B-1', 'Courtier (stub)'),
   policy: {
     id: 'P-3',
     number: 'MA-AUTO-23872',
@@ -227,7 +228,7 @@ export const saraProfile: Profile = {
     makeModel: 'Peugeot 208 · 2023',
   },
   insurer: { id: 'I-1', displayName: 'Assureur (stub)' },
-  broker: { id: 'B-1', displayName: 'Courtier (stub)' },
+  broker: stubBroker('B-1', 'Courtier (stub)'),
   policy: {
     id: 'P-2',
     number: 'MA-AUTO-24191',

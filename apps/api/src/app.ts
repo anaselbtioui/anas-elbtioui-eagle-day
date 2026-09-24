@@ -2,6 +2,7 @@
 import { Hono, type Context } from 'hono'
 import { cors } from 'hono/cors'
 import type { AppUserRecord, AuthUser } from '@labas/domain/auth.ts'
+import { stubBroker, brokerFromParts } from '@labas/domain/types.ts'
 import {
   assignMotoristBroker,
   displayNameFromParts,
@@ -62,6 +63,7 @@ import {
   type IncidentFile,
 } from './core.ts'
 import {
+  brokerAvatarObjectPath,
   evidenceObjectPath,
   parseDataUrl,
   signedEvidenceUrl,
@@ -484,7 +486,7 @@ export function createApp(
                 ? ''
                 : body.insurer.displayName.trim(),
           },
-          broker: { id: '', displayName: body.broker.displayName || '' },
+          broker: stubBroker('', body.broker.displayName || ''),
           policy,
         }
         return syncUserDisplayName(
@@ -531,7 +533,7 @@ export function createApp(
               ? ''
               : body.insurer.displayName.trim(),
         },
-        broker: { id: broker.id, displayName: broker.displayName },
+        broker,
         policy,
       }
       return syncUserDisplayName(
@@ -1012,6 +1014,111 @@ export function createApp(
     await next()
   })
 
+  app.get('/api/broker/profile', async (c) => {
+    const denied = needBrokerId(c)
+    if (denied) return denied
+    const auth = c.get('auth')!
+    const db = await load()
+    const broker = db.brokers.find((b) => b.id === auth.brokerId)
+    if (!broker) return c.json({ error: 'not_found' }, 404)
+    return c.json({
+      firstName: broker.firstName ?? '',
+      lastName: broker.lastName ?? '',
+      phone: broker.phone ?? '',
+      email: auth.email,
+      displayName: broker.displayName || auth.displayName,
+      avatarPhotoPath: broker.avatarPhotoPath,
+    })
+  })
+
+  app.put('/api/broker/profile', async (c) => {
+    const denied = needBrokerId(c)
+    if (denied) return denied
+    const auth = c.get('auth')!
+    const body = await readJson<{
+      firstName?: string
+      lastName?: string
+      phone?: string
+      avatarPhotoPath?: string | null
+    }>(c, {})
+    let user: AuthUser = auth
+    const next = await write((db) => {
+      const broker = db.brokers.find((b) => b.id === auth.brokerId)
+      if (!broker) return db
+      const updated = brokerFromParts(broker.id, {
+        firstName: body.firstName ?? broker.firstName,
+        lastName: body.lastName ?? broker.lastName,
+        phone: body.phone ?? broker.phone,
+        avatarPhotoPath:
+          body.avatarPhotoPath !== undefined ? body.avatarPhotoPath : broker.avatarPhotoPath,
+        displayName: broker.displayName,
+      })
+      let working: Db = {
+        ...db,
+        brokers: upsert(db.brokers, updated),
+      }
+      working = syncUserDisplayName(
+        working,
+        auth.id,
+        updated.firstName,
+        updated.lastName,
+        updated.displayName || auth.displayName,
+      )
+      const row = working.users.find((u) => u.id === auth.id)
+      if (row) user = publicUser(row)
+      return working
+    })
+    const broker = next.brokers.find((b) => b.id === auth.brokerId)
+    if (!broker) return c.json({ error: 'not_found' }, 404)
+    return c.json({
+      firstName: broker.firstName ?? '',
+      lastName: broker.lastName ?? '',
+      phone: broker.phone ?? '',
+      email: auth.email,
+      displayName: broker.displayName || user.displayName,
+      avatarPhotoPath: broker.avatarPhotoPath,
+      user,
+    })
+  })
+
+  app.post('/api/broker/profile/avatar', async (c) => {
+    const denied = needBrokerId(c)
+    if (denied) return denied
+    if (!storageConfigured()) return c.json({ error: 'storage_unconfigured' }, 503)
+    const auth = c.get('auth')!
+    const body = await readJson<{ dataUrl?: string }>(c, {})
+    if (!body.dataUrl) return c.json({ error: 'dataUrl_required' }, 400)
+    let parsed
+    try {
+      parsed = parseDataUrl(body.dataUrl)
+    } catch {
+      return c.json({ error: 'invalid_data_url' }, 400)
+    }
+    const path = brokerAvatarObjectPath(auth.brokerId!, parsed.ext)
+    await uploadEvidenceObject(path, parsed.bytes, parsed.mime)
+    await write((db) => {
+      const broker = db.brokers.find((b) => b.id === auth.brokerId)
+      if (!broker) return db
+      return {
+        ...db,
+        brokers: upsert(db.brokers, { ...broker, avatarPhotoPath: path }),
+      }
+    })
+    return c.json({ path }, 201)
+  })
+
+  app.get('/api/broker/profile/avatar/url', async (c) => {
+    const denied = needBrokerId(c)
+    if (denied) return denied
+    if (!storageConfigured()) return c.json({ error: 'storage_unconfigured' }, 503)
+    const auth = c.get('auth')!
+    const db = await load()
+    const broker = db.brokers.find((b) => b.id === auth.brokerId)
+    if (!broker?.avatarPhotoPath) return c.json({ error: 'not_found' }, 404)
+    const url = await signedEvidenceUrl(broker.avatarPhotoPath)
+    return c.json({ url, path: broker.avatarPhotoPath })
+  })
+
   app.get('/api/broker/queue', async (c) => {
     const denied = needBrokerId(c)
     if (denied) return denied
@@ -1269,7 +1376,7 @@ export function createApp(
     if (auth.brokerId) {
       const brokerRow =
         db.brokers.find((b) => b.id === auth.brokerId) ??
-        ({ id: auth.brokerId, displayName: auth.displayName } as const)
+        stubBroker(auth.brokerId, auth.displayName)
       bundle = {
         ...bundle,
         profile: {

@@ -140,11 +140,22 @@ export function provisionMotorist(db: Db, displayName: string): {
 
 export function provisionBroker(db: Db, displayName: string): { db: Db; brokerId: string } {
   const brokerId = randomUUID()
+  const trimmed = displayName.trim()
+  const space = trimmed.indexOf(' ')
+  const firstName = space > 0 ? trimmed.slice(0, space) : trimmed
+  const lastName = space > 0 ? trimmed.slice(space + 1).trim() : ''
   return {
     brokerId,
     db: {
       ...db,
-      brokers: upsert(db.brokers, { id: brokerId, displayName }),
+      brokers: upsert(db.brokers, {
+        id: brokerId,
+        displayName: trimmed,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        phone: null,
+        avatarPhotoPath: null,
+      }),
     },
   }
 }
@@ -196,6 +207,7 @@ export function listRegisteredBrokers(db: Db): Array<{
   id: string
   displayName: string
   email: string
+  phone: string | null
 }> {
   return db.users
     .filter((u) => u.role === 'broker' && u.brokerId && !u.deletedAt)
@@ -205,6 +217,7 @@ export function listRegisteredBrokers(db: Db): Array<{
         id: u.brokerId!,
         displayName: row?.displayName || u.displayName,
         email: u.email,
+        phone: row?.phone ?? null,
       }
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr'))

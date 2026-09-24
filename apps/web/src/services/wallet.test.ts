@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { stubBroker } from '@/domain/types.ts'
 import {
   createDeviceWallet,
   displayName,
@@ -303,7 +304,7 @@ describe('wallet ↔ domain round-trip', () => {
     const back = domainToWallet({
       ...walletToDomain({ ...wallet, insurer: 'Sanlam', broker: 'Said' }),
       insurer: { id: wallet.insurerId, displayName: 'Assureur' },
-      broker: { id: '', displayName: 'Courtier' },
+      broker: stubBroker('', 'Courtier'),
     })
     expect(back.insurer).toBe('')
     expect(back.broker).toBe('')

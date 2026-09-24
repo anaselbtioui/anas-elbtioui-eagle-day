@@ -593,6 +593,18 @@
       "freshness": "Freshness",
       "owner": "Owner",
       "declaration": "Declaration"
+    },
+    "settingsCat": {
+      "profil": "Profile",
+      "identite": "Identity",
+      "general": "General",
+      "compte": "Account"
+    },
+    "settingsCatHint": {
+      "profil": "Photo shown on your account menu",
+      "identite": "Name and phone clients see when they open your Med Assurance contact",
+      "general": "Display language for this device",
+      "compte": "Account and data on this device"
     }
   },
   "assist": {

@@ -69,6 +69,39 @@ export type Insurer = {
 export type Broker = {
   id: string
   displayName: string
+  firstName: string | null
+  lastName: string | null
+  phone: string | null
+  /** Circular profile picture in desk settings / shell avatar. */
+  avatarPhotoPath: string | null
+}
+
+export function brokerFromParts(
+  id: string,
+  input: {
+    displayName?: string
+    firstName?: string | null
+    lastName?: string | null
+    phone?: string | null
+    avatarPhotoPath?: string | null
+  } = {},
+): Broker {
+  const firstName = input.firstName?.trim() || null
+  const lastName = input.lastName?.trim() || null
+  const joined = [firstName, lastName].filter(Boolean).join(' ').trim()
+  return {
+    id,
+    displayName: joined || input.displayName?.trim() || '',
+    firstName,
+    lastName,
+    phone: input.phone?.trim() || null,
+    avatarPhotoPath: input.avatarPhotoPath ?? null,
+  }
+}
+
+/** Minimal broker stub for fixtures / empty links. */
+export function stubBroker(id: string, displayName: string): Broker {
+  return brokerFromParts(id, { displayName })
 }
 
 export type Vehicle = {

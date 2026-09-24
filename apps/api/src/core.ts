@@ -35,6 +35,7 @@ import type {
   OtherParty,
   Profile,
 } from '@labas/domain/types.ts'
+import { stubBroker } from '@labas/domain/types.ts'
 import {
   bundleFromParts,
   defaultDeskFile,
@@ -119,7 +120,7 @@ export function profileFromDb(db: Db, motoristId: string): Profile | null {
       motorist,
       vehicle,
       insurer,
-      broker: { id: '', displayName: '—' },
+      broker: stubBroker('', '—'),
       policy: { ...policy, brokerId: null },
     }
   }

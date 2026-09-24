@@ -593,6 +593,18 @@
       "freshness": "Fraîcheur",
       "owner": "Référent",
       "declaration": "Déclaration"
+    },
+    "settingsCat": {
+      "profil": "Profil",
+      "identite": "Identité",
+      "general": "Général",
+      "compte": "Compte"
+    },
+    "settingsCatHint": {
+      "profil": "Photo affichée dans le menu compte",
+      "identite": "Nom et téléphone que vos clients voient dans votre contact Med Assurance",
+      "general": "Langue d’affichage sur cet appareil",
+      "compte": "Compte et données sur cet appareil"
     }
   },
   "assist": {

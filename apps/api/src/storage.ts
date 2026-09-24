@@ -58,6 +58,11 @@ export function walletDocObjectPath(
   return `wallet/${safeMotorist}/${kind}.${ext}`
 }
 
+export function brokerAvatarObjectPath(brokerId: string, ext: string): string {
+  const safeBroker = brokerId.replace(/[^a-zA-Z0-9._-]/g, '_')
+  return `brokers/${safeBroker}/avatar.${ext}`
+}
+
 export async function uploadEvidenceObject(
   path: string,
   bytes: Buffer,

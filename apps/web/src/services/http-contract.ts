@@ -69,6 +69,20 @@ export type RegisteredBroker = {
   id: string
   displayName: string
   email: string
+  phone: string | null
+}
+
+export type BrokerProfile = {
+  firstName: string
+  lastName: string
+  phone: string
+  email: string
+  displayName: string
+  avatarPhotoPath: string | null
+}
+
+export type BrokerProfileSaveResult = BrokerProfile & {
+  user: AuthUser
 }
 
 export type BrokerClient = {
@@ -135,6 +149,15 @@ export type LabasHttpApi = {
   listBrokerQueue: () => Promise<DeskBundle[]>
   listBrokerClients: () => Promise<BrokerClient[]>
   listRegisteredBrokers: () => Promise<RegisteredBroker[]>
+  getBrokerProfile: () => Promise<BrokerProfile>
+  saveBrokerProfile: (input: {
+    firstName: string
+    lastName: string
+    phone: string
+    avatarPhotoPath?: string | null
+  }) => Promise<BrokerProfileSaveResult>
+  uploadBrokerAvatar: (dataUrl: string) => Promise<{ path: string }>
+  brokerAvatarUrl: () => Promise<{ url: string; path: string }>
   getBrokerDossier: (dossierId: string) => Promise<DeskBundle>
   requestBrokerPiece: (
     dossierId: string,

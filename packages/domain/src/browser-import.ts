@@ -2,7 +2,7 @@ import type { DeskBundle } from './desk.ts'
 import { appendEvent } from './desk.ts'
 import { accidentRefFromId } from './accident-ref.ts'
 import type { EvidencePack, Profile } from './types.ts'
-import { ACAPS_NOTIFY_GUIDANCE } from './types.ts'
+import { ACAPS_NOTIFY_GUIDANCE, stubBroker } from './types.ts'
 
 export type ImportSource = 'TRT' | 'OuiAssur'
 export type ImportOutcome = 'new' | 'duplicate' | 'conflict' | 'interrupted'
@@ -240,7 +240,7 @@ export function createImportBundle(input: {
       makeModel: input.extracted.vehicle,
     },
     insurer: { id: insurerId, displayName: 'Assureur (import)' },
-    broker: { id: brokerId, displayName: input.owner || 'Courtier' },
+    broker: stubBroker(brokerId, input.owner || 'Courtier'),
     policy: {
       id: policyId,
       number: input.extracted.policy.trim(),

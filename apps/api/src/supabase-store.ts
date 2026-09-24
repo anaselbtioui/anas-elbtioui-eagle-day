@@ -116,9 +116,22 @@ export async function loadDb(): Promise<Db> {
       id: r.id,
       displayName: r.display_name,
     })),
-    brokers: (rows.brokers as { id: string; display_name: string }[]).map((r) => ({
+    brokers: (
+      rows.brokers as {
+        id: string
+        display_name: string
+        first_name?: string | null
+        last_name?: string | null
+        phone?: string | null
+        avatar_photo_path?: string | null
+      }[]
+    ).map((r) => ({
       id: r.id,
       displayName: r.display_name,
+      firstName: r.first_name ?? null,
+      lastName: r.last_name ?? null,
+      phone: r.phone ?? null,
+      avatarPhotoPath: r.avatar_photo_path ?? null,
     })),
     motorists: (
       rows.motorists as {
@@ -458,7 +471,14 @@ async function upsertAllTables(db: Db): Promise<void> {
     upsertAll(
       sb,
       'brokers',
-      db.brokers.map((r: Broker) => ({ id: r.id, display_name: r.displayName })),
+      db.brokers.map((r: Broker) => ({
+        id: r.id,
+        display_name: r.displayName,
+        first_name: r.firstName,
+        last_name: r.lastName,
+        phone: r.phone,
+        avatar_photo_path: r.avatarPhotoPath,
+      })),
       'id',
     ),
     upsertAll(
@@ -679,12 +699,28 @@ export async function fetchProfileById(motoristId: string): Promise<Profile | nu
   throwIf(iErr, 'select insurer')
   if (!policy || !vehicle || !insurer) return null
 
-  let broker = { id: '', displayName: '' }
+  let broker = {
+    id: '',
+    displayName: '',
+    firstName: null as string | null,
+    lastName: null as string | null,
+    phone: null as string | null,
+    avatarPhotoPath: null as string | null,
+  }
   const brokerId = (policy.broker_id as string | null) || user.broker_id
   if (brokerId) {
     const { data: b, error: bErr } = await sb.from('brokers').select('*').eq('id', brokerId).maybeSingle()
     throwIf(bErr, 'select broker')
-    if (b) broker = { id: b.id, displayName: b.display_name }
+    if (b) {
+      broker = {
+        id: b.id,
+        displayName: b.display_name,
+        firstName: b.first_name ?? null,
+        lastName: b.last_name ?? null,
+        phone: b.phone ?? null,
+        avatarPhotoPath: b.avatar_photo_path ?? null,
+      }
+    }
   }
 
   return {

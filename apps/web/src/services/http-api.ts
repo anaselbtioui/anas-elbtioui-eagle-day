@@ -17,6 +17,8 @@ import type { Dossier, EvidencePack, Profile } from '@/domain/types.ts'
 import type { DeskBundle } from '@/domain/desk.ts'
 import type {
   BrokerClient,
+  BrokerProfile,
+  BrokerProfileSaveResult,
   CreatePackInput,
   DeclarationBundle,
   EvidencePieces,
@@ -133,6 +135,18 @@ export const httpApi: LabasHttpApi = {
   listBrokerQueue: () => req<DeskBundle[]>('/api/broker/queue'),
   listBrokerClients: () => req<BrokerClient[]>('/api/broker/clients'),
   listRegisteredBrokers: () => req<RegisteredBroker[]>('/api/brokers'),
+  getBrokerProfile: () => req<BrokerProfile>('/api/broker/profile'),
+  saveBrokerProfile: (input) =>
+    req<BrokerProfileSaveResult>('/api/broker/profile', {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+  uploadBrokerAvatar: (dataUrl) =>
+    req<{ path: string }>('/api/broker/profile/avatar', {
+      method: 'POST',
+      body: JSON.stringify({ dataUrl }),
+    }),
+  brokerAvatarUrl: () => req<{ url: string; path: string }>('/api/broker/profile/avatar/url'),
   getBrokerDossier: (dossierId) => req<DeskBundle>(`/api/broker/dossiers/${dossierId}`),
   requestBrokerPiece: (dossierId, piece, note) =>
     req(`/api/broker/dossiers/${dossierId}/requests`, {
