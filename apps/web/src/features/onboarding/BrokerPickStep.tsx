@@ -71,8 +71,6 @@ export function BrokerPickStep({
   }
 
   function continueWithBroker() {
-    const wallet = useProfileStore.getState().profile
-    if (!wallet.brokerId.trim()) return
     void useProfileStore.getState().persistDraft()
     onContinue()
   }
@@ -134,11 +132,11 @@ export function BrokerPickStep({
       </FluidHover>
       <StepNav
         onBack={onBack}
-        onSkip={brokers.length === 0 ? onSkip : undefined}
+        onSkip={onSkip}
         onSkipAll={onSkipAll}
         onContinue={continueWithBroker}
-        continueDisabled={loading || (brokers.length > 0 && !profile.brokerId.trim())}
-        showSkip={brokers.length === 0 || Boolean(onSkipAll)}
+        continueDisabled={loading || !profile.brokerId.trim()}
+        showSkip
       />
     </div>
   )

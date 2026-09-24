@@ -24,6 +24,7 @@ import {
   attestationDaysRemaining,
   WALLET_GAP_STEPS,
   walletIncompleteSteps,
+  walletStepReady,
   type WalletGapStepId,
 } from '@/services/wallet.ts'
 import { useProfileStore } from '@/store/profile'
@@ -163,7 +164,7 @@ export function OnboardingSteps({
     const lastOk = !profile.lastName.trim() || isPersonName(profile.lastName)
     const cinOk = !profile.cin.trim() || isMoroccanCin(profile.cin)
     const cityOk = !profile.city.trim() || isMoroccanCity(profile.city)
-    const identityOk = firstOk && lastOk && cinOk && cityOk
+    const identityOk = walletStepReady(profile, 'identity')
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
@@ -251,7 +252,13 @@ export function OnboardingSteps({
             data-wallet-gap={gapAttr(gapsOnly, profile, 'licenseNumber')}
           />
         </div>
-        <StepNav onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
+        <StepNav
+          onBack={prev}
+          onSkip={skip}
+          onSkipAll={canSkipAll ? skipAll : undefined}
+          onContinue={next}
+          continueDisabled={!walletStepReady(profile, 'permis')}
+        />
       </div>
     )
   }
@@ -300,7 +307,7 @@ export function OnboardingSteps({
             }
             next()
           }}
-          continueDisabled={Boolean(profile.plate.trim()) && !isMoroccanPlate(profile.plate)}
+          continueDisabled={!walletStepReady(profile, 'carteGrise')}
         />
       </div>
     )
@@ -357,7 +364,7 @@ export function OnboardingSteps({
           onSkip={attestationNotExpired ? skip : undefined}
           onSkipAll={attestationNotExpired && canSkipAll ? skipAll : undefined}
           onContinue={next}
-          continueDisabled={!attestationNotExpired}
+          continueDisabled={!walletStepReady(profile, 'attestation')}
         />
       </div>
     )
@@ -380,7 +387,13 @@ export function OnboardingSteps({
             onChange={(e) => patchProfile({ assistanceNumber: e.target.value })}
           />
         </div>
-        <StepNav onBack={prev} onSkip={skip} onSkipAll={canSkipAll ? skipAll : undefined} onContinue={next} />
+        <StepNav
+          onBack={prev}
+          onSkip={skip}
+          onSkipAll={canSkipAll ? skipAll : undefined}
+          onContinue={next}
+          continueDisabled={!profile.assistanceNumber.trim()}
+        />
       </div>
     )
   }

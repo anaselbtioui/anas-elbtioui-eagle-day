@@ -12,6 +12,21 @@ const getProfile = vi.fn()
 const saveProfile = vi.fn().mockImplementation(async (p: Profile) => p)
 const uploadProfileDoc = vi.fn()
 const profileDocUrl = vi.fn()
+const completeProfile = vi.fn().mockResolvedValue({
+  token: 'tok',
+  user: {
+    id: 'u-1',
+    email: 'a@labas.test',
+    role: 'motorist',
+    displayName: 'Nadia',
+    onboarded: true,
+    motoristId: 'M-remote',
+    brokerId: null,
+    vehicleId: 'V-1',
+    insurerId: 'I-1',
+    policyId: 'P-1',
+  },
+})
 
 vi.mock('@/services/api.ts', () => ({
   api: {
@@ -19,7 +34,7 @@ vi.mock('@/services/api.ts', () => ({
     saveProfile: (...args: unknown[]) => saveProfile(...args),
     uploadProfileDoc: (...args: unknown[]) => uploadProfileDoc(...args),
     profileDocUrl: (...args: unknown[]) => profileDocUrl(...args),
-    completeProfile: vi.fn(),
+    completeProfile: (...args: unknown[]) => completeProfile(...args),
   },
 }))
 
@@ -325,5 +340,21 @@ describe('migrateLegacyProfileStorage', () => {
     expect(localStorage.getItem(PROFILE_STORAGE_KEY)).toBeNull()
     expect(useProfileStore.getState().profile.firstName).toBe('Legacy')
     expect(saveProfile).toHaveBeenCalled()
+  })
+})
+
+describe('completeOnboarding', () => {
+  beforeEach(() => {
+    resetProfilePersistForTests()
+    saveProfile.mockClear()
+    completeProfile.mockClear()
+    resetStore({ brokerId: '', broker: '', motoristId: 'M-remote' })
+  })
+
+  it('enters without a broker', async () => {
+    await useProfileStore.getState().completeOnboarding()
+    expect(useProfileStore.getState().profile.onboarded).toBe(true)
+    expect(useProfileStore.getState().error).toBeNull()
+    expect(completeProfile).toHaveBeenCalled()
   })
 })

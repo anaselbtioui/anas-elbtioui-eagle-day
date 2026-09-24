@@ -84,25 +84,16 @@ export function useOnboardingWizard(opts: {
   }, [user?.motoristId, user?.displayName, setProfile])
 
   async function finish() {
-    let wallet = useProfileStore.getState().profile
+    const wallet = useProfileStore.getState().profile
     if (!wallet.brokerId.trim()) {
       try {
         const list = await api.listRegisteredBrokers()
         if (list.length === 1) {
           const only = list[0]!
           setProfile({ brokerId: only.id, broker: only.displayName })
-          wallet = { ...wallet, brokerId: only.id, broker: only.displayName }
-        } else {
-          const brokerStep = ONBOARDING_STEPS.indexOf('broker')
-          goTo(brokerStep >= 0 ? brokerStep : 0)
-          useProfileStore.setState({ error: 'broker_required' })
-          return
         }
       } catch {
-        const brokerStep = ONBOARDING_STEPS.indexOf('broker')
-        goTo(brokerStep >= 0 ? brokerStep : 0)
-        useProfileStore.setState({ error: 'broker_required' })
-        return
+        /* enter without a broker — wallet nudge can resume later */
       }
     }
     try {

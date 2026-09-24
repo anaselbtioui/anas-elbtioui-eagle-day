@@ -136,6 +136,8 @@ test.describe('wallet flow', () => {
     await expect(continueBtn(page)).toBeEnabled()
     await continueBtn(page).click()
 
+    // identity — incomplete until CIN + city
+    await expect(continueBtn(page)).toBeDisabled()
     // identity — bad CIN blocks when present
     await page.getByLabel(/^(First name|Prénom)$/i).fill('Nadia')
     await page.getByLabel(/^(Last name|Nom)$/i).fill('El Mansouri')
@@ -146,7 +148,8 @@ test.describe('wallet flow', () => {
     await expect(continueBtn(page)).toBeEnabled()
     await continueBtn(page).click()
 
-    // permis — skip
+    // permis — empty: Continue off, skip
+    await expect(continueBtn(page)).toBeDisabled()
     await skipStep(page).click()
 
     // carte grise — bad plate blocks
@@ -159,6 +162,7 @@ test.describe('wallet flow', () => {
 
     // Back from attestation → carte grise (still in wizard)
     await expect(page.getByLabel(/^(Insurer|Assureur)/i)).toBeVisible()
+    await expect(continueBtn(page)).toBeDisabled()
     await backBtn(page).click()
     await expect(page.getByLabel(/^(Plate|Immatriculation)/i)).toBeVisible()
     await continueBtn(page).click()

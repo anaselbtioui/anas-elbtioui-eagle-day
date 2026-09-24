@@ -303,6 +303,13 @@ export function walletFieldIsProgress(
   return (PORTEFEUILLE_PROGRESS_FIELDS as readonly string[]).includes(key)
 }
 
+/** True when every field on this wallet step is filled and valid. */
+export function walletStepReady(profile: Wallet, stepId: string): boolean {
+  const fields = STEP_FIELDS[stepId as WalletGapStepId]
+  if (!fields) return true
+  return fields.every((key) => walletFieldValid(profile, key))
+}
+
 /** Steps that still have at least one missing portefeuille field. */
 export function walletIncompleteSteps(profile: Wallet): WalletGapStepId[] {
   return WALLET_GAP_STEPS.filter((step) =>

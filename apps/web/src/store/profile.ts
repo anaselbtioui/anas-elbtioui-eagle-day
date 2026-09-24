@@ -477,10 +477,6 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
       }
       await get().persistDraftNow()
       const next = { ...get().profile, onboarded: true, onboardingStep: 0 }
-      if (!next.brokerId.trim()) {
-        set({ saving: false, error: 'broker_required' })
-        throw new Error('broker_required')
-      }
       await api.saveProfile(walletToDomain(next))
       const session = await api.completeProfile()
       dirtyRevision = {}

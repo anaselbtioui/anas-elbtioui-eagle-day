@@ -75,26 +75,26 @@ export async function fillOnboardingEssentials(
   await page.getByRole('button', { name: /Continuer/i }).click()
   // otp → Passer
   await page.getByRole('button', { name: /Passer/i }).click()
-  // identity
+  // identity — names only; Continue stays off until CIN + city
   const parts = opts.name.trim().split(/\s+/)
   await page.getByLabel(/^Prénom$/i).fill(parts[0] ?? opts.name)
   await page.getByLabel(/^Nom$/i).fill(parts.slice(1).join(' ') || 'Test')
-  await page.getByRole('button', { name: /Continuer/i }).click()
-  // permis → Passer
-  await page.getByRole('button', { name: /Passer/i }).click()
-  // carte grise
+  await page.getByTestId('onboarding-skip-step').click()
+  // permis → skip
+  await page.getByTestId('onboarding-skip-step').click()
+  // carte grise — plate only; vehicle still missing
   await page.getByLabel(/Immatriculation/i).fill(opts.plate)
-  await page.getByRole('button', { name: /Continuer/i }).click()
-  // attestation
+  await page.getByTestId('onboarding-skip-step').click()
+  // attestation — insurer only; date still missing
   await page.getByLabel(/^Assureur/i).fill(opts.insurer)
   if (opts.policy) {
     await page.getByLabel(/Numéro de contrat/i).fill(opts.policy)
   }
-  await page.getByRole('button', { name: /Continuer/i }).click()
-  // broker → Passer
-  await page.getByRole('button', { name: /Passer/i }).click()
-  // assistance → Passer
-  await page.getByRole('button', { name: /Passer/i }).click()
+  await page.getByTestId('onboarding-skip-step').click()
+  // broker → skip
+  await page.getByTestId('onboarding-skip-step').click()
+  // assistance → skip
+  await page.getByTestId('onboarding-skip-step').click()
   // review → Continuer
   await page.getByRole('button', { name: /Continuer/i }).click()
   // done

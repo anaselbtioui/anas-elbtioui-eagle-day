@@ -13,6 +13,7 @@ import {
   walletFieldNeedsInput,
   walletFullyComplete,
   walletRemainingPercent,
+  walletStepReady,
   walletToDomain,
   domainToWallet,
   type Wallet,
@@ -307,5 +308,35 @@ describe('wallet ↔ domain round-trip', () => {
     expect(back.insurer).toBe('')
     expect(back.broker).toBe('')
     expect(walletFieldFilled(back, 'insurer')).toBe(false)
+  })
+})
+
+describe('walletStepReady', () => {
+  it('is false on empty gap steps and true when fields are valid', () => {
+    expect(walletStepReady(emptyWallet, 'identity')).toBe(false)
+    expect(walletStepReady(emptyWallet, 'permis')).toBe(false)
+    expect(walletStepReady(emptyWallet, 'carteGrise')).toBe(false)
+    expect(walletStepReady(emptyWallet, 'attestation')).toBe(false)
+    expect(walletStepReady(emptyWallet, 'broker')).toBe(false)
+    expect(walletStepReady(emptyWallet, 'welcome')).toBe(true)
+
+    const ready: Wallet = {
+      ...emptyWallet,
+      firstName: 'Nadia',
+      lastName: 'El Mansouri',
+      cin: 'AB123456',
+      city: 'Casablanca',
+      licenseNumber: 'P-1',
+      plate: '12345-A-16',
+      vehicle: 'Dacia Sandero 2022',
+      insurer: 'Sanlam Maroc',
+      attestationValidUntil: '2099-06-01',
+      brokerId: 'B-1',
+    }
+    expect(walletStepReady(ready, 'identity')).toBe(true)
+    expect(walletStepReady(ready, 'permis')).toBe(true)
+    expect(walletStepReady(ready, 'carteGrise')).toBe(true)
+    expect(walletStepReady(ready, 'attestation')).toBe(true)
+    expect(walletStepReady(ready, 'broker')).toBe(true)
   })
 })
