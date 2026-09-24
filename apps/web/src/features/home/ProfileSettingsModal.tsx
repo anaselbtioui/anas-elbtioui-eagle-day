@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
+import { AvatarPhotoField } from '@/features/home/AvatarPhotoField'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
 import { CitySelect } from '@/components/CitySelect'
 import { InsurerSelect } from '@/components/InsurerSelect'
@@ -30,7 +31,7 @@ import {
 import { cn } from '@/lib/utils'
 
 type ProfileCategory = 'identite' | 'vehicule' | 'contrat' | 'courtier'
-type SettingsCategory = ProfileCategory | 'general' | 'compte'
+type SettingsCategory = 'profil' | ProfileCategory | 'general' | 'compte'
 
 const PROFILE_CATEGORIES: ProfileCategory[] = [
   'identite',
@@ -39,9 +40,10 @@ const PROFILE_CATEGORIES: ProfileCategory[] = [
   'courtier',
 ]
 
-const CATEGORIES: SettingsCategory[] = [...PROFILE_CATEGORIES, 'general', 'compte']
+const CATEGORIES: SettingsCategory[] = ['profil', ...PROFILE_CATEGORIES, 'general', 'compte']
 
 const CATEGORY_ICON: Record<SettingsCategory, LabasIconName> = {
+  profil: 'camera',
   identite: 'user',
   vehicule: 'car',
   contrat: 'clipboard',
@@ -92,6 +94,11 @@ function countDraftChanges(draft: Wallet, baseline: Wallet): number {
     const b = String(baseline[key] ?? '').trim()
     if (a !== b) n += 1
   }
+  const avatarLocal = String(draft.avatarPhotoLocal ?? '').trim()
+  const baseAvatarLocal = String(baseline.avatarPhotoLocal ?? '').trim()
+  const avatarPath = String(draft.avatarPhotoPath ?? '').trim()
+  const baseAvatarPath = String(baseline.avatarPhotoPath ?? '').trim()
+  if (avatarLocal !== baseAvatarLocal || avatarPath !== baseAvatarPath) n += 1
   return n
 }
 
@@ -204,7 +211,7 @@ export function ProfileSettingsModal({
   const { setProfile, persistDraft, saving, error } = useProfileStore()
   const [draft, setDraft] = useState<Wallet>(emptyWallet)
   const [baseline, setBaseline] = useState<Wallet>(emptyWallet)
-  const [category, setCategory] = useState<SettingsCategory>('identite')
+  const [category, setCategory] = useState<SettingsCategory>('profil')
   const [persistError, setPersistError] = useState<string | null>(null)
   const [persistBusy, setPersistBusy] = useState(false)
   const [brokerEmail, setBrokerEmail] = useState<string | null>(null)
@@ -214,7 +221,7 @@ export function ProfileSettingsModal({
 
   useEffect(() => {
     if (!open) {
-      setCategory('identite')
+      setCategory('profil')
       setPersistError(null)
       setBrokerEmail(null)
       return
@@ -274,6 +281,8 @@ export function ProfileSettingsModal({
   }
 
   const showEditableForm = isEditableCategory(category)
+  const showProfil = category === 'profil'
+  const showSaveBar = showEditableForm || showProfil
   const changeCount = countDraftChanges(draft, baseline)
   const canSave = draftSaveOk(draft) && changeCount > 0
 
@@ -334,6 +343,31 @@ export function ProfileSettingsModal({
               bodyClassName="p-5"
               footerClassName="border-border/60 bg-sand/30 px-5"
             >
+              {showProfil ? (
+                <>
+                  <h2 className="font-display text-xl font-bold text-ink">
+                    {t('motorist.settingsCat.profil')}
+                  </h2>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {t('motorist.settingsCatHint.profil')}
+                  </p>
+                  <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface p-4">
+                    <AvatarPhotoField
+                      value={draft.avatarPhotoLocal}
+                      onChange={(next) =>
+                        patchDraft({
+                          avatarPhotoLocal: next,
+                          ...(next ? {} : { avatarPhotoPath: '' }),
+                        })
+                      }
+                    />
+                  </div>
+                  {(persistError || error) && (
+                    <p className="mt-3 text-sm text-alert">{persistError || error}</p>
+                  )}
+                </>
+              ) : null}
+
               {showEditableForm ? (
                 <>
                   <h2 className="font-display text-xl font-bold text-ink">
@@ -427,21 +461,23 @@ export function ProfileSettingsModal({
                   {(persistError || error) && (
                     <p className="mt-3 text-sm text-alert">{persistError || error}</p>
                   )}
-
-                  <StickyActions>
-                    <Button
-                      type="button"
-                      loading={persistBusy || saving}
-                      disabled={!canSave}
-                      onClick={() => void persist()}
-                      data-testid="settings-save"
-                    >
-                      {changeCount > 0
-                        ? t('app.saveChanges', { count: changeCount })
-                        : t('app.save')}
-                    </Button>
-                  </StickyActions>
                 </>
+              ) : null}
+
+              {showSaveBar ? (
+                <StickyActions>
+                  <Button
+                    type="button"
+                    loading={persistBusy || saving}
+                    disabled={!canSave}
+                    onClick={() => void persist()}
+                    data-testid="settings-save"
+                  >
+                    {changeCount > 0
+                      ? t('app.saveChanges', { count: changeCount })
+                      : t('app.save')}
+                  </Button>
+                </StickyActions>
               ) : null}
 
               {category === 'courtier' ? (

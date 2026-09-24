@@ -39,6 +39,9 @@ export type Wallet = {
   licensePhotoPath: string
   carteGrisePhotoPath: string
   attestationPhotoPath: string
+  /** Circular profile picture (data URL or signed URL). */
+  avatarPhotoLocal: string
+  avatarPhotoPath: string
   /** ISO date YYYY-MM-DD when attestation expires. */
   attestationValidUntil: string
   /** Mock OTP verified on this device (Phase 1). */
@@ -83,6 +86,8 @@ export const emptyWallet: Wallet = {
   licensePhotoPath: '',
   carteGrisePhotoPath: '',
   attestationPhotoPath: '',
+  avatarPhotoLocal: '',
+  avatarPhotoPath: '',
   attestationValidUntil: '',
   phoneVerified: false,
   alsoTellEmployerIfCommute: false,
@@ -171,9 +176,11 @@ export function migrateDeviceWallet(wallet: Wallet): Wallet {
     licensePhotoLocal: named.licensePhotoLocal,
     carteGrisePhotoLocal: named.carteGrisePhotoLocal,
     attestationPhotoLocal: named.attestationPhotoLocal,
+    avatarPhotoLocal: named.avatarPhotoLocal,
     licensePhotoPath: named.licensePhotoPath,
     carteGrisePhotoPath: named.carteGrisePhotoPath,
     attestationPhotoPath: named.attestationPhotoPath,
+    avatarPhotoPath: named.avatarPhotoPath,
     attestationValidUntil: named.attestationValidUntil,
     phoneVerified: named.phoneVerified,
     alsoTellEmployerIfCommute: named.alsoTellEmployerIfCommute,
@@ -374,6 +381,7 @@ export function walletToDomain(wallet: Wallet): DomainProfile {
       licensePhotoPath: wallet.licensePhotoPath.trim() || null,
       carteGrisePhotoPath: wallet.carteGrisePhotoPath.trim() || null,
       attestationPhotoPath: wallet.attestationPhotoPath.trim() || null,
+      avatarPhotoPath: wallet.avatarPhotoPath.trim() || null,
       assistanceNumber: wallet.assistanceNumber.trim() || null,
       brokerPhone: wallet.brokerPhone.trim() || null,
       onboardingStep: wallet.onboardingStep,
@@ -457,9 +465,11 @@ export function domainToWallet(profile: DomainProfile, extra?: Partial<Wallet>):
       profile.motorist.carteGrisePhotoPath ?? extra?.carteGrisePhotoPath ?? '',
     attestationPhotoPath:
       profile.motorist.attestationPhotoPath ?? extra?.attestationPhotoPath ?? '',
+    avatarPhotoPath: profile.motorist.avatarPhotoPath ?? extra?.avatarPhotoPath ?? '',
     licensePhotoLocal: extra?.licensePhotoLocal ?? '',
     carteGrisePhotoLocal: extra?.carteGrisePhotoLocal ?? '',
     attestationPhotoLocal: extra?.attestationPhotoLocal ?? '',
+    avatarPhotoLocal: extra?.avatarPhotoLocal ?? '',
     attestationValidUntil:
       profile.policy.attestationValidUntil ?? extra?.attestationValidUntil ?? '',
     assistanceNumber:

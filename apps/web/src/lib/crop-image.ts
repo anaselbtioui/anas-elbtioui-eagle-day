@@ -1,5 +1,8 @@
 import type { Area } from 'react-easy-crop'
 
+/** Circular profile picture. */
+export const AVATAR_CROP_ASPECT = 1
+
 /** ID-1 card (permis, carte grise, attestation). */
 export const DOCUMENT_CROP_ASPECT = 85.6 / 53.98
 

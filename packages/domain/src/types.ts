@@ -33,6 +33,8 @@ export type Motorist = {
   licensePhotoPath: string | null
   carteGrisePhotoPath: string | null
   attestationPhotoPath: string | null
+  /** Circular profile picture in settings / shell avatar. */
+  avatarPhotoPath: string | null
   /** Client-only wallet fields persisted server-side. */
   assistanceNumber: string | null
   brokerPhone: string | null

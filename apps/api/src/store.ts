@@ -74,6 +74,7 @@ export async function loadDb(): Promise<Db> {
         licensePhotoPath: m.licensePhotoPath ?? null,
         carteGrisePhotoPath: m.carteGrisePhotoPath ?? null,
         attestationPhotoPath: m.attestationPhotoPath ?? null,
+        avatarPhotoPath: m.avatarPhotoPath ?? null,
         assistanceNumber: m.assistanceNumber ?? null,
         brokerPhone: m.brokerPhone ?? null,
         onboardingStep: m.onboardingStep ?? 0,

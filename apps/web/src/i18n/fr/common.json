@@ -196,6 +196,7 @@
     "brokerUnset": "Aucun courtier associé",
     "brokerContactHint": "Le téléphone et les coordonnées du courtier viennent de son compte Med Assurance — pas de saisie automobiliste.",
     "settingsCat": {
+      "profil": "Profil",
       "identite": "Identité",
       "vehicule": "Véhicule",
       "contrat": "Contrat",
@@ -204,6 +205,7 @@
       "compte": "Compte"
     },
     "settingsCatHint": {
+      "profil": "Photo affichée dans le menu compte",
       "identite": "Nom, téléphone, CIN, ville et permis",
       "vehicule": "Immatriculation et description du véhicule",
       "contrat": "Assureur, n° de contrat, attestation et assistance",
@@ -211,6 +213,8 @@
       "general": "Langue d’affichage sur cet appareil",
       "compte": "Compte et données sur cet appareil"
     },
+    "avatarLabel": "Photo de profil",
+    "avatarHint": "Recadrage carré. Visible dans le menu compte de la barre latérale.",
     "walletNudgePeek": "À compléter",
     "walletNudgeRemaining": "Il vous reste {{pct}} % pour compléter votre portefeuille",
     "walletNudgeGaps": "{{count}} étape(s) à compléter — seuls les champs manquants",
@@ -298,8 +302,12 @@
     "vehicleYear": "Année",
     "vehicleOther": "Autre",
     "vehicleOtherPh": "Marque, modèle, année",
+    "vehicleMakeSearch": "Rechercher une marque…",
+    "vehicleMakeEmpty": "Aucune marque ne correspond",
     "insurer": "Assureur",
     "insurerPick": "Choisir l’assureur…",
+    "insurerSearch": "Rechercher un assureur…",
+    "insurerEmpty": "Aucun assureur ne correspond",
     "policy": "Numéro de contrat (facultatif)",
     "broker": "Courtier",
     "brokerPhone": "Téléphone courtier",

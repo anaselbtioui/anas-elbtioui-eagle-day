@@ -226,6 +226,7 @@ export function createImportBundle(input: {
       licensePhotoPath: null,
       carteGrisePhotoPath: null,
       attestationPhotoPath: null,
+      avatarPhotoPath: null,
       assistanceNumber: null,
       brokerPhone: null,
       onboardingStep: 0,

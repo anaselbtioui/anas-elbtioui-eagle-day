@@ -91,11 +91,11 @@ export type LabasHttpApi = {
   saveProfile: (profile: Profile & { brokerAutoAssignAck?: boolean }) => Promise<Profile>
   completeProfile: () => Promise<AuthSession>
   uploadProfileDoc: (
-    kind: 'license' | 'carteGrise' | 'attestation',
+    kind: 'license' | 'carteGrise' | 'attestation' | 'avatar',
     dataUrl: string,
   ) => Promise<{ kind: string; path: string }>
   profileDocUrl: (
-    kind: 'license' | 'carteGrise' | 'attestation',
+    kind: 'license' | 'carteGrise' | 'attestation' | 'avatar',
   ) => Promise<{ url: string; path: string }>
   loadDemoProfile: () => Promise<Profile>
   listContacts: (

@@ -187,6 +187,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
         homeTo="/"
         navLabel={t('motorist.navLabel')}
         displayName={displayName}
+        avatarUrl={profile.avatarPhotoLocal.trim() || undefined}
         avatarTestId="motorist-avatar"
         onSettings={() => setSettingsOpen(true)}
         sidebarPrimary={

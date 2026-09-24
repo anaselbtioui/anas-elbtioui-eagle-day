@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils'
 
 type AccountMenuProps = {
   displayName: string
+  /** Signed URL or data URL for circular avatar; icon fallback when empty. */
+  avatarUrl?: string
   avatarTestId: string
   onSettings: () => void
 }
@@ -14,7 +16,12 @@ const menuItemClass =
   'flex min-h-10 w-full items-center gap-2.5 rounded-[calc(var(--radius-labas)-2px)] px-2.5 text-left text-sm font-semibold text-ink transition-colors hover:bg-sand-deep/80'
 
 /** Avatar row opens settings and log out. Same control on both shells. */
-export function AccountMenu({ displayName, avatarTestId, onSettings }: AccountMenuProps) {
+export function AccountMenu({
+  displayName,
+  avatarUrl,
+  avatarTestId,
+  onSettings,
+}: AccountMenuProps) {
   const { t } = useTranslation()
   const menuId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -49,10 +56,14 @@ export function AccountMenu({ displayName, avatarTestId, onSettings }: AccountMe
         onClick={() => setOpen((value) => !value)}
       >
         <span
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink-soft outline outline-1 outline-ink/15"
+          className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink-soft outline outline-1 outline-ink/15"
           aria-hidden
         >
-          <LabasIcon name="user" className="h-5 w-5" tone="onSand" />
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <LabasIcon name="user" className="h-5 w-5" tone="onSand" />
+          )}
         </span>
         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink" title={displayName}>
           {displayName}

@@ -51,7 +51,7 @@ export function evidenceObjectPath(
 
 export function walletDocObjectPath(
   motoristId: string,
-  kind: 'license' | 'carteGrise' | 'attestation',
+  kind: 'license' | 'carteGrise' | 'attestation' | 'avatar',
   ext: string,
 ): string {
   const safeMotorist = motoristId.replace(/[^a-zA-Z0-9._-]/g, '_')

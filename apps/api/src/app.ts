@@ -552,7 +552,7 @@ export function createApp(
     if (!storageConfigured()) return c.json({ error: 'storage_unconfigured' }, 503)
     const auth = c.get('auth')!
     const body = await readJson<{
-      kind?: 'license' | 'carteGrise' | 'attestation'
+      kind?: 'license' | 'carteGrise' | 'attestation' | 'avatar'
       dataUrl?: string
     }>(c, {})
     if (!body.kind || !body.dataUrl) return c.json({ error: 'kind_and_data_required' }, 400)
@@ -570,7 +570,9 @@ export function createApp(
         ? 'licensePhotoPath'
         : body.kind === 'carteGrise'
           ? 'carteGrisePhotoPath'
-          : 'attestationPhotoPath'
+          : body.kind === 'attestation'
+            ? 'attestationPhotoPath'
+            : 'avatarPhotoPath'
 
     await write((db) => {
       const motorist = db.motorists.find((m) => m.id === auth.motoristId)
@@ -588,7 +590,12 @@ export function createApp(
     if (denied) return denied
     if (!storageConfigured()) return c.json({ error: 'storage_unconfigured' }, 503)
     const kind = c.req.param('kind')
-    if (kind !== 'license' && kind !== 'carteGrise' && kind !== 'attestation') {
+    if (
+      kind !== 'license' &&
+      kind !== 'carteGrise' &&
+      kind !== 'attestation' &&
+      kind !== 'avatar'
+    ) {
       return c.json({ error: 'invalid_kind' }, 400)
     }
     const auth = c.get('auth')!
@@ -600,7 +607,9 @@ export function createApp(
         ? motorist.licensePhotoPath
         : kind === 'carteGrise'
           ? motorist.carteGrisePhotoPath
-          : motorist.attestationPhotoPath
+          : kind === 'attestation'
+            ? motorist.attestationPhotoPath
+            : motorist.avatarPhotoPath
     if (!path) return c.json({ error: 'not_found' }, 404)
     const url = await signedEvidenceUrl(path)
     return c.json({ url, path })

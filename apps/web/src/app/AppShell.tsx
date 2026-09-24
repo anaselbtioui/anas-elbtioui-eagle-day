@@ -68,6 +68,7 @@ type AppShellProps = {
   homeTo: string
   navLabel: string
   displayName: string
+  avatarUrl?: string
   avatarTestId: string
   /** Settings entry in the account menu. */
   onSettings: () => void
@@ -88,6 +89,7 @@ export function AppShell({
   homeTo,
   navLabel,
   displayName,
+  avatarUrl,
   avatarTestId,
   onSettings,
   sidebarPrimary,
@@ -140,6 +142,7 @@ export function AppShell({
         <div className="mt-3 border-t border-border/60 pt-3 md:mt-auto">
           <AccountMenu
             displayName={displayName}
+            avatarUrl={avatarUrl}
             avatarTestId={avatarTestId}
             onSettings={onSettings}
           />

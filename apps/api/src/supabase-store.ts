@@ -130,6 +130,7 @@ export async function loadDb(): Promise<Db> {
         license_photo_path?: string | null
         carte_grise_photo_path?: string | null
         attestation_photo_path?: string | null
+        avatar_photo_path?: string | null
         assistance_number?: string | null
         broker_phone?: string | null
         onboarding_step?: number | null
@@ -150,6 +151,7 @@ export async function loadDb(): Promise<Db> {
       licensePhotoPath: r.license_photo_path ?? null,
       carteGrisePhotoPath: r.carte_grise_photo_path ?? null,
       attestationPhotoPath: r.attestation_photo_path ?? null,
+      avatarPhotoPath: r.avatar_photo_path ?? null,
       assistanceNumber: r.assistance_number ?? null,
       brokerPhone: r.broker_phone ?? null,
       onboardingStep: r.onboarding_step ?? 0,
@@ -471,6 +473,7 @@ async function upsertAllTables(db: Db): Promise<void> {
         license_photo_path: r.licensePhotoPath,
         carte_grise_photo_path: r.carteGrisePhotoPath,
         attestation_photo_path: r.attestationPhotoPath,
+        avatar_photo_path: r.avatarPhotoPath,
         assistance_number: r.assistanceNumber,
         broker_phone: r.brokerPhone,
         onboarding_step: r.onboardingStep,
@@ -608,6 +611,7 @@ function mapMotoristRow(r: {
   license_photo_path?: string | null
   carte_grise_photo_path?: string | null
   attestation_photo_path?: string | null
+  avatar_photo_path?: string | null
   assistance_number?: string | null
   broker_phone?: string | null
   onboarding_step?: number | null
@@ -628,6 +632,7 @@ function mapMotoristRow(r: {
     licensePhotoPath: r.license_photo_path ?? null,
     carteGrisePhotoPath: r.carte_grise_photo_path ?? null,
     attestationPhotoPath: r.attestation_photo_path ?? null,
+    avatarPhotoPath: r.avatar_photo_path ?? null,
     assistanceNumber: r.assistance_number ?? null,
     brokerPhone: r.broker_phone ?? null,
     onboardingStep: r.onboarding_step ?? 0,
@@ -747,6 +752,7 @@ export async function upsertProfileEntitiesUnlocked(profile: Profile): Promise<v
           license_photo_path: profile.motorist.licensePhotoPath,
           carte_grise_photo_path: profile.motorist.carteGrisePhotoPath,
           attestation_photo_path: profile.motorist.attestationPhotoPath,
+          avatar_photo_path: profile.motorist.avatarPhotoPath,
           assistance_number: profile.motorist.assistanceNumber,
           broker_phone: profile.motorist.brokerPhone,
           onboarding_step: profile.motorist.onboardingStep,

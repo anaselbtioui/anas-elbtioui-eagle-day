@@ -1,7 +1,7 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
+import { SearchablePickPanel, type SearchablePickOption } from '@/components/SearchablePickPanel'
 import {
   formatVehicleLabel,
   parseVehicleLabel,
@@ -16,10 +16,6 @@ const OTHER = '__other__'
 
 const selectClass =
   "min-h-12 w-full appearance-none rounded-[var(--radius-labas)] border-2 border-border bg-surface bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23102860'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")] bg-[length:1.1rem] bg-[right_0.875rem_center] bg-no-repeat py-3 pl-4 pr-10 text-base text-ink focus-visible:border-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink disabled:cursor-not-allowed disabled:opacity-50"
-
-const LIST_GAP = 4
-const EDGE = 8
-const LIST_MAX_PX = 280
 
 type Draft = {
   make: string
@@ -43,14 +39,6 @@ function committedLabel(draft: Draft): string {
   return ''
 }
 
-function stickyFooterTop(): number {
-  const el = document.querySelector('[data-sticky-actions-footer]:not([hidden])')
-  if (!(el instanceof HTMLElement)) return window.innerHeight
-  const r = el.getBoundingClientRect()
-  if (r.height <= 0 || r.top >= window.innerHeight) return window.innerHeight
-  return r.top
-}
-
 function MakeLogo({ make, className }: { make: string; className?: string }) {
   const url = vehicleMakeLogoUrl(make)
   const [failed, setFailed] = useState(false)
@@ -69,13 +57,6 @@ function MakeLogo({ make, className }: { make: string; className?: string }) {
   )
 }
 
-type ListPos = {
-  top: number
-  left: number
-  width: number
-  maxHeight: number
-}
-
 type VehicleSelectProps = {
   id?: string
   value: string
@@ -88,22 +69,33 @@ type VehicleSelectProps = {
 /** Marque, modèle, année from a local Moroccan parc list. Autre keeps free text. */
 export function VehicleSelect({ id, value, onChange, className, highlight = false }: VehicleSelectProps) {
   const { t } = useTranslation()
-  const listId = useId()
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const listRef = useRef<HTMLUListElement>(null)
-  const rootRef = useRef<HTMLDivElement>(null)
   const [draft, setDraft] = useState(() => draftFromValue(value))
   const [makeOpen, setMakeOpen] = useState(false)
-  const [pos, setPos] = useState<ListPos>({ top: 0, left: 0, width: 0, maxHeight: LIST_MAX_PX })
   const years = vehicleYears()
   const models = vehicleModels(draft.make)
-  const makes = vehicleMakes()
   const other = draft.make === OTHER
   const gapMake = highlight && !draft.make
   const gapModel = highlight && Boolean(draft.make) && draft.make !== OTHER && !draft.model
   const gapYear = highlight && Boolean(draft.model) && !draft.year
   const gapOther = highlight && other && !draft.otherText.trim()
   const gapStyle = 'border-alert ring-2 ring-alert/35'
+
+  const makeOptions: SearchablePickOption[] = useMemo(() => {
+    const brands = vehicleMakes().map((make) => ({
+      value: make,
+      label: make,
+      leading: <MakeLogo make={make} />,
+    }))
+    return [
+      ...brands,
+      {
+        value: OTHER,
+        label: t('onboarding.vehicleOther'),
+        leading: <span className="h-7 w-7 shrink-0" aria-hidden />,
+      },
+    ]
+  }, [t])
 
   useEffect(() => {
     setDraft((current) => {
@@ -112,45 +104,6 @@ export function VehicleSelect({ id, value, onChange, className, highlight = fals
       return draftFromValue(value)
     })
   }, [value])
-
-  useLayoutEffect(() => {
-    if (!makeOpen) return
-    function place() {
-      const r = triggerRef.current?.getBoundingClientRect()
-      if (!r) return
-      const bottomLimit = stickyFooterTop() - EDGE
-      const spaceBelow = Math.max(0, bottomLimit - (r.bottom + LIST_GAP))
-      const spaceAbove = Math.max(0, r.top - EDGE - LIST_GAP)
-      const preferBelow =
-        spaceBelow >= Math.min(LIST_MAX_PX, 140) || spaceBelow >= spaceAbove
-      const maxHeight = Math.max(72, Math.min(LIST_MAX_PX, preferBelow ? spaceBelow : spaceAbove))
-      setPos({
-        top: preferBelow ? r.bottom + LIST_GAP : r.top - LIST_GAP - maxHeight,
-        left: r.left,
-        width: r.width,
-        maxHeight,
-      })
-    }
-    place()
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    return () => {
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
-    }
-  }, [makeOpen])
-
-  useEffect(() => {
-    if (!makeOpen) return
-    function onDoc(e: MouseEvent) {
-      const target = e.target as Node
-      if (rootRef.current?.contains(target)) return
-      if (listRef.current?.contains(target)) return
-      setMakeOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [makeOpen])
 
   function publish(next: Draft) {
     setDraft(next)
@@ -175,60 +128,8 @@ export function VehicleSelect({ id, value, onChange, className, highlight = fals
         ? draft.make
         : t('onboarding.vehicleMake')
 
-  const makeList = makeOpen
-    ? createPortal(
-        <ul
-          ref={listRef}
-          id={listId}
-          role="listbox"
-          className="pointer-events-auto fixed z-[80] overflow-auto rounded-[var(--radius-labas)] border border-border bg-surface py-1 shadow-[0_12px_40px_-16px_rgba(16,40,96,0.45)]"
-          style={{
-            top: pos.top,
-            left: pos.left,
-            width: pos.width,
-            maxHeight: pos.maxHeight,
-          }}
-          data-testid="vehicle-make-list"
-        >
-          {makes.map((make) => (
-            <li key={make} role="option" aria-selected={make === draft.make}>
-              <button
-                type="button"
-                className={cn(
-                  'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-ink hover:bg-sand-deep',
-                  make === draft.make && 'bg-ink-soft',
-                )}
-                data-testid={`vehicle-make-option-${make}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => pickMake(make)}
-              >
-                <MakeLogo make={make} />
-                <span>{make}</span>
-              </button>
-            </li>
-          ))}
-          <li role="option" aria-selected={other}>
-            <button
-              type="button"
-              className={cn(
-                'flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-ink hover:bg-sand-deep',
-                other && 'bg-ink-soft',
-              )}
-              data-testid="vehicle-make-option-other"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pickMake(OTHER)}
-            >
-              <span className="h-7 w-7 shrink-0" aria-hidden />
-              <span>{t('onboarding.vehicleOther')}</span>
-            </button>
-          </li>
-        </ul>,
-        document.body,
-      )
-    : null
-
   return (
-    <div ref={rootRef} className={cn('grid gap-2', className)} data-testid="vehicle-select">
+    <div className={cn('grid gap-2', className)} data-testid="vehicle-select">
       <button
         ref={triggerRef}
         id={id}
@@ -236,7 +137,6 @@ export function VehicleSelect({ id, value, onChange, className, highlight = fals
         aria-label={t('onboarding.vehicleMake')}
         aria-haspopup="listbox"
         aria-expanded={makeOpen}
-        aria-controls={listId}
         className={cn(
           'flex min-h-12 w-full items-center gap-3 rounded-[var(--radius-labas)] border-2 border-border bg-surface py-3 pl-4 pr-10 text-left text-base text-ink',
           "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23102860'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")] bg-[length:1.1rem] bg-[right_0.875rem_center] bg-no-repeat",
@@ -254,7 +154,22 @@ export function VehicleSelect({ id, value, onChange, className, highlight = fals
         {draft.make && draft.make !== OTHER ? <MakeLogo make={draft.make} /> : null}
         <span className="min-w-0 truncate">{makeLabel}</span>
       </button>
-      {makeList}
+
+      <SearchablePickPanel
+        open={makeOpen}
+        onClose={() => setMakeOpen(false)}
+        anchorRef={triggerRef}
+        options={makeOptions}
+        value={draft.make}
+        onPick={pickMake}
+        searchPlaceholder={t('onboarding.vehicleMakeSearch')}
+        emptyLabel={t('onboarding.vehicleMakeEmpty')}
+        listTestId="vehicle-make-list"
+        searchTestId="vehicle-make-search"
+        optionTestId={(v) =>
+          v === OTHER ? 'vehicle-make-option-other' : `vehicle-make-option-${v}`
+        }
+      />
 
       {other ? (
         <Input

@@ -63,9 +63,11 @@ const DRAFT_KEYS = [
   'licensePhotoLocal',
   'carteGrisePhotoLocal',
   'attestationPhotoLocal',
+  'avatarPhotoLocal',
   'licensePhotoPath',
   'carteGrisePhotoPath',
   'attestationPhotoPath',
+  'avatarPhotoPath',
   'attestationValidUntil',
   'phoneVerified',
   'onboardingStep',
@@ -170,9 +172,9 @@ async function flushPersistDraft(
     let toSave = wallet
     const pathPatches: Partial<Wallet> = {}
     const docs: Array<{
-      kind: 'license' | 'carteGrise' | 'attestation'
+      kind: 'license' | 'carteGrise' | 'attestation' | 'avatar'
       local: string
-      pathKey: 'licensePhotoPath' | 'carteGrisePhotoPath' | 'attestationPhotoPath'
+      pathKey: 'licensePhotoPath' | 'carteGrisePhotoPath' | 'attestationPhotoPath' | 'avatarPhotoPath'
     }> = [
       {
         kind: 'license',
@@ -188,6 +190,11 @@ async function flushPersistDraft(
         kind: 'attestation',
         local: wallet.attestationPhotoLocal,
         pathKey: 'attestationPhotoPath',
+      },
+      {
+        kind: 'avatar',
+        local: wallet.avatarPhotoLocal,
+        pathKey: 'avatarPhotoPath',
       },
     ]
     for (const doc of docs) {
@@ -224,6 +231,7 @@ async function flushPersistDraft(
       licensePhotoLocal: keepInflightPhoto(cur.profile.licensePhotoLocal),
       carteGrisePhotoLocal: keepInflightPhoto(cur.profile.carteGrisePhotoLocal),
       attestationPhotoLocal: keepInflightPhoto(cur.profile.attestationPhotoLocal),
+      avatarPhotoLocal: keepInflightPhoto(cur.profile.avatarPhotoLocal),
       assistanceNumber: toSave.assistanceNumber,
       brokerPhone: toSave.brokerPhone,
       onboardingStep: toSave.onboardingStep,
@@ -253,6 +261,7 @@ async function flushPersistDraft(
           licensePhotoLocal: keepInflightPhoto(cur.profile.licensePhotoLocal),
           carteGrisePhotoLocal: keepInflightPhoto(cur.profile.carteGrisePhotoLocal),
           attestationPhotoLocal: keepInflightPhoto(cur.profile.attestationPhotoLocal),
+          avatarPhotoLocal: keepInflightPhoto(cur.profile.avatarPhotoLocal),
           assistanceNumber: cur.serverProfile.assistanceNumber,
           brokerPhone: cur.serverProfile.brokerPhone,
           phoneVerified: cur.serverProfile.phoneVerified,
@@ -426,6 +435,7 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         licensePhotoLocal: keepInflightPhoto(cur.profile.licensePhotoLocal),
         carteGrisePhotoLocal: keepInflightPhoto(cur.profile.carteGrisePhotoLocal),
         attestationPhotoLocal: keepInflightPhoto(cur.profile.attestationPhotoLocal),
+        avatarPhotoLocal: keepInflightPhoto(cur.profile.avatarPhotoLocal),
       })
       let onboarded = cur.profile.onboarded
       try {
@@ -444,10 +454,14 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
       }
 
       const fillPhoto = async (
-        kind: 'license' | 'carteGrise' | 'attestation',
+        kind: 'license' | 'carteGrise' | 'attestation' | 'avatar',
         path: string,
         local: string,
-        key: 'licensePhotoLocal' | 'carteGrisePhotoLocal' | 'attestationPhotoLocal',
+        key:
+          | 'licensePhotoLocal'
+          | 'carteGrisePhotoLocal'
+          | 'attestationPhotoLocal'
+          | 'avatarPhotoLocal',
       ) => {
         if (!path || local.startsWith('data:')) return
         if (/^https?:\/\//i.test(local)) return
@@ -475,6 +489,12 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         server.attestationPhotoPath,
         server.attestationPhotoLocal,
         'attestationPhotoLocal',
+      )
+      await fillPhoto(
+        'avatar',
+        server.avatarPhotoPath,
+        server.avatarPhotoLocal,
+        'avatarPhotoLocal',
       )
       // Stale/incomplete GET must not blank fields the user just finished.
       // Re-dirt those keys so the next PUT retries until the server sticks.

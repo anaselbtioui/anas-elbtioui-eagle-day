@@ -169,7 +169,8 @@ test.describe('wallet flow', () => {
     await continueBtn(page).click()
 
     // attestation — optional policy empty OK; past date blocks Continue + Skip
-    await page.getByTestId('insurer-select').selectOption('Sanlam Maroc')
+    await page.getByTestId('insurer-select').click()
+  await page.getByTestId('insurer-option-Sanlam Maroc').click({ force: true })
     const expiredIso = isoDaysFromNow(-45)
     await setAttestationDate(page, expiredIso)
     await expect(page.getByText(/Attestation expired|Attestation expirée/i)).toBeVisible()

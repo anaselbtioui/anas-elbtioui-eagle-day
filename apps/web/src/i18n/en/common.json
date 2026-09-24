@@ -196,6 +196,7 @@
     "brokerUnset": "No broker linked",
     "brokerContactHint": "Broker phone and details come from their Med Assurance account — not motorist input.",
     "settingsCat": {
+      "profil": "Profile",
       "identite": "Identity",
       "vehicule": "Vehicle",
       "contrat": "Contract",
@@ -204,6 +205,7 @@
       "compte": "Account"
     },
     "settingsCatHint": {
+      "profil": "Photo shown on your account menu",
       "identite": "Name, phone, CIN, city and licence",
       "vehicule": "Plate and vehicle description",
       "contrat": "Insurer, contract number, attestation and assistance",
@@ -211,6 +213,8 @@
       "general": "Display language for this device",
       "compte": "Account and data on this device"
     },
+    "avatarLabel": "Profile photo",
+    "avatarHint": "Square crop. Shows in the sidebar account menu.",
     "walletNudgePeek": "To complete",
     "walletNudgeRemaining": "{{pct}}% left to complete your wallet",
     "walletNudgeGaps": "{{count}} step(s) left — only missing fields",
@@ -298,8 +302,12 @@
     "vehicleYear": "Year",
     "vehicleOther": "Other",
     "vehicleOtherPh": "Make, model, year",
+    "vehicleMakeSearch": "Search a make…",
+    "vehicleMakeEmpty": "No make matches",
     "insurer": "Insurer",
     "insurerPick": "Choose the insurer…",
+    "insurerSearch": "Search an insurer…",
+    "insurerEmpty": "No insurer matches",
     "policy": "Contract number (optional)",
     "broker": "Broker",
     "brokerPhone": "Broker phone",

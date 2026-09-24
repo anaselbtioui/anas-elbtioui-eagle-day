@@ -60,6 +60,7 @@ async function createDeclaredDossier(
         licensePhotoPath: null,
         carteGrisePhotoPath: null,
         attestationPhotoPath: null,
+      avatarPhotoPath: null,
         assistanceNumber: null,
         brokerPhone: null,
         onboardingStep: 0,
