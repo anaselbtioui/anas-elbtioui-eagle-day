@@ -5,7 +5,10 @@ import {
 } from '@/domain/ma-fields.ts'
 import { isMoroccanCity } from '@/domain/moroccan-cities.ts'
 import type { AssistanceOnContract, Profile as DomainProfile } from '@/domain/types.ts'
-import { brokerAutoAssignPending as domainBrokerAutoAssignPending } from '@/domain/types.ts'
+import {
+  brokerAutoAssignPending as domainBrokerAutoAssignPending,
+  stubBroker,
+} from '@/domain/types.ts'
 
 export type Wallet = {
   onboarded: boolean
@@ -400,13 +403,12 @@ export function walletToDomain(wallet: Wallet): DomainProfile {
       displayName:
         wallet.insurer.trim() === PLACEHOLDER_INSURER ? '' : wallet.insurer.trim(),
     },
-    broker: {
-      id: wallet.brokerId,
-      displayName:
-        wallet.broker.trim() === 'Courtier' || wallet.broker.trim() === '—'
-          ? ''
-          : wallet.broker.trim(),
-    },
+    broker: stubBroker(
+      wallet.brokerId,
+      wallet.broker.trim() === 'Courtier' || wallet.broker.trim() === '—'
+        ? ''
+        : wallet.broker.trim(),
+    ),
     policy: {
       id: wallet.policyId,
       number: wallet.policy.trim() || null,
