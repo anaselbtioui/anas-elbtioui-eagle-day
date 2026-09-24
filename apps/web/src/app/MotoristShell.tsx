@@ -45,20 +45,14 @@ function RecentPacksSkeleton({ label }: { label: string }) {
 
 function WalletPeekSkeleton({ label }: { label: string }) {
   return (
-    <SkeletonStatus
-      label={label}
-      className="border-t border-border/60 bg-[#faf8f3]/90 px-4 py-3 backdrop-blur-md"
-    >
+    <SkeletonStatus label={label} className="relative z-50 flex w-full justify-center px-4 md:px-8">
       <div
-        className="mx-auto flex w-full max-w-3xl items-center gap-3"
+        className="relative w-full max-w-lg rounded-t-[1.25rem] border border-b-0 border-border bg-surface px-5 pb-4 pt-4 shadow-[0_-8px_40px_rgba(16,40,96,0.12)]"
         aria-hidden
         data-testid="wallet-peek-skeleton"
       >
-        <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
-        <div className="min-w-0 flex-1 space-y-2">
-          <Skeleton className="h-3.5 w-[55%] max-w-[16rem]" />
-          <Skeleton className="h-2.5 w-[35%] max-w-[10rem]" />
-        </div>
+        <Skeleton className="h-5 w-[72%] max-w-[18rem]" />
+        <Skeleton className="mt-2 h-3.5 w-[48%] max-w-[12rem]" />
       </div>
     </SkeletonStatus>
   )
