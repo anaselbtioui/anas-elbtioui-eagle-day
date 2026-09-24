@@ -197,7 +197,12 @@ export function CitySelect({
           aria-expanded={open}
           aria-controls={listId}
           aria-autocomplete="list"
-          autoComplete="address-level2"
+          // Curated list only — never invite browser address autofill (it can
+          // spill the city into nearby given-name / first-name fields).
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          name={`labas-city-${listId}`}
           value={query}
           placeholder={t('fields.citySearch')}
           className={cn(

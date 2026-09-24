@@ -449,6 +449,8 @@ export function ProfileSettingsModal({
                     ) : (
                       <Input
                         type="text"
+                        name={`settings-${key}`}
+                        autoComplete="off"
                         value={draft[key]}
                         onChange={(e) => {
                           const v = e.target.value
