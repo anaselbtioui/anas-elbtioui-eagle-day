@@ -205,18 +205,84 @@ describe('pullRemoteProfile remote-wins', () => {
     expect(p.onboardingStep).toBe(4)
   })
 
-  it('skips pull while a draft persist is pending', async () => {
+  it('flushes pending draft before pull instead of skipping', async () => {
     vi.useFakeTimers()
     try {
       getProfile.mockResolvedValue(remoteProfile())
       useProfileStore.getState().setProfile({ firstName: 'Typing' })
       void useProfileStore.getState().persistDraft()
-      await useProfileStore.getState().pullRemoteProfile()
-      expect(getProfile).not.toHaveBeenCalled()
-      expect(useProfileStore.getState().profile.firstName).toBe('Typing')
+      const pullP = useProfileStore.getState().pullRemoteProfile()
+      await vi.advanceTimersByTimeAsync(400)
+      await pullP
+      expect(saveProfile).toHaveBeenCalled()
+      expect(getProfile).toHaveBeenCalled()
+      expect(useProfileStore.getState().profile.firstName).toBe('Nadia')
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('keeps draft when PUT ack drops a portefeuille field', async () => {
+    saveProfile.mockImplementation(async (p: Profile) => ({
+      ...p,
+      vehicle: { ...p.vehicle, plate: null, makeModel: null },
+      policy: { ...p.policy, attestationValidUntil: null },
+    }))
+    useProfileStore.getState().setProfile({
+      plate: '12345-A-50',
+      vehicle: 'Dacia Logan 2020',
+      attestationValidUntil: '2099-06-01',
+    })
+    await useProfileStore.getState().persistDraftNow()
+    const state = useProfileStore.getState()
+    expect(state.draft.plate).toBe('12345-A-50')
+    expect(state.draft.vehicle).toBe('Dacia Logan 2020')
+    expect(state.draft.attestationValidUntil).toBe('2099-06-01')
+    expect(state.profile.plate).toBe('12345-A-50')
+    expect(state.profile.attestationValidUntil).toBe('2099-06-01')
+  })
+
+  it('keeps filled portefeuille fields when a stale pull returns blanks', async () => {
+    getProfile.mockResolvedValue(
+      remoteProfile({
+        policy: null,
+        attestationValidUntil: null,
+      }),
+    )
+    // Seed a complete-ish local wallet, draft already cleared (post-ack).
+    useProfileStore.setState({
+      serverProfile: {
+        ...useProfileStore.getState().serverProfile,
+        plate: '12345-A-50',
+        vehicle: 'Dacia Logan 2020',
+        insurer: 'RMA',
+        attestationValidUntil: '2099-06-01',
+      },
+      draft: {},
+      profile: {
+        ...useProfileStore.getState().profile,
+        plate: '12345-A-50',
+        vehicle: 'Dacia Logan 2020',
+        insurer: 'RMA',
+        attestationValidUntil: '2099-06-01',
+      },
+    })
+    getProfile.mockResolvedValueOnce({
+      ...remoteProfile(),
+      vehicle: { id: 'V-1', plate: null, makeModel: null },
+      insurer: { id: 'I-1', displayName: '' },
+      policy: {
+        ...remoteProfile().policy,
+        number: null,
+        attestationValidUntil: null,
+      },
+    })
+    await useProfileStore.getState().pullRemoteProfile()
+    const state = useProfileStore.getState()
+    expect(state.profile.plate).toBe('12345-A-50')
+    expect(state.profile.vehicle).toBe('Dacia Logan 2020')
+    expect(state.profile.attestationValidUntil).toBe('2099-06-01')
+    expect(state.draft.plate).toBe('12345-A-50')
   })
 
   it('two store resets from same remote yield same remaining %', async () => {

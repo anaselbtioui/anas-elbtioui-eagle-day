@@ -57,6 +57,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
   const { t } = useTranslation()
   const setWalletEditing = useProfileStore((s) => s.setWalletEditing)
   const pullRemoteProfile = useProfileStore((s) => s.pullRemoteProfile)
+  const persistDraftNow = useProfileStore((s) => s.persistDraftNow)
   const [expanded, setExpanded] = useState(false)
   const [completeDismissed, setCompleteDismissed] = useState(() => {
     try {
@@ -94,10 +95,23 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
   }, [profile.motoristId])
 
   // Parent owns editing flag for whole expanded life (wizard must not clear it).
+  // On collapse: flush then pull so last gap is on server before GET can regress UI.
   useEffect(() => {
     setWalletEditing(expanded)
-    if (!expanded) void pullRemoteProfile()
-  }, [expanded, setWalletEditing, pullRemoteProfile])
+    if (expanded) return
+    let cancelled = false
+    void (async () => {
+      try {
+        await persistDraftNow()
+      } catch {
+        /* best-effort */
+      }
+      if (!cancelled) await pullRemoteProfile()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [expanded, setWalletEditing, persistDraftNow, pullRemoteProfile])
 
   useEffect(() => {
     return () => setWalletEditing(false)
@@ -119,12 +133,13 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
     setDisplayStepPct(100)
     setDisplayRemainingPct(0)
     setDisplayGapCount(0)
+    void persistDraftNow().catch(() => undefined)
     const timer = window.setTimeout(() => {
       setSettling(false)
       setDisplayKind(rawKind === 'expiring' ? 'expiring' : 'complete')
     }, COMPLETE_SETTLE_MS)
     return () => window.clearTimeout(timer)
-  }, [expanded, rawKind, rawRemainingPct])
+  }, [expanded, rawKind, rawRemainingPct, persistDraftNow])
 
   // Debounce chrome while still filling gaps (not during finish latch).
   useEffect(() => {
@@ -160,6 +175,13 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
   }
 
   function collapseFinish() {
+    // Persist dismiss so a late incomplete GET cannot reopen gaps peek as "done then undone".
+    try {
+      sessionStorage.setItem(dismissKey(profile.motoristId), '1')
+    } catch {
+      /* ignore */
+    }
+    setCompleteDismissed(true)
     setFinishFlow(false)
     finishStarted.current = false
     setSettling(false)

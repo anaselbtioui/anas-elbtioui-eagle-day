@@ -72,7 +72,9 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
     let focusTimer: ReturnType<typeof setTimeout> | null = null
     const refresh = () => {
       if (document.visibilityState === 'hidden') return
-      void pullRemoteProfile()
+      if (!useProfileStore.getState().walletEditing) {
+        void pullRemoteProfile()
+      }
       if (profile.onboarded) {
         void api
           .listPacks(profile.motoristId)

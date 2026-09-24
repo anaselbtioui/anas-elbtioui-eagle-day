@@ -8,6 +8,7 @@ import {
   migrateWalletNames,
   needsDeviceWallet,
   domainToWallet,
+  PORTEFEUILLE_PROGRESS_FIELDS,
   walletToDomain,
   type Wallet,
 } from '@/services/wallet.ts'
@@ -111,22 +112,37 @@ function keepInflightPhoto(local: string): string {
   return local.startsWith('data:') ? local : ''
 }
 
+function stringFilled(value: unknown): boolean {
+  return typeof value === 'string' && value.trim() !== ''
+}
+
+const PROGRESS_FIELD_SET = new Set<string>(PORTEFEUILLE_PROGRESS_FIELDS)
+
 /**
  * After a successful PUT of `sent`, drop draft keys whose revision still matches
  * the revision captured at send time (keys typed during the PUT stay dirty).
+ * Never clear a portefeuille field the ack echoed empty — that snap-back looks
+ * like "wallet finished then unfinished again" after close/pull.
  */
 function clearAcknowledgedDraft(
   draft: Partial<Wallet>,
   sent: Partial<Wallet>,
   sentRevs: Partial<Record<keyof Wallet, number>>,
+  ackServer: Wallet,
 ): Partial<Wallet> {
   const next = { ...draft }
   for (const key of Object.keys(sent) as Array<keyof Wallet>) {
     if (!(key in sentRevs)) continue
-    if (dirtyRevision[key] === sentRevs[key]) {
-      delete next[key]
-      delete dirtyRevision[key]
+    if (dirtyRevision[key] !== sentRevs[key]) continue
+    if (
+      PROGRESS_FIELD_SET.has(key) &&
+      stringFilled(sent[key]) &&
+      !stringFilled(ackServer[key])
+    ) {
+      continue
     }
+    delete next[key]
+    delete dirtyRevision[key]
   }
   return next
 }
@@ -134,6 +150,7 @@ function clearAcknowledgedDraft(
 async function flushPersistDraft(
   get: () => ProfileState,
   set: (partial: Partial<ProfileState> | ((s: ProfileState) => Partial<ProfileState>)) => void,
+  retryOnConflict = true,
 ): Promise<void> {
   const state = get()
   const wallet = state.profile
@@ -209,7 +226,7 @@ async function flushPersistDraft(
       phoneVerified: toSave.phoneVerified,
       onboarded: cur.profile.onboarded,
     })
-    const remainingDraft = clearAcknowledgedDraft(cur.draft, sentDraft, sentRevs)
+    const remainingDraft = clearAcknowledgedDraft(cur.draft, sentDraft, sentRevs, ackServer)
     applyMerged(set, ackServer, remainingDraft)
   } catch (err) {
     /* Conflict: re-seed server, keep draft so user edits survive. */
@@ -221,11 +238,19 @@ async function flushPersistDraft(
           licensePhotoLocal: keepInflightPhoto(cur.profile.licensePhotoLocal),
           carteGrisePhotoLocal: keepInflightPhoto(cur.profile.carteGrisePhotoLocal),
           attestationPhotoLocal: keepInflightPhoto(cur.profile.attestationPhotoLocal),
+          assistanceNumber: cur.serverProfile.assistanceNumber,
+          brokerPhone: cur.serverProfile.brokerPhone,
+          phoneVerified: cur.serverProfile.phoneVerified,
+          // Not in the domain profile — without this a 409 bounced users to /onboarding.
+          onboarded: cur.serverProfile.onboarded,
         })
         applyMerged(set, server, cur.draft)
       } catch {
         /* offline — draft remains */
+        return
       }
+      // Draft still holds the edit — resend once on the fresh stamp so it reaches the server.
+      if (retryOnConflict) await flushPersistDraft(get, set, false)
       return
     }
     /* server sync best-effort — memory wallet + draft remain */
@@ -356,10 +381,16 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
   persistDraft: () => schedulePersist(get, set),
   persistDraftNow: () => flushPersistNow(get, set),
   pullRemoteProfile: async () => {
-    // Don't clobber in-progress edits — wait out debounce / in-flight PUT first.
-    if (persistTimer) return
+    // Don't clobber in-progress edits.
     if (get().walletEditing) return
-    await persistChain
+    // Flush pending debounce before GET — close-after-finish used to skip pull
+    // while timer lived, then land an incomplete ack + empty draft and snap back.
+    if (persistTimer) {
+      await flushPersistNow(get, set)
+    } else {
+      await persistChain
+    }
+    if (get().walletEditing) return
     const cur = get()
     if (!cur.profile.motoristId.trim()) return
     try {
@@ -419,7 +450,21 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         server.attestationPhotoLocal,
         'attestationPhotoLocal',
       )
-      applyMerged(set, server, get().draft, { remoteHydrated: true })
+      // Stale/incomplete GET must not blank fields the user just finished.
+      // Re-dirt those keys so the next PUT retries until the server sticks.
+      const latest = get()
+      const protectedDraft = { ...latest.draft }
+      let redacted = false
+      for (const key of PORTEFEUILLE_PROGRESS_FIELDS) {
+        if (key in protectedDraft) continue
+        if (stringFilled(latest.profile[key]) && !stringFilled(server[key])) {
+          protectedDraft[key] = latest.profile[key] as never
+          dirtyRevision[key] = nextRevision++
+          redacted = true
+        }
+      }
+      applyMerged(set, server, protectedDraft, { remoteHydrated: true })
+      if (redacted) void schedulePersist(get, set)
     } catch {
       set({ remoteHydrated: true })
     }
