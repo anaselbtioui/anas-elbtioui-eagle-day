@@ -106,6 +106,9 @@ export function DatePicker({
   useEffect(() => {
     if (!open) return
     function onDoc(e: MouseEvent) {
+      const path = typeof e.composedPath === 'function' ? e.composedPath() : []
+      if (path.includes(panelRef.current as EventTarget)) return
+      if (path.includes(rootRef.current as EventTarget)) return
       const t = e.target as Node
       if (rootRef.current?.contains(t) || panelRef.current?.contains(t)) return
       setOpen(false)
@@ -113,10 +116,11 @@ export function DatePicker({
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false)
     }
-    document.addEventListener('mousedown', onDoc)
+    // pointerdown (not mousedown): day cell click can finish before dismiss.
+    document.addEventListener('pointerdown', onDoc)
     document.addEventListener('keydown', onKey)
     return () => {
-      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('pointerdown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
   }, [open])
@@ -149,6 +153,7 @@ export function DatePicker({
             data-testid="date-picker-panel"
             className="fixed z-[80] overflow-y-auto rounded-[var(--radius-labas)] border-2 border-border bg-surface shadow-[0_12px_40px_rgba(16,40,96,0.14)]"
             style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
+            onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2.5">
               <p className="min-w-0 flex-1 truncate font-display text-base font-bold capitalize text-ink">

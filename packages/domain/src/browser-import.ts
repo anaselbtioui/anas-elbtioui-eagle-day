@@ -216,6 +216,8 @@ export function createImportBundle(input: {
     motorist: {
       id: motoristId,
       name: input.extracted.name.trim() || 'Client importé',
+      firstName: null,
+      lastName: null,
       phone: input.extracted.phone,
       alsoTellEmployerIfCommute: false,
       cin: null,
@@ -224,6 +226,10 @@ export function createImportBundle(input: {
       licensePhotoPath: null,
       carteGrisePhotoPath: null,
       attestationPhotoPath: null,
+      assistanceNumber: null,
+      brokerPhone: null,
+      onboardingStep: 0,
+      updatedAt: now,
     },
     vehicle: {
       id: vehicleId,

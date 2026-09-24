@@ -41,6 +41,8 @@ export const nadiaProfile: Profile = {
   motorist: {
     id: 'M-1',
     name: 'Nadia El Mansouri',
+    firstName: 'Nadia',
+    lastName: 'El Mansouri',
     phone: '06•••••142',
     alsoTellEmployerIfCommute: false,
     cin: null,
@@ -49,6 +51,10 @@ export const nadiaProfile: Profile = {
     licensePhotoPath: null,
     carteGrisePhotoPath: null,
     attestationPhotoPath: null,
+    assistanceNumber: null,
+    brokerPhone: null,
+    onboardingStep: 0,
+    updatedAt: null,
   },
   vehicle: {
     id: 'V-1',
@@ -125,6 +131,8 @@ export function saraInjuryPack(): EvidencePack {
 export const saraMotorist = {
   id: 'M-2',
   name: 'Sara Amrani',
+  firstName: 'Sara',
+  lastName: 'Amrani',
   phone: '06•••••881',
   alsoTellEmployerIfCommute: false,
   cin: null,
@@ -133,12 +141,18 @@ export const saraMotorist = {
   licensePhotoPath: null,
   carteGrisePhotoPath: null,
   attestationPhotoPath: null,
+  assistanceNumber: null,
+  brokerPhone: null,
+  onboardingStep: 0,
+  updatedAt: null,
 }
 
 export const omarProfile: Profile = {
   motorist: {
     id: 'M-3',
     name: 'Omar Benali',
+    firstName: 'Omar',
+    lastName: 'Benali',
     phone: '06•••••604',
     alsoTellEmployerIfCommute: false,
     cin: null,
@@ -147,6 +161,10 @@ export const omarProfile: Profile = {
     licensePhotoPath: null,
     carteGrisePhotoPath: null,
     attestationPhotoPath: null,
+    assistanceNumber: null,
+    brokerPhone: null,
+    onboardingStep: 0,
+    updatedAt: null,
   },
   vehicle: {
     id: 'V-3',
@@ -208,5 +226,6 @@ export const saraProfile: Profile = {
     brokerId: 'B-1',
     vehicleId: 'V-2',
     assistanceOnContract: 'yes',
+    attestationValidUntil: null,
   },
 }

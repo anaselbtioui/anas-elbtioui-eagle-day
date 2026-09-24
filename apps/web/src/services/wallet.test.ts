@@ -13,6 +13,8 @@ import {
   walletFieldNeedsInput,
   walletFullyComplete,
   walletRemainingPercent,
+  walletToDomain,
+  domainToWallet,
   type Wallet,
 } from './wallet.ts'
 
@@ -228,5 +230,63 @@ describe('firstWalletGapStep', () => {
     }
     expect(walletFieldFilled(expired, 'attestationValidUntil')).toBe(false)
     expect(firstWalletGapStep(expired)).toBe('attestation')
+  })
+})
+
+describe('wallet ↔ domain round-trip', () => {
+  it('preserves names, assistance, brokerPhone, onboardingStep, alsoTellEmployer', () => {
+    const wallet: Wallet = {
+      ...createDeviceWallet(),
+      firstName: 'Nadia',
+      lastName: 'El Mansouri',
+      phone: '+212612345678',
+      plate: '12345-A-50',
+      vehicle: 'Dacia Sandero',
+      insurer: 'Sanlam',
+      policy: 'POL-1',
+      broker: 'Said Courtier',
+      brokerId: 'B-1',
+      brokerPhone: '+212600000001',
+      assistanceNumber: '0800123456',
+      assistanceOnContract: 'yes',
+      alsoTellEmployerIfCommute: true,
+      city: 'Casablanca',
+      cin: 'AB123456',
+      licenseNumber: 'P-9',
+      attestationValidUntil: '2099-06-01',
+      onboardingStep: 3,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }
+    const domain = walletToDomain(wallet)
+    expect(domain.motorist.firstName).toBe('Nadia')
+    expect(domain.motorist.lastName).toBe('El Mansouri')
+    expect(domain.motorist.assistanceNumber).toBe('0800123456')
+    expect(domain.motorist.brokerPhone).toBe('+212600000001')
+    expect(domain.motorist.onboardingStep).toBe(3)
+    expect(domain.motorist.alsoTellEmployerIfCommute).toBe(true)
+    expect(domain.insurer.displayName).toBe('Sanlam')
+    expect(domain.broker.displayName).toBe('Said Courtier')
+
+    const back = domainToWallet(domain)
+    expect(back.firstName).toBe('Nadia')
+    expect(back.lastName).toBe('El Mansouri')
+    expect(back.assistanceNumber).toBe('0800123456')
+    expect(back.brokerPhone).toBe('+212600000001')
+    expect(back.onboardingStep).toBe(3)
+    expect(back.alsoTellEmployerIfCommute).toBe(true)
+    expect(back.attestationValidUntil).toBe('2099-06-01')
+  })
+
+  it('does not invent insurer/broker placeholders on write', () => {
+    const wallet: Wallet = {
+      ...createDeviceWallet(),
+      firstName: 'A',
+      lastName: 'B',
+      insurer: '',
+      broker: '',
+    }
+    const domain = walletToDomain(wallet)
+    expect(domain.insurer.displayName).toBe('')
+    expect(domain.broker.displayName).toBe('')
   })
 })

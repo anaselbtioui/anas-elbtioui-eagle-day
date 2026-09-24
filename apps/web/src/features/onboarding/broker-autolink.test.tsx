@@ -6,7 +6,7 @@ import { emptyWallet } from '@/services/wallet.ts'
 import { useProfileStore } from '@/store/profile'
 
 const listRegisteredBrokers = vi.fn()
-const saveProfile = vi.fn().mockResolvedValue(undefined)
+const saveProfile = vi.fn().mockImplementation(async (profile: unknown) => profile)
 
 vi.mock('@/services/api.ts', () => ({
   api: {
@@ -52,8 +52,17 @@ describe('onboarding broker auto-link', () => {
         brokerId: '',
         broker: '',
       },
+      serverProfile: {
+        ...emptyWallet,
+        motoristId: 'M-test',
+        vehicleId: 'V-test',
+        insurerId: 'I-test',
+        policyId: 'P-test',
+      },
+      draft: {},
       error: null,
       saving: false,
+      walletEditing: false,
     })
   })
 

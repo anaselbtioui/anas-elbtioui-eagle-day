@@ -65,6 +65,8 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
   }, [profile.motoristId, pullRemoteProfile])
 
   // Concurrent sessions: pull wallet + packs on focus / visibility + light interval.
+  // Skip wallet pull while onboarding / nudge drawer is editing (draft-safe).
+  const walletEditing = useProfileStore((s) => s.walletEditing)
   useEffect(() => {
     if (!profile.motoristId) return
     let focusTimer: ReturnType<typeof setTimeout> | null = null
@@ -98,7 +100,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
       document.removeEventListener('visibilitychange', onVisibility)
       window.clearInterval(interval)
     }
-  }, [profile.motoristId, profile.onboarded, pullRemoteProfile, hydrateFromDomain])
+  }, [profile.motoristId, profile.onboarded, pullRemoteProfile, hydrateFromDomain, walletEditing])
 
   useEffect(() => {
     if (!profile.onboarded || !profile.motoristId) return

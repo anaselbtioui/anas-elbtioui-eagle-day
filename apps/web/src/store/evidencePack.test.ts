@@ -205,6 +205,8 @@ describe('migrateLegacyEvidenceStorage', () => {
     savePack.mockClear()
     useProfileStore.setState({
       profile: { ...emptyWallet, motoristId: 'M-1' },
+      serverProfile: { ...emptyWallet, motoristId: 'M-1' },
+      draft: {},
       error: null,
       saving: false,
     })

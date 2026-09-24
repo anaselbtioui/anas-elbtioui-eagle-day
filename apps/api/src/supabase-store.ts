@@ -10,6 +10,7 @@ import type {
   Motorist,
   OtherParty,
   Policy,
+  Profile,
   Vehicle,
 } from '@labas/domain/types.ts'
 import type { AppUserRecord } from '@labas/domain/auth.ts'
@@ -81,6 +82,8 @@ export async function loadDb(): Promise<Db> {
       rows.motorists as {
         id: string
         name: string
+        first_name?: string | null
+        last_name?: string | null
         phone: string | null
         also_tell_employer_if_commute: boolean
         cin?: string | null
@@ -89,10 +92,16 @@ export async function loadDb(): Promise<Db> {
         license_photo_path?: string | null
         carte_grise_photo_path?: string | null
         attestation_photo_path?: string | null
+        assistance_number?: string | null
+        broker_phone?: string | null
+        onboarding_step?: number | null
+        updated_at?: string | null
       }[]
     ).map((r) => ({
       id: r.id,
       name: r.name,
+      firstName: r.first_name ?? null,
+      lastName: r.last_name ?? null,
       phone: r.phone,
       alsoTellEmployerIfCommute: r.also_tell_employer_if_commute,
       cin: r.cin ?? null,
@@ -101,6 +110,10 @@ export async function loadDb(): Promise<Db> {
       licensePhotoPath: r.license_photo_path ?? null,
       carteGrisePhotoPath: r.carte_grise_photo_path ?? null,
       attestationPhotoPath: r.attestation_photo_path ?? null,
+      assistanceNumber: r.assistance_number ?? null,
+      brokerPhone: r.broker_phone ?? null,
+      onboardingStep: r.onboarding_step ?? 0,
+      updatedAt: r.updated_at ?? null,
     })),
     vehicles: (rows.vehicles as { id: string; plate: string | null; make_model: string | null }[]).map(
       (r) => ({
@@ -432,6 +445,8 @@ async function upsertAllTables(db: Db): Promise<void> {
       db.motorists.map((r: Motorist) => ({
         id: r.id,
         name: r.name,
+        first_name: r.firstName,
+        last_name: r.lastName,
         phone: r.phone,
         also_tell_employer_if_commute: r.alsoTellEmployerIfCommute,
         cin: r.cin,
@@ -440,6 +455,10 @@ async function upsertAllTables(db: Db): Promise<void> {
         license_photo_path: r.licensePhotoPath,
         carte_grise_photo_path: r.carteGrisePhotoPath,
         attestation_photo_path: r.attestationPhotoPath,
+        assistance_number: r.assistanceNumber,
+        broker_phone: r.brokerPhone,
+        onboarding_step: r.onboardingStep,
+        updated_at: r.updatedAt,
       })),
       'id',
     ),
@@ -556,4 +575,202 @@ async function upsertAllTables(db: Db): Promise<void> {
   // Tier 5: dossiers -> declarations. Tier 6: desk_files -> dossiers.
   await upsertAll(sb, 'dossiers', db.dossiers.map(dossierRow), 'id')
   await upsertAll(sb, 'desk_files', db.deskFiles.map(deskFileRow), 'dossier_id')
+}
+
+function mapMotoristRow(r: {
+  id: string
+  name: string
+  first_name?: string | null
+  last_name?: string | null
+  phone: string | null
+  also_tell_employer_if_commute: boolean
+  cin?: string | null
+  city?: string | null
+  license_number?: string | null
+  license_photo_path?: string | null
+  carte_grise_photo_path?: string | null
+  attestation_photo_path?: string | null
+  assistance_number?: string | null
+  broker_phone?: string | null
+  onboarding_step?: number | null
+  updated_at?: string | null
+}): Motorist {
+  return {
+    id: r.id,
+    name: r.name,
+    firstName: r.first_name ?? null,
+    lastName: r.last_name ?? null,
+    phone: r.phone,
+    alsoTellEmployerIfCommute: r.also_tell_employer_if_commute,
+    cin: r.cin ?? null,
+    city: r.city ?? null,
+    licenseNumber: r.license_number ?? null,
+    licensePhotoPath: r.license_photo_path ?? null,
+    carteGrisePhotoPath: r.carte_grise_photo_path ?? null,
+    attestationPhotoPath: r.attestation_photo_path ?? null,
+    assistanceNumber: r.assistance_number ?? null,
+    brokerPhone: r.broker_phone ?? null,
+    onboardingStep: r.onboarding_step ?? 0,
+    updatedAt: r.updated_at ?? null,
+  }
+}
+
+/** Targeted GET — motorist + linked vehicle/insurer/broker/policy only. */
+export async function fetchProfileById(motoristId: string): Promise<Profile | null> {
+  const sb = client()
+  const { data: mRow, error: mErr } = await sb
+    .from('motorists')
+    .select('*')
+    .eq('id', motoristId)
+    .maybeSingle()
+  throwIf(mErr, 'select motorist')
+  if (!mRow) return null
+  const motorist = mapMotoristRow(mRow as Parameters<typeof mapMotoristRow>[0])
+
+  const { data: user, error: uErr } = await sb
+    .from('app_users')
+    .select('policy_id, vehicle_id, insurer_id, broker_id')
+    .eq('motorist_id', motoristId)
+    .maybeSingle()
+  throwIf(uErr, 'select app_user')
+  if (!user?.policy_id || !user.vehicle_id || !user.insurer_id) return null
+
+  const [{ data: policy, error: pErr }, { data: vehicle, error: vErr }, { data: insurer, error: iErr }] =
+    await Promise.all([
+      sb.from('policies').select('*').eq('id', user.policy_id).maybeSingle(),
+      sb.from('vehicles').select('*').eq('id', user.vehicle_id).maybeSingle(),
+      sb.from('insurers').select('*').eq('id', user.insurer_id).maybeSingle(),
+    ])
+  throwIf(pErr, 'select policy')
+  throwIf(vErr, 'select vehicle')
+  throwIf(iErr, 'select insurer')
+  if (!policy || !vehicle || !insurer) return null
+
+  let broker = { id: '', displayName: '' }
+  const brokerId = (policy.broker_id as string | null) || user.broker_id
+  if (brokerId) {
+    const { data: b, error: bErr } = await sb.from('brokers').select('*').eq('id', brokerId).maybeSingle()
+    throwIf(bErr, 'select broker')
+    if (b) broker = { id: b.id, displayName: b.display_name }
+  }
+
+  return {
+    motorist,
+    vehicle: { id: vehicle.id, plate: vehicle.plate, makeModel: vehicle.make_model },
+    insurer: { id: insurer.id, displayName: insurer.display_name },
+    broker,
+    policy: {
+      id: policy.id,
+      number: policy.number,
+      insurerId: policy.insurer_id,
+      brokerId: policy.broker_id,
+      vehicleId: policy.vehicle_id,
+      assistanceOnContract: policy.assistance_on_contract,
+      attestationValidUntil: policy.attestation_valid_until ?? null,
+    },
+  }
+}
+
+/** Targeted write — only motorist profile tables (no whole-DB upsert). */
+export async function upsertProfileEntities(profile: Profile): Promise<void> {
+  invalidateDbCache()
+  await withWriteLock(() => upsertProfileEntitiesUnlocked(profile))
+}
+
+/** Call only while already holding the write lock (e.g. inside exclusiveDbWrite). */
+export async function upsertAppUserUnlocked(user: AppUserRecord): Promise<void> {
+  invalidateDbCache()
+  const sb = client()
+  await upsertAll(
+    sb,
+    'app_users',
+    [
+      {
+        id: user.id,
+        email: user.email,
+        password_hash: user.passwordHash,
+        role: user.role,
+        display_name: user.displayName,
+        onboarded: user.onboarded,
+        motorist_id: user.motoristId,
+        broker_id: user.brokerId,
+        vehicle_id: user.vehicleId,
+        insurer_id: user.insurerId,
+        policy_id: user.policyId,
+      },
+    ],
+    'id',
+  )
+}
+
+/** Call only while already holding the write lock (e.g. inside exclusiveDbWrite). */
+export async function upsertProfileEntitiesUnlocked(profile: Profile): Promise<void> {
+  invalidateDbCache()
+  const sb = client()
+  await Promise.all([
+    upsertAll(
+      sb,
+      'motorists',
+      [
+        {
+          id: profile.motorist.id,
+          name: profile.motorist.name,
+          first_name: profile.motorist.firstName,
+          last_name: profile.motorist.lastName,
+          phone: profile.motorist.phone,
+          also_tell_employer_if_commute: profile.motorist.alsoTellEmployerIfCommute,
+          cin: profile.motorist.cin,
+          city: profile.motorist.city,
+          license_number: profile.motorist.licenseNumber,
+          license_photo_path: profile.motorist.licensePhotoPath,
+          carte_grise_photo_path: profile.motorist.carteGrisePhotoPath,
+          attestation_photo_path: profile.motorist.attestationPhotoPath,
+          assistance_number: profile.motorist.assistanceNumber,
+          broker_phone: profile.motorist.brokerPhone,
+          onboarding_step: profile.motorist.onboardingStep,
+          updated_at: profile.motorist.updatedAt,
+        },
+      ],
+      'id',
+    ),
+    upsertAll(
+      sb,
+      'vehicles',
+      [
+        {
+          id: profile.vehicle.id,
+          plate: profile.vehicle.plate,
+          make_model: profile.vehicle.makeModel,
+        },
+      ],
+      'id',
+    ),
+    upsertAll(
+      sb,
+      'insurers',
+      [
+        {
+          id: profile.insurer.id,
+          display_name: profile.insurer.displayName || 'Assureur',
+        },
+      ],
+      'id',
+    ),
+  ])
+  await upsertAll(
+    sb,
+    'policies',
+    [
+      {
+        id: profile.policy.id,
+        number: profile.policy.number,
+        insurer_id: profile.policy.insurerId,
+        broker_id: profile.policy.brokerId,
+        vehicle_id: profile.policy.vehicleId,
+        assistance_on_contract: profile.policy.assistanceOnContract,
+        attestation_valid_until: profile.policy.attestationValidUntil,
+      },
+    ],
+    'id',
+  )
 }

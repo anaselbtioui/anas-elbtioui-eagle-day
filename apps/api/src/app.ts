@@ -69,6 +69,12 @@ import {
 } from './storage.ts'
 import { emptyDb, loadDb, saveDb, upsert, type Db } from './store.ts'
 import { exclusiveDbWrite } from './write-lock.ts'
+import {
+  fetchProfileById,
+  supabaseConfigured,
+  upsertAppUserUnlocked,
+  upsertProfileEntitiesUnlocked,
+} from './supabase-store.ts'
 import { mergeImport, type FieldResolution, type ImportOutcome, type ImportSource } from '@labas/domain/browser-import.ts'
 import {
   closeBrowser,
@@ -165,6 +171,23 @@ export function createApp(
   /** Serialize load→mutate→persist within one process. */
   async function write(mutator: (db: Db) => Db | Promise<Db>): Promise<Db> {
     return exclusiveDbWrite(loadFn, persistFn, mutator)
+  }
+  /** Profile writes: targeted upsert on Supabase (motorist tables only). */
+  async function writeProfile(
+    motoristId: string,
+    mutator: (db: Db) => Db | Promise<Db>,
+  ): Promise<Db> {
+    if (!supabaseConfigured()) return write(mutator)
+    return exclusiveDbWrite(
+      loadFn,
+      async (db) => {
+        const profile = profileFromDb(db, motoristId)
+        if (profile) await upsertProfileEntitiesUnlocked(profile)
+        const user = db.users.find((u) => u.motoristId === motoristId)
+        if (user) await upsertAppUserUnlocked(user)
+      },
+      mutator,
+    )
   }
   const persist = persistFn
   const replace = replaceFn
@@ -306,13 +329,22 @@ export function createApp(
     const denied = needMotorist(c)
     if (denied) return denied
     const auth = c.get('auth')!
+    if (supabaseConfigured()) {
+      try {
+        const profile = await fetchProfileById(auth.motoristId!)
+        if (!profile) return c.json({ error: 'no_profile' }, 404)
+        return c.json(profile)
+      } catch {
+        /* fall through to full load */
+      }
+    }
     const db = await load()
     const profile = profileFromDb(db, auth.motoristId!)
     if (!profile) return c.json({ error: 'no_profile' }, 404)
     return c.json(profile)
   })
 
-  app.put('/api/profile', async (c) => {
+  async function saveMotoristProfile(c: Ctx) {
     const denied = needMotorist(c)
     if (denied) return denied
     const auth = c.get('auth')!
@@ -322,8 +354,31 @@ export function createApp(
     const chosenBrokerId =
       body.policy.brokerId?.trim() || body.broker.id?.trim() || ''
     let saved: Profile | null = null
-    let err: 'broker_not_found' | null = null
-    await write((db) => {
+    let err: 'broker_not_found' | 'conflict' | null = null
+    const now = new Date().toISOString()
+
+    await writeProfile(auth.motoristId!, (db) => {
+      const existing = db.motorists.find((m) => m.id === auth.motoristId)
+      // Optimistic concurrency: client must send the stamp it last read.
+      if (
+        body.motorist.updatedAt &&
+        existing?.updatedAt &&
+        body.motorist.updatedAt !== existing.updatedAt
+      ) {
+        err = 'conflict'
+        return db
+      }
+
+      const motorist = {
+        ...body.motorist,
+        firstName: body.motorist.firstName ?? null,
+        lastName: body.motorist.lastName ?? null,
+        assistanceNumber: body.motorist.assistanceNumber ?? null,
+        brokerPhone: body.motorist.brokerPhone ?? null,
+        onboardingStep: body.motorist.onboardingStep ?? 0,
+        updatedAt: now,
+      }
+
       const registered = listRegisteredBrokers(db)
       const chosen =
         chosenBrokerId ||
@@ -338,14 +393,22 @@ export function createApp(
         }
         const next: Db = {
           ...db,
-          motorists: upsert(db.motorists, body.motorist),
+          motorists: upsert(db.motorists, motorist),
           vehicles: upsert(db.vehicles, body.vehicle),
-          insurers: upsert(db.insurers, body.insurer),
+          insurers: upsert(db.insurers, {
+            ...body.insurer,
+            displayName: body.insurer.displayName.trim() || 'Assureur',
+          }),
           policies: upsert(db.policies, policy),
         }
         saved = {
           ...body,
-          broker: { id: '', displayName: body.broker.displayName || 'Courtier' },
+          motorist,
+          insurer: {
+            ...body.insurer,
+            displayName: body.insurer.displayName.trim() || 'Assureur',
+          },
+          broker: { id: '', displayName: body.broker.displayName || '' },
           policy,
         }
         return next
@@ -364,22 +427,34 @@ export function createApp(
       }
       let next: Db = {
         ...db,
-        motorists: upsert(db.motorists, body.motorist),
+        motorists: upsert(db.motorists, motorist),
         vehicles: upsert(db.vehicles, body.vehicle),
-        insurers: upsert(db.insurers, body.insurer),
+        insurers: upsert(db.insurers, {
+          ...body.insurer,
+          displayName: body.insurer.displayName.trim() || 'Assureur',
+        }),
         policies: upsert(db.policies, policy),
       }
       next = assignMotoristBroker(next, auth.id, policy.id, chosen)
       saved = {
         ...body,
+        motorist,
+        insurer: {
+          ...body.insurer,
+          displayName: body.insurer.displayName.trim() || 'Assureur',
+        },
         broker: { id: broker.id, displayName: broker.displayName },
         policy,
       }
       return next
     })
+    if (err === 'conflict') return c.json({ error: 'conflict' }, 409)
     if (err) return c.json({ error: err }, 400)
     return c.json(saved)
-  })
+  }
+
+  app.put('/api/profile', (c) => saveMotoristProfile(c))
+  app.patch('/api/profile', (c) => saveMotoristProfile(c))
 
   app.post('/api/profile/complete', async (c) => {
     const denied = needMotorist(c)

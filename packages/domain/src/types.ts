@@ -19,6 +19,9 @@ export type DossierStatus =
 export type Motorist = {
   id: string
   name: string
+  /** Preferred over splitting `name` when set. */
+  firstName: string | null
+  lastName: string | null
   phone: string | null
   alsoTellEmployerIfCommute: boolean
   /** Moroccan CIN / identity number. */
@@ -30,6 +33,12 @@ export type Motorist = {
   licensePhotoPath: string | null
   carteGrisePhotoPath: string | null
   attestationPhotoPath: string | null
+  /** Client-only wallet fields persisted server-side. */
+  assistanceNumber: string | null
+  brokerPhone: string | null
+  onboardingStep: number | null
+  /** ISO timestamp for optimistic concurrency. */
+  updatedAt: string | null
 }
 
 export type OtherParty = {

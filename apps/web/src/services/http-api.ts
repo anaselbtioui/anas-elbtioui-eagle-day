@@ -46,6 +46,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(text.slice(0, 80) || `http_${res.status}`)
   }
   if (!res.ok) {
+    if (res.status === 409) throw new Error('conflict')
     throw new Error(body.error ?? `http_${res.status}`)
   }
   return body

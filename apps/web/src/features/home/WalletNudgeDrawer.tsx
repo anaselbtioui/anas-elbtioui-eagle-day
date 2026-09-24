@@ -10,6 +10,7 @@ import {
   onboardingRemainingPercent,
 } from '@/services/onboarding-phase.ts'
 import { type Wallet } from '@/services/wallet.ts'
+import { useProfileStore } from '@/store/profile'
 import { cn } from '@/lib/utils'
 
 export type WalletNudgeKind = 'empty' | 'expired' | 'expiring' | 'complete' | null
@@ -42,6 +43,8 @@ export function walletNudgeKind(profile: Wallet, completeDismissed = false): Wal
  */
 export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
   const { t } = useTranslation()
+  const setWalletEditing = useProfileStore((s) => s.setWalletEditing)
+  const pullRemoteProfile = useProfileStore((s) => s.pullRemoteProfile)
   const [expanded, setExpanded] = useState(false)
   const [completeDismissed, setCompleteDismissed] = useState(() => {
     try {
@@ -58,6 +61,15 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
       setCompleteDismissed(false)
     }
   }, [profile.motoristId])
+
+  useEffect(() => {
+    setWalletEditing(expanded)
+    if (!expanded) {
+      // Pull once after close so multi-device sync resumes.
+      void pullRemoteProfile()
+    }
+    return () => setWalletEditing(false)
+  }, [expanded, setWalletEditing, pullRemoteProfile])
 
   const kind = walletNudgeKind(profile, completeDismissed)
 

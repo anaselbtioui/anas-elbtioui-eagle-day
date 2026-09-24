@@ -15,18 +15,26 @@ import {
 export const PROFILE_STORAGE_KEY = 'labas-profile-v2'
 
 interface ProfileState {
+  /** Merged view: {...serverProfile, ...draft}. UI reads this. */
   profile: Wallet
+  /** Last acknowledged server snapshot. */
+  serverProfile: Wallet
+  /** Dirty fields not yet confirmed by a successful PUT. */
+  draft: Partial<Wallet>
   saving: boolean
   error: string | null
   /** False until first GET /api/profile attempt finishes (success or fail). */
   remoteHydrated: boolean
+  /** True while onboarding page or wallet nudge drawer is editing. */
+  walletEditing: boolean
   setProfile: (patch: Partial<Wallet>) => void
+  setWalletEditing: (editing: boolean) => void
   ensureDeviceWallet: () => void
   /** Debounced server sync of domain-mapped fields. */
   persistDraft: () => Promise<void>
   /** Flush pending draft immediately (complete onboarding). */
   persistDraftNow: () => Promise<void>
-  /** Server wins — hydrate wallet from GET /api/profile. */
+  /** Server wins for non-draft fields — hydrate from GET /api/profile. */
   pullRemoteProfile: () => Promise<void>
   completeOnboarding: () => Promise<void>
   reset: () => void
@@ -65,6 +73,27 @@ const PERSIST_DEBOUNCE_MS = 400
 let persistTimer: ReturnType<typeof setTimeout> | null = null
 let persistWaiters: Array<() => void> = []
 let persistChain: Promise<void> = Promise.resolve()
+/** Per-key edit revision — clear from draft only when PUT ack matches. */
+let dirtyRevision: Partial<Record<keyof Wallet, number>> = {}
+let nextRevision = 1
+
+function mergeView(server: Wallet, draft: Partial<Wallet>): Wallet {
+  return { ...server, ...draft }
+}
+
+function applyMerged(
+  set: (partial: Partial<ProfileState> | ((s: ProfileState) => Partial<ProfileState>)) => void,
+  server: Wallet,
+  draft: Partial<Wallet>,
+  extra?: Partial<ProfileState>,
+): void {
+  set({
+    serverProfile: server,
+    draft,
+    profile: mergeView(server, draft),
+    ...extra,
+  })
+}
 
 /** Test helper — cancel debounce so pulls/asserts stay deterministic. */
 export function resetProfilePersistForTests(): void {
@@ -74,20 +103,52 @@ export function resetProfilePersistForTests(): void {
   }
   persistWaiters = []
   persistChain = Promise.resolve()
+  dirtyRevision = {}
+  nextRevision = 1
 }
 
 function keepInflightPhoto(local: string): string {
   return local.startsWith('data:') ? local : ''
 }
 
+/**
+ * After a successful PUT of `sent`, drop draft keys whose revision still matches
+ * the revision captured at send time (keys typed during the PUT stay dirty).
+ */
+function clearAcknowledgedDraft(
+  draft: Partial<Wallet>,
+  sent: Partial<Wallet>,
+  sentRevs: Partial<Record<keyof Wallet, number>>,
+): Partial<Wallet> {
+  const next = { ...draft }
+  for (const key of Object.keys(sent) as Array<keyof Wallet>) {
+    if (!(key in sentRevs)) continue
+    if (dirtyRevision[key] === sentRevs[key]) {
+      delete next[key]
+      delete dirtyRevision[key]
+    }
+  }
+  return next
+}
+
 async function flushPersistDraft(
   get: () => ProfileState,
   set: (partial: Partial<ProfileState> | ((s: ProfileState) => Partial<ProfileState>)) => void,
 ): Promise<void> {
-  const wallet = get().profile
+  const state = get()
+  const wallet = state.profile
   if (!wallet.motoristId.trim()) return
+
+  // Snapshot draft + revisions at send time — later keystrokes bump revision.
+  const sentDraft = { ...state.draft }
+  const sentRevs: Partial<Record<keyof Wallet, number>> = {}
+  for (const key of Object.keys(sentDraft) as Array<keyof Wallet>) {
+    if (dirtyRevision[key] !== undefined) sentRevs[key] = dirtyRevision[key]
+  }
+
   try {
-    let next = wallet
+    let toSave = wallet
+    const pathPatches: Partial<Wallet> = {}
     const docs: Array<{
       kind: 'license' | 'carteGrise' | 'attestation'
       local: string
@@ -113,15 +174,61 @@ async function flushPersistDraft(
       if (!doc.local.startsWith('data:')) continue
       try {
         const { path } = await api.uploadProfileDoc(doc.kind, doc.local)
-        next = { ...next, [doc.pathKey]: path }
+        pathPatches[doc.pathKey] = path
+        toSave = { ...toSave, [doc.pathKey]: path }
       } catch {
         /* storage optional in local json mode */
       }
     }
-    if (next !== wallet) set({ profile: next })
-    await api.saveProfile(walletToDomain(next))
-  } catch {
-    /* server sync best-effort — memory wallet remains */
+
+    // Merge photo paths into CURRENT store — never overwrite concurrent keystrokes.
+    if (Object.keys(pathPatches).length > 0) {
+      const cur = get()
+      const nextDraft = { ...cur.draft, ...pathPatches }
+      for (const key of Object.keys(pathPatches) as Array<keyof Wallet>) {
+        dirtyRevision[key] = nextRevision++
+        sentRevs[key] = dirtyRevision[key]!
+        sentDraft[key] = pathPatches[key] as never
+      }
+      applyMerged(set, cur.serverProfile, nextDraft)
+      toSave = mergeView(cur.serverProfile, nextDraft)
+    }
+
+    const saved = await api.saveProfile(walletToDomain(toSave))
+    const cur = get()
+    // Seed server from acknowledged save; keep draft keys typed during the PUT.
+    const ackServer = domainToWallet(saved, {
+      licensePhotoLocal: keepInflightPhoto(cur.profile.licensePhotoLocal),
+      carteGrisePhotoLocal: keepInflightPhoto(cur.profile.carteGrisePhotoLocal),
+      attestationPhotoLocal: keepInflightPhoto(cur.profile.attestationPhotoLocal),
+      assistanceNumber: toSave.assistanceNumber,
+      brokerPhone: toSave.brokerPhone,
+      onboardingStep: toSave.onboardingStep,
+      firstName: toSave.firstName,
+      lastName: toSave.lastName,
+      phoneVerified: toSave.phoneVerified,
+      onboarded: cur.profile.onboarded,
+    })
+    const remainingDraft = clearAcknowledgedDraft(cur.draft, sentDraft, sentRevs)
+    applyMerged(set, ackServer, remainingDraft)
+  } catch (err) {
+    /* Conflict: re-seed server, keep draft so user edits survive. */
+    if (err instanceof Error && err.message === 'conflict') {
+      try {
+        const remote = await api.getProfile()
+        const cur = get()
+        const server = domainToWallet(remote, {
+          licensePhotoLocal: keepInflightPhoto(cur.profile.licensePhotoLocal),
+          carteGrisePhotoLocal: keepInflightPhoto(cur.profile.carteGrisePhotoLocal),
+          attestationPhotoLocal: keepInflightPhoto(cur.profile.attestationPhotoLocal),
+        })
+        applyMerged(set, server, cur.draft)
+      } catch {
+        /* offline — draft remains */
+      }
+      return
+    }
+    /* server sync best-effort — memory wallet + draft remain */
   }
 }
 
@@ -198,7 +305,7 @@ export async function migrateLegacyProfileStorage(): Promise<void> {
         policyId: cur.policyId.trim() || migrated.policyId,
         onboarded: cur.onboarded || migrated.onboarded,
       }
-      useProfileStore.setState({ profile: next })
+      applyMerged(useProfileStore.setState, next, {})
       if (next.motoristId.trim()) {
         await useProfileStore.getState().persistDraftNow()
       }
@@ -215,65 +322,68 @@ export async function migrateLegacyProfileStorage(): Promise<void> {
 
 export const useProfileStore = create<ProfileState>()((set, get) => ({
   profile: emptyWallet,
+  serverProfile: emptyWallet,
+  draft: {},
   saving: false,
   error: null,
   remoteHydrated: false,
-  setProfile: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
+  walletEditing: false,
+  setProfile: (patch) => {
+    const draft = { ...get().draft, ...patch }
+    for (const key of Object.keys(patch) as Array<keyof Wallet>) {
+      dirtyRevision[key] = nextRevision++
+    }
+    applyMerged(set, get().serverProfile, draft)
+  },
+  setWalletEditing: (editing) => set({ walletEditing: editing }),
   ensureDeviceWallet: () => {
     const current = get().profile
     if (!needsDeviceWallet(current) && !isLegacySharedWallet(current)) return
     const base = isLegacySharedWallet(current)
       ? migrateDeviceWallet(current)
       : createDeviceWallet()
-    const draft = Object.fromEntries(
+    const draftFields = Object.fromEntries(
       DRAFT_KEYS.map((key) => [key, current[key]]),
     ) as Pick<Wallet, (typeof DRAFT_KEYS)[number]>
-    set({
-      profile: {
-        ...base,
-        ...draft,
-        onboarded: needsDeviceWallet(current) ? false : current.onboarded,
-      },
-    })
+    const next = {
+      ...base,
+      ...draftFields,
+      onboarded: needsDeviceWallet(current) ? false : current.onboarded,
+    }
+    dirtyRevision = {}
+    applyMerged(set, next, {})
   },
   persistDraft: () => schedulePersist(get, set),
   persistDraftNow: () => flushPersistNow(get, set),
   pullRemoteProfile: async () => {
     // Don't clobber in-progress edits — wait out debounce / in-flight PUT first.
     if (persistTimer) return
+    if (get().walletEditing) return
     await persistChain
-    const cur = get().profile
-    if (!cur.motoristId.trim()) return
+    const cur = get()
+    if (!cur.profile.motoristId.trim()) return
     try {
       const remote = await api.getProfile()
-      // Remote wins for domain fields; keep inflight photos + client-only wallet fields.
-      let next = domainToWallet(remote, {
-        licensePhotoLocal: keepInflightPhoto(cur.licensePhotoLocal),
-        carteGrisePhotoLocal: keepInflightPhoto(cur.carteGrisePhotoLocal),
-        attestationPhotoLocal: keepInflightPhoto(cur.attestationPhotoLocal),
-        assistanceNumber: cur.assistanceNumber,
-        brokerPhone: cur.brokerPhone,
-        onboardingStep: cur.onboardingStep,
+      // Server snapshot only — draft overlay never deleted by a pull.
+      let server = domainToWallet(remote, {
+        licensePhotoLocal: keepInflightPhoto(cur.profile.licensePhotoLocal),
+        carteGrisePhotoLocal: keepInflightPhoto(cur.profile.carteGrisePhotoLocal),
+        attestationPhotoLocal: keepInflightPhoto(cur.profile.attestationPhotoLocal),
       })
-      // Auth onboarded is source of truth when true; keep local true across JWT lag after complete.
-      let onboarded = cur.onboarded
+      let onboarded = cur.profile.onboarded
       try {
         const { useSessionStore } = await import('@/store/session.ts')
         const user = useSessionStore.getState().user
         if (user?.role === 'motorist') {
-          onboarded = Boolean(user.onboarded) || cur.onboarded
+          onboarded = Boolean(user.onboarded) || cur.profile.onboarded
         }
       } catch {
         /* circular import edge — keep cur */
       }
-      next = {
-        ...next,
+      server = {
+        ...server,
         onboarded,
-        // Phase 1: valid stored phone counts as accepted (no SMS).
-        phoneVerified: Boolean(next.phone.trim()) || cur.phoneVerified,
-        assistanceNumber: cur.assistanceNumber,
-        brokerPhone: cur.brokerPhone,
-        onboardingStep: cur.onboardingStep,
+        phoneVerified: Boolean(server.phone.trim()) || cur.profile.phoneVerified,
       }
 
       const fillPhoto = async (
@@ -283,36 +393,34 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
         key: 'licensePhotoLocal' | 'carteGrisePhotoLocal' | 'attestationPhotoLocal',
       ) => {
         if (!path || local.startsWith('data:')) return
-        // Signed URLs last ~1h — keep existing https URL across polls.
         if (/^https?:\/\//i.test(local)) return
         try {
           const { url } = await api.profileDocUrl(kind)
-          next = { ...next, [key]: url }
+          server = { ...server, [key]: url }
         } catch {
           /* ignore */
         }
       }
       await fillPhoto(
         'license',
-        next.licensePhotoPath,
-        next.licensePhotoLocal,
+        server.licensePhotoPath,
+        server.licensePhotoLocal,
         'licensePhotoLocal',
       )
       await fillPhoto(
         'carteGrise',
-        next.carteGrisePhotoPath,
-        next.carteGrisePhotoLocal,
+        server.carteGrisePhotoPath,
+        server.carteGrisePhotoLocal,
         'carteGrisePhotoLocal',
       )
       await fillPhoto(
         'attestation',
-        next.attestationPhotoPath,
-        next.attestationPhotoLocal,
+        server.attestationPhotoPath,
+        server.attestationPhotoLocal,
         'attestationPhotoLocal',
       )
-      set({ profile: next, remoteHydrated: true })
+      applyMerged(set, server, get().draft, { remoteHydrated: true })
     } catch {
-      // Offline / no remote yet — still mark hydrated so UI can show auth seed.
       set({ remoteHydrated: true })
     }
   },
@@ -330,7 +438,8 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
       }
       await api.saveProfile(walletToDomain(next))
       const session = await api.completeProfile()
-      set({ profile: next, saving: false })
+      dirtyRevision = {}
+      applyMerged(set, next, {}, { saving: false })
       try {
         const { useSessionStore } = await import('@/store/session.ts')
         useSessionStore.getState().applyAuth(session.token, session.user)
@@ -346,7 +455,14 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
       throw err
     }
   },
-  reset: () => set({ profile: createDeviceWallet(), error: null, remoteHydrated: false }),
+  reset: () => {
+    dirtyRevision = {}
+    applyMerged(set, createDeviceWallet(), {}, {
+      error: null,
+      remoteHydrated: false,
+      walletEditing: false,
+    })
+  },
 }))
 
 if (import.meta.env.DEV && typeof window !== 'undefined') {

@@ -42,6 +42,9 @@ export type Wallet = {
   attestationValidUntil: string
   /** Mock OTP verified on this device (Phase 1). */
   phoneVerified: boolean
+  alsoTellEmployerIfCommute: boolean
+  /** Server optimistic-concurrency stamp (ISO). */
+  updatedAt: string
 }
 
 /** Empty until signup provisions ids on the user. */
@@ -75,6 +78,8 @@ export const emptyWallet: Wallet = {
   attestationPhotoPath: '',
   attestationValidUntil: '',
   phoneVerified: false,
+  alsoTellEmployerIfCommute: false,
+  updatedAt: '',
 }
 
 /** UI / API display: « Prénom Nom ». */
@@ -161,6 +166,8 @@ export function migrateDeviceWallet(wallet: Wallet): Wallet {
     attestationPhotoPath: named.attestationPhotoPath,
     attestationValidUntil: named.attestationValidUntil,
     phoneVerified: named.phoneVerified,
+    alsoTellEmployerIfCommute: named.alsoTellEmployerIfCommute,
+    updatedAt: named.updatedAt,
     onboardingStep: named.onboardingStep,
     onboarded: named.onboarded,
   }
@@ -331,18 +338,26 @@ export function walletToDomain(wallet: Wallet): DomainProfile {
   const assistanceOnContract: AssistanceOnContract = wallet.assistanceNumber.trim()
     ? 'yes'
     : wallet.assistanceOnContract
+  const first = wallet.firstName.trim()
+  const last = wallet.lastName.trim()
   return {
     motorist: {
       id: wallet.motoristId,
       name: displayName(wallet),
+      firstName: first || null,
+      lastName: last || null,
       phone: wallet.phone.trim() || null,
-      alsoTellEmployerIfCommute: false,
+      alsoTellEmployerIfCommute: wallet.alsoTellEmployerIfCommute,
       cin: wallet.cin.trim() || null,
       city: wallet.city.trim() || null,
       licenseNumber: wallet.licenseNumber.trim() || null,
       licensePhotoPath: wallet.licensePhotoPath.trim() || null,
       carteGrisePhotoPath: wallet.carteGrisePhotoPath.trim() || null,
       attestationPhotoPath: wallet.attestationPhotoPath.trim() || null,
+      assistanceNumber: wallet.assistanceNumber.trim() || null,
+      brokerPhone: wallet.brokerPhone.trim() || null,
+      onboardingStep: wallet.onboardingStep,
+      updatedAt: wallet.updatedAt.trim() || null,
     },
     vehicle: {
       id: wallet.vehicleId,
@@ -351,11 +366,12 @@ export function walletToDomain(wallet: Wallet): DomainProfile {
     },
     insurer: {
       id: wallet.insurerId,
-      displayName: wallet.insurer.trim() || PLACEHOLDER_INSURER,
+      // Empty allowed — no fake placeholder write.
+      displayName: wallet.insurer.trim(),
     },
     broker: {
       id: wallet.brokerId,
-      displayName: wallet.broker.trim() || 'Courtier',
+      displayName: wallet.broker.trim(),
     },
     policy: {
       id: wallet.policyId,
@@ -370,10 +386,19 @@ export function walletToDomain(wallet: Wallet): DomainProfile {
 }
 
 export function domainToWallet(profile: DomainProfile, extra?: Partial<Wallet>): Wallet {
-  const split = migrateWalletNames({
-    ...emptyWallet,
-    name: profile.motorist.name,
-  } as Wallet & { name?: string })
+  const fromFields =
+    (profile.motorist.firstName?.trim() || profile.motorist.lastName?.trim())
+      ? {
+          firstName: profile.motorist.firstName?.trim() ?? '',
+          lastName: profile.motorist.lastName?.trim() ?? '',
+        }
+      : null
+  const split = fromFields
+    ? fromFields
+    : migrateWalletNames({
+        ...emptyWallet,
+        name: profile.motorist.name,
+      } as Wallet & { name?: string })
   return {
     ...emptyWallet,
     ...extra,
@@ -391,6 +416,7 @@ export function domainToWallet(profile: DomainProfile, extra?: Partial<Wallet>):
     policy: profile.policy.number ?? '',
     broker: profile.broker.displayName,
     assistanceOnContract: profile.policy.assistanceOnContract,
+    alsoTellEmployerIfCommute: profile.motorist.alsoTellEmployerIfCommute,
     city: profile.motorist.city ?? extra?.city ?? '',
     cin: profile.motorist.cin ?? extra?.cin ?? '',
     licenseNumber: profile.motorist.licenseNumber ?? extra?.licenseNumber ?? '',
@@ -404,5 +430,11 @@ export function domainToWallet(profile: DomainProfile, extra?: Partial<Wallet>):
     attestationPhotoLocal: extra?.attestationPhotoLocal ?? '',
     attestationValidUntil:
       profile.policy.attestationValidUntil ?? extra?.attestationValidUntil ?? '',
+    assistanceNumber:
+      profile.motorist.assistanceNumber ?? extra?.assistanceNumber ?? '',
+    brokerPhone: profile.motorist.brokerPhone ?? extra?.brokerPhone ?? '',
+    onboardingStep:
+      profile.motorist.onboardingStep ?? extra?.onboardingStep ?? 0,
+    updatedAt: profile.motorist.updatedAt ?? extra?.updatedAt ?? '',
   }
 }

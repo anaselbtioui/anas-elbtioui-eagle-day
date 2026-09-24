@@ -9,7 +9,7 @@ import {
 } from '@/store/profile.ts'
 
 const getProfile = vi.fn()
-const saveProfile = vi.fn().mockResolvedValue(undefined)
+const saveProfile = vi.fn().mockImplementation(async (p: Profile) => p)
 const uploadProfileDoc = vi.fn()
 const profileDocUrl = vi.fn()
 
@@ -40,11 +40,14 @@ function remoteProfile(overrides?: {
   phone?: string | null
   brokerId?: string
   policy?: string | null
+  attestationValidUntil?: string | null
 }): Profile {
   return {
     motorist: {
       id: 'M-remote',
       name: 'Nadia El Mansouri',
+      firstName: 'Nadia',
+      lastName: 'El Mansouri',
       phone: overrides?.phone ?? '+212612345678',
       alsoTellEmployerIfCommute: false,
       cin: 'AB123456',
@@ -53,6 +56,10 @@ function remoteProfile(overrides?: {
       licensePhotoPath: null,
       carteGrisePhotoPath: null,
       attestationPhotoPath: null,
+      assistanceNumber: null,
+      brokerPhone: null,
+      onboardingStep: 0,
+      updatedAt: '2026-01-01T00:00:00.000Z',
     },
     vehicle: {
       id: 'V-1',
@@ -74,9 +81,32 @@ function remoteProfile(overrides?: {
       brokerId: overrides?.brokerId ?? 'B-remote',
       vehicleId: 'V-1',
       assistanceOnContract: 'unknown',
-      attestationValidUntil: '2099-06-01',
+      attestationValidUntil: overrides?.attestationValidUntil ?? '2099-06-01',
     },
   }
+}
+
+function resetStore(partial?: Partial<ReturnType<typeof useProfileStore.getState>['profile']>) {
+  const profile = {
+    ...emptyWallet,
+    motoristId: 'M-remote',
+    phone: 'stale-local',
+    brokerId: 'B-local-stale',
+    broker: 'Local Broker',
+    firstName: 'Local',
+    lastName: 'Only',
+    onboarded: false,
+    ...partial,
+  }
+  useProfileStore.setState({
+    profile,
+    serverProfile: profile,
+    draft: {},
+    error: null,
+    saving: false,
+    remoteHydrated: false,
+    walletEditing: false,
+  })
 }
 
 describe('pullRemoteProfile remote-wins', () => {
@@ -85,21 +115,51 @@ describe('pullRemoteProfile remote-wins', () => {
     getProfile.mockReset()
     saveProfile.mockClear()
     localStorage.clear()
-    useProfileStore.setState({
-      profile: {
-        ...emptyWallet,
-        motoristId: 'M-remote',
-        phone: 'stale-local',
-        brokerId: 'B-local-stale',
-        broker: 'Local Broker',
-        firstName: 'Local',
-        lastName: 'Only',
-        onboarded: false,
-      },
-      error: null,
-      saving: false,
-      remoteHydrated: false,
-    })
+    resetStore()
+  })
+
+  it('keeps pending field edits across a remote pull', async () => {
+    getProfile.mockResolvedValue(remoteProfile({ policy: null, attestationValidUntil: null }))
+    useProfileStore.getState().setProfile({ attestationValidUntil: '2099-06-01' })
+    await useProfileStore.getState().pullRemoteProfile()
+    expect(useProfileStore.getState().profile.attestationValidUntil).toBe('2099-06-01')
+  })
+
+  it('keeps edits typed during an in-flight PUT across the next pull', async () => {
+    vi.useFakeTimers()
+    try {
+      saveProfile.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve(remoteProfile({ attestationValidUntil: '2099-01-01' })), 50)
+          }),
+      )
+      getProfile.mockResolvedValue(remoteProfile({ attestationValidUntil: '2099-01-01' }))
+
+      useProfileStore.getState().setProfile({ attestationValidUntil: '2099-01-01' })
+      const persistP = useProfileStore.getState().persistDraft()
+      await vi.advanceTimersByTimeAsync(400)
+
+      // Type while PUT in flight
+      useProfileStore.getState().setProfile({ attestationValidUntil: '2099-12-31' })
+      await vi.advanceTimersByTimeAsync(50)
+      await persistP
+
+      expect(useProfileStore.getState().profile.attestationValidUntil).toBe('2099-12-31')
+      expect(useProfileStore.getState().draft.attestationValidUntil).toBe('2099-12-31')
+
+      await useProfileStore.getState().pullRemoteProfile()
+      expect(useProfileStore.getState().profile.attestationValidUntil).toBe('2099-12-31')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('skips pull while walletEditing is true', async () => {
+    getProfile.mockResolvedValue(remoteProfile())
+    useProfileStore.setState({ walletEditing: true })
+    await useProfileStore.getState().pullRemoteProfile()
+    expect(getProfile).not.toHaveBeenCalled()
   })
 
   it('marks remoteHydrated after a successful pull', async () => {
@@ -115,7 +175,7 @@ describe('pullRemoteProfile remote-wins', () => {
     expect(useProfileStore.getState().remoteHydrated).toBe(true)
   })
 
-  it('overwrites nonempty local fields with server values', async () => {
+  it('overwrites nonempty local fields with server values when draft empty', async () => {
     getProfile.mockResolvedValue(remoteProfile())
     await useProfileStore.getState().pullRemoteProfile()
     const p = useProfileStore.getState().profile
@@ -128,16 +188,13 @@ describe('pullRemoteProfile remote-wins', () => {
     expect(p.phoneVerified).toBe(true)
   })
 
-  it('keeps in-flight photos and client-only wallet fields', async () => {
+  it('keeps in-flight photos and client-only wallet fields via draft', async () => {
     const dataUrl = 'data:image/png;base64,abc'
-    useProfileStore.setState({
-      profile: {
-        ...useProfileStore.getState().profile,
-        licensePhotoLocal: dataUrl,
-        assistanceNumber: '0800123456',
-        brokerPhone: '+212612000000',
-        onboardingStep: 4,
-      },
+    useProfileStore.getState().setProfile({
+      licensePhotoLocal: dataUrl,
+      assistanceNumber: '0800123456',
+      brokerPhone: '+212612000000',
+      onboardingStep: 4,
     })
     getProfile.mockResolvedValue(remoteProfile())
     await useProfileStore.getState().pullRemoteProfile()
@@ -168,11 +225,7 @@ describe('pullRemoteProfile remote-wins', () => {
     const pctA = walletRemainingPercent(useProfileStore.getState().profile)
     const gapsA = useProfileStore.getState().profile.policy
 
-    useProfileStore.setState({
-      profile: { ...emptyWallet, motoristId: 'M-remote' },
-      error: null,
-      saving: false,
-    })
+    resetStore({ motoristId: 'M-remote' })
     await useProfileStore.getState().pullRemoteProfile()
     const pctB = walletRemainingPercent(useProfileStore.getState().profile)
     expect(pctA).toBe(pctB)
@@ -184,11 +237,7 @@ describe('migrateLegacyProfileStorage', () => {
   beforeEach(() => {
     localStorage.clear()
     saveProfile.mockClear()
-    useProfileStore.setState({
-      profile: { ...emptyWallet, motoristId: 'M-migrate' },
-      error: null,
-      saving: false,
-    })
+    resetStore({ motoristId: 'M-migrate' })
   })
 
   it('pushes legacy blob then removes labas-profile-v2', async () => {

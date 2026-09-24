@@ -22,31 +22,61 @@ interface SessionState {
 
 /** Auth → wallet: ids + seed names; full fields come from pullRemoteProfile. */
 export function syncProfile(user: AuthUser): void {
-  const current = useProfileStore.getState().profile
+  const state = useProfileStore.getState()
+  const current = state.profile
   const sameMotorist = Boolean(current.motoristId && current.motoristId === (user.motoristId ?? ''))
   // Prefer wallet broker link — auth JWT may lag behind PUT /api/profile until refresh.
   const brokerId =
     (sameMotorist && current.brokerId.trim()) || user.brokerId || ''
-  const base = sameMotorist ? current : emptyWallet
-  const named = migrateWalletNames({
-    ...base,
-    // Seed from auth when wallet names still empty (signup / rehydrate).
-    name: user.displayName,
-  } as Wallet & { name?: string })
-  useProfileStore.setState({
-    profile: {
+  // Keep local onboarded across JWT lag after completeProfile (match pullRemoteProfile).
+  const onboarded =
+    user.role === 'broker' ? false : Boolean(user.onboarded) || (sameMotorist && current.onboarded)
+
+  if (!sameMotorist) {
+    const named = migrateWalletNames({
+      ...emptyWallet,
+      name: user.displayName,
+    } as Wallet & { name?: string })
+    const next: Wallet = {
       ...named,
       motoristId: user.motoristId ?? '',
-      vehicleId: user.vehicleId ?? (sameMotorist ? current.vehicleId : '') ?? '',
-      insurerId: user.insurerId ?? (sameMotorist ? current.insurerId : '') ?? '',
+      vehicleId: user.vehicleId ?? '',
+      insurerId: user.insurerId ?? '',
       brokerId,
-      policyId: user.policyId ?? (sameMotorist ? current.policyId : '') ?? '',
-      onboarded:
-        user.role === 'broker' ? false : Boolean(user.onboarded),
-    },
+      policyId: user.policyId ?? '',
+      onboarded,
+    }
+    useProfileStore.setState({
+      profile: next,
+      serverProfile: next,
+      draft: {},
+      error: null,
+      remoteHydrated: false,
+    })
+    return
+  }
+
+  const named = migrateWalletNames({
+    ...state.serverProfile,
+    name: user.displayName,
+  } as Wallet & { name?: string })
+  const server: Wallet = {
+    ...named,
+    motoristId: user.motoristId ?? '',
+    vehicleId: user.vehicleId ?? state.serverProfile.vehicleId,
+    insurerId: user.insurerId ?? state.serverProfile.insurerId,
+    brokerId,
+    policyId: user.policyId ?? state.serverProfile.policyId,
+    onboarded,
+    // Prefer existing server names; only seed when blank.
+    firstName: state.serverProfile.firstName.trim() || named.firstName,
+    lastName: state.serverProfile.lastName.trim() || named.lastName,
+  }
+  useProfileStore.setState({
+    serverProfile: server,
+    draft: state.draft,
+    profile: { ...server, ...state.draft },
     error: null,
-    // New motorist (or cold rehydrate onto empty wallet): wait for GET before nudge %.
-    ...(sameMotorist ? {} : { remoteHydrated: false }),
   })
 }
 

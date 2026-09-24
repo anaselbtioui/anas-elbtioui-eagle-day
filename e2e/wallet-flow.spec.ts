@@ -37,15 +37,42 @@ async function openOnboardingWizard(page: Page): Promise<void> {
 }
 
 async function setAttestationDate(page: Page, iso: string): Promise<void> {
-  await page.evaluate((value) => {
-    const store = (
-      window as unknown as {
-        __labasProfile?: { getState: () => { setProfile: (p: { attestationValidUntil: string }) => void } }
-      }
-    ).__labasProfile
-    if (!store) throw new Error('missing __labasProfile test hook')
-    store.getState().setProfile({ attestationValidUntil: value })
-  }, iso)
+  // data-testid is on the wrapper; click the trigger button inside.
+  const trigger = page.getByTestId('attestation-valid-until').getByRole('button')
+  await trigger.scrollIntoViewIfNeeded()
+  await trigger.click({ force: true })
+  const panel = page.locator('[data-testid="date-picker-panel"]')
+  await expect(panel).toBeVisible({ timeout: 10_000 })
+  await expect(panel.locator('button[data-iso]').first()).toBeAttached({ timeout: 5_000 })
+
+  const dayBtn = () => panel.locator(`button[data-iso="${iso}"]`)
+  const next = panel.getByLabel(/^(Next month|Mois suivant)$/i)
+  const prev = panel.getByLabel(/^(Previous month|Mois précédent)$/i)
+  const target = new Date(`${iso}T12:00:00`).getTime()
+
+  for (let i = 0; i < 36; i++) {
+    if ((await dayBtn().count()) > 0) break
+    const mid = panel.locator('button[data-iso]').nth(15)
+    const sampleIso = await mid.getAttribute('data-iso')
+    if (!sampleIso) break
+    const sampleMs = new Date(`${sampleIso}T12:00:00`).getTime()
+    // DOM click — Playwright force click was dismissing the portaled panel.
+    await (target >= sampleMs ? next : prev).evaluate((el) => (el as HTMLButtonElement).click())
+    await expect(panel.locator('button[data-iso]').first()).toBeAttached({ timeout: 3_000 })
+  }
+  await expect(dayBtn()).toBeAttached({ timeout: 5_000 })
+  await dayBtn().evaluate((el) => (el as HTMLButtonElement).click())
+  await expect(panel).toBeHidden({ timeout: 5_000 })
+}
+
+function isoDaysFromNow(days: number): string {
+  const d = new Date()
+  d.setHours(12, 0, 0, 0)
+  d.setDate(d.getDate() + days)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 async function pickAnyBroker(page: Page): Promise<void> {
@@ -138,13 +165,15 @@ test.describe('wallet flow', () => {
 
     // attestation — optional policy empty OK; past date blocks Continue + Skip
     await page.getByTestId('insurer-select').selectOption('Sanlam Maroc')
-    await setAttestationDate(page, '2020-01-15')
+    const expiredIso = isoDaysFromNow(-45)
+    await setAttestationDate(page, expiredIso)
     await expect(page.getByText(/Attestation expired|Attestation expirée/i)).toBeVisible()
     await expect(continueBtn(page)).toBeDisabled()
     await expect(skipStep(page)).toHaveCount(0)
     await expect(skipAll(page)).toHaveCount(0)
 
-    await setAttestationDate(page, '2099-06-01')
+    const validIso = isoDaysFromNow(400)
+    await setAttestationDate(page, validIso)
     await expect(continueBtn(page)).toBeEnabled()
     await continueBtn(page).click()
 
