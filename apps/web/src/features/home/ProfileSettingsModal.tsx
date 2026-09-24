@@ -264,7 +264,8 @@ export function ProfileSettingsModal({
       }
       setProfile(next)
       await persistDraft()
-      onOpenChange(false)
+      setDraft(next)
+      setBaseline(next)
     } catch {
       setPersistError(t('onboarding.saveError'))
     } finally {
