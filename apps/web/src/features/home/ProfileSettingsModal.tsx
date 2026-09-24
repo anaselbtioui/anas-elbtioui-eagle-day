@@ -19,7 +19,7 @@ import {
   normalizePlate,
 } from '@/domain/ma-fields.ts'
 import { isMoroccanCity } from '@/domain/moroccan-cities.ts'
-import { isValidMoroccanPhone } from '@/lib/phone'
+import { countryCodeToFlagEmoji, isValidMoroccanPhone } from '@/lib/phone'
 import { useProfileStore } from '@/store/profile'
 import { api } from '@/services/api.ts'
 import {
@@ -30,7 +30,7 @@ import {
 import { cn } from '@/lib/utils'
 
 type ProfileCategory = 'identite' | 'vehicule' | 'contrat' | 'courtier'
-type SettingsCategory = ProfileCategory | 'compte'
+type SettingsCategory = ProfileCategory | 'general' | 'compte'
 
 const PROFILE_CATEGORIES: ProfileCategory[] = [
   'identite',
@@ -39,15 +39,21 @@ const PROFILE_CATEGORIES: ProfileCategory[] = [
   'courtier',
 ]
 
-const CATEGORIES: SettingsCategory[] = [...PROFILE_CATEGORIES, 'compte']
+const CATEGORIES: SettingsCategory[] = [...PROFILE_CATEGORIES, 'general', 'compte']
 
 const CATEGORY_ICON: Record<SettingsCategory, LabasIconName> = {
   identite: 'user',
   vehicule: 'car',
   contrat: 'clipboard',
   courtier: 'briefcase',
+  general: 'settings',
   compte: 'lock',
 }
+
+const UI_LANGUAGES = [
+  { id: 'fr' as const, label: 'Français', flag: 'fr' },
+  { id: 'en' as const, label: 'English', flag: 'gb' },
+]
 
 type FieldKey = keyof Pick<
   Wallet,
@@ -142,6 +148,32 @@ function FieldRow({
       </Label>
       <div className="mt-1.5">{children}</div>
     </div>
+  )
+}
+
+function LangFlag({ code, className }: { code: string; className?: string }) {
+  const [imgBroken, setImgBroken] = useState(false)
+  if (imgBroken) {
+    return (
+      <span className={cn('text-base leading-none', className)} aria-hidden>
+        {countryCodeToFlagEmoji(code.toUpperCase())}
+      </span>
+    )
+  }
+  return (
+    <img
+      className={cn(
+        'h-4 w-[22px] shrink-0 rounded-sm object-cover outline outline-1 outline-ink/10',
+        className,
+      )}
+      src={`https://flagcdn.com/w40/${code}.png`}
+      alt=""
+      width={22}
+      height={16}
+      loading="lazy"
+      decoding="async"
+      onError={() => setImgBroken(true)}
+    />
   )
 }
 
@@ -413,6 +445,68 @@ export function ProfileSettingsModal({
                 </>
               ) : null}
 
+              {category === 'general' ? (
+                <>
+                  <h2 className="font-display text-xl font-bold text-ink">
+                    {t('motorist.settingsCat.general')}
+                  </h2>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {t('motorist.settingsCatHint.general')}
+                  </p>
+                  <div className="mt-6 rounded-[var(--radius-labas)] border border-border bg-surface p-4">
+                    <p
+                      id="settings-language-label"
+                      className="text-sm font-medium text-ink-muted"
+                    >
+                      {t('motorist.settingsLanguage')}
+                    </p>
+                    <div
+                      className="mt-3 flex flex-col gap-2"
+                      role="radiogroup"
+                      aria-labelledby="settings-language-label"
+                      data-testid="settings-language"
+                    >
+                      {UI_LANGUAGES.map((lang) => {
+                        const selected = uiLang === lang.id
+                        return (
+                          <button
+                            key={lang.id}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            data-testid={`settings-language-${lang.id}`}
+                            onClick={() => {
+                              void i18n.changeLanguage(lang.id)
+                            }}
+                            className={cn(
+                              'flex min-h-12 w-full items-center gap-3 rounded-[var(--radius-labas)] border-2 px-4 py-3 text-left text-base font-medium transition-colors',
+                              selected
+                                ? 'border-ink bg-ink-soft text-ink'
+                                : 'border-border bg-surface text-ink hover:border-ink/40',
+                            )}
+                          >
+                            <LangFlag code={lang.flag} />
+                            <span className="min-w-0 flex-1">{lang.label}</span>
+                            <span
+                              className={cn(
+                                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
+                                selected ? 'border-ink bg-ink' : 'border-border',
+                              )}
+                              aria-hidden
+                            >
+                              {selected ? (
+                                <span className="h-2 w-2 rounded-full bg-sand" />
+                              ) : null}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm text-ink-muted">{t('motorist.settingsLanguageHint')}</p>
+                </>
+              ) : null}
+
               {category === 'compte' ? (
                 <>
                   <h2 className="font-display text-xl font-bold text-ink">
@@ -421,23 +515,6 @@ export function ProfileSettingsModal({
                   <p className="mt-1 text-sm text-ink-muted">
                     {t('motorist.settingsCatHint.compte')}
                   </p>
-                  <div className="mt-6 space-y-0 overflow-hidden rounded-[var(--radius-labas)] border border-border bg-surface">
-                    <FieldRow label={t('motorist.settingsLanguage')} htmlFor="settings-language">
-                      <select
-                        id="settings-language"
-                        value={uiLang}
-                        onChange={(e) => {
-                          void i18n.changeLanguage(e.target.value)
-                        }}
-                        className="flex min-h-12 w-full rounded-[var(--radius-labas)] border-2 border-border bg-surface px-4 py-3 text-base text-ink focus-visible:border-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
-                        data-testid="settings-language"
-                      >
-                        <option value="fr">Français</option>
-                        <option value="en">English</option>
-                      </select>
-                    </FieldRow>
-                  </div>
-                  <p className="mt-3 text-sm text-ink-muted">{t('motorist.settingsLanguageHint')}</p>
                   <p className="mt-6 text-sm text-ink-muted">{t('motorist.settingsAccountHint')}</p>
                 </>
               ) : null}

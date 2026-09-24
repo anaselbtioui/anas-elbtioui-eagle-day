@@ -191,7 +191,7 @@
     "settingsHint": "",
     "settingsLocalNote": "Photos locales",
     "settingsEdit": "Assistant",
-    "settingsAccountHint": "Langue et données sur cet appareil.",
+    "settingsAccountHint": "Compte et données sur cet appareil.",
     "settingsLanguage": "Langue d’affichage",
     "settingsLanguageHint": "S’applique à Med Assurance sur cet appareil.",
     "brokerUnset": "Aucun courtier associé",
@@ -201,6 +201,7 @@
       "vehicule": "Véhicule",
       "contrat": "Contrat",
       "courtier": "Courtier",
+      "general": "Général",
       "compte": "Compte"
     },
     "settingsCatHint": {
@@ -208,7 +209,8 @@
       "vehicule": "Immatriculation et description du véhicule",
       "contrat": "Assureur, n° de contrat, attestation et assistance",
       "courtier": "Associé via Med Assurance — le courtier fournit ses coordonnées",
-      "compte": "Langue et données sur cet appareil"
+      "general": "Langue d’affichage sur cet appareil",
+      "compte": "Compte et données sur cet appareil"
     },
     "walletNudgePeek": "À compléter",
     "walletNudgeRemaining": "Il vous reste {{pct}} % pour compléter votre portefeuille",
