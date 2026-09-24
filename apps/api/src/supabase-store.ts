@@ -751,7 +751,7 @@ export async function upsertProfileEntitiesUnlocked(profile: Profile): Promise<v
       [
         {
           id: profile.insurer.id,
-          display_name: profile.insurer.displayName || 'Assureur',
+          display_name: profile.insurer.displayName === 'Assureur' ? '' : profile.insurer.displayName,
         },
       ],
       'id',

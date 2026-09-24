@@ -124,7 +124,7 @@ export function provisionMotorist(db: Db, displayName: string): {
         updatedAt: new Date().toISOString(),
       }),
       vehicles: upsert(db.vehicles, { id: vehicleId, plate: null, makeModel: null }),
-      insurers: upsert(db.insurers, { id: insurerId, displayName: 'Assureur' }),
+      insurers: upsert(db.insurers, { id: insurerId, displayName: '' }),
       policies: upsert(db.policies, {
         id: policyId,
         number: null,

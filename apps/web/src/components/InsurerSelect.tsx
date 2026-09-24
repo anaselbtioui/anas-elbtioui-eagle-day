@@ -23,18 +23,20 @@ export function InsurerSelect({
   'data-testid': testId,
 }: InsurerSelectProps) {
   const trimmed = value.trim()
-  const known = isMoroccanInsurer(trimmed)
+  // Provision used to seed "Assureur" — never show it as a real pick.
+  const shown = trimmed === 'Assureur' ? '' : trimmed
+  const known = isMoroccanInsurer(shown)
 
   return (
     <select
       id={id}
-      value={trimmed}
+      value={shown}
       onChange={(e) => onChange(e.target.value)}
       className={cn(selectClass, className)}
       data-testid={testId ?? 'insurer-select'}
     >
       <option value="">{placeholder}</option>
-      {!known && trimmed ? <option value={trimmed}>{trimmed}</option> : null}
+      {!known && shown ? <option value={shown}>{shown}</option> : null}
       {MOROCCAN_INSURERS.map((name) => (
         <option key={name} value={name}>
           {name}

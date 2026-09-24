@@ -397,7 +397,10 @@ export function createApp(
           vehicles: upsert(db.vehicles, body.vehicle),
           insurers: upsert(db.insurers, {
             ...body.insurer,
-            displayName: body.insurer.displayName.trim() || 'Assureur',
+            displayName:
+              body.insurer.displayName.trim() === 'Assureur'
+                ? ''
+                : body.insurer.displayName.trim(),
           }),
           policies: upsert(db.policies, policy),
         }
@@ -406,7 +409,10 @@ export function createApp(
           motorist,
           insurer: {
             ...body.insurer,
-            displayName: body.insurer.displayName.trim() || 'Assureur',
+            displayName:
+              body.insurer.displayName.trim() === 'Assureur'
+                ? ''
+                : body.insurer.displayName.trim(),
           },
           broker: { id: '', displayName: body.broker.displayName || '' },
           policy,
@@ -431,7 +437,10 @@ export function createApp(
         vehicles: upsert(db.vehicles, body.vehicle),
         insurers: upsert(db.insurers, {
           ...body.insurer,
-          displayName: body.insurer.displayName.trim() || 'Assureur',
+          displayName:
+            body.insurer.displayName.trim() === 'Assureur'
+              ? ''
+              : body.insurer.displayName.trim(),
         }),
         policies: upsert(db.policies, policy),
       }
@@ -441,7 +450,10 @@ export function createApp(
         motorist,
         insurer: {
           ...body.insurer,
-          displayName: body.insurer.displayName.trim() || 'Assureur',
+          displayName:
+            body.insurer.displayName.trim() === 'Assureur'
+              ? ''
+              : body.insurer.displayName.trim(),
         },
         broker: { id: broker.id, displayName: broker.displayName },
         policy,

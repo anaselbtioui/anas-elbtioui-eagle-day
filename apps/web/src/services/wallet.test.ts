@@ -289,4 +289,23 @@ describe('wallet ↔ domain round-trip', () => {
     expect(domain.insurer.displayName).toBe('')
     expect(domain.broker.displayName).toBe('')
   })
+
+  it('strips provision placeholder Assureur on read and write', () => {
+    const wallet: Wallet = {
+      ...createDeviceWallet(),
+      insurer: 'Assureur',
+      broker: 'Courtier',
+    }
+    expect(walletToDomain(wallet).insurer.displayName).toBe('')
+    expect(walletToDomain(wallet).broker.displayName).toBe('')
+
+    const back = domainToWallet({
+      ...walletToDomain({ ...wallet, insurer: 'Sanlam', broker: 'Said' }),
+      insurer: { id: wallet.insurerId, displayName: 'Assureur' },
+      broker: { id: '', displayName: 'Courtier' },
+    })
+    expect(back.insurer).toBe('')
+    expect(back.broker).toBe('')
+    expect(walletFieldFilled(back, 'insurer')).toBe(false)
+  })
 })

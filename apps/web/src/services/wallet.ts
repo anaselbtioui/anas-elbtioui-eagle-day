@@ -366,12 +366,16 @@ export function walletToDomain(wallet: Wallet): DomainProfile {
     },
     insurer: {
       id: wallet.insurerId,
-      // Empty allowed — no fake placeholder write.
-      displayName: wallet.insurer.trim(),
+      // Never write the provision placeholder — progress treats it as empty.
+      displayName:
+        wallet.insurer.trim() === PLACEHOLDER_INSURER ? '' : wallet.insurer.trim(),
     },
     broker: {
       id: wallet.brokerId,
-      displayName: wallet.broker.trim(),
+      displayName:
+        wallet.broker.trim() === 'Courtier' || wallet.broker.trim() === '—'
+          ? ''
+          : wallet.broker.trim(),
     },
     policy: {
       id: wallet.policyId,
@@ -412,9 +416,15 @@ export function domainToWallet(profile: DomainProfile, extra?: Partial<Wallet>):
     phone: profile.motorist.phone ?? '',
     plate: profile.vehicle.plate ?? '',
     vehicle: profile.vehicle.makeModel ?? '',
-    insurer: profile.insurer.displayName,
+    insurer:
+      profile.insurer.displayName === PLACEHOLDER_INSURER
+        ? ''
+        : profile.insurer.displayName,
     policy: profile.policy.number ?? '',
-    broker: profile.broker.displayName,
+    broker:
+      profile.broker.displayName === 'Courtier' || profile.broker.displayName === '—'
+        ? ''
+        : profile.broker.displayName,
     assistanceOnContract: profile.policy.assistanceOnContract,
     alsoTellEmployerIfCommute: profile.motorist.alsoTellEmployerIfCommute,
     city: profile.motorist.city ?? extra?.city ?? '',
