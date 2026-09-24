@@ -72,7 +72,7 @@ import { exclusiveDbWrite } from './write-lock.ts'
 import {
   fetchAppUserById,
   fetchProfileById,
-  supabaseConfigured,
+  loadDb as loadSupabase,
   upsertAppUserUnlocked,
   upsertProfileEntitiesUnlocked,
 } from './supabase-store.ts'
@@ -177,7 +177,7 @@ export function createApp(
   replaceFn: (db: Db) => Promise<void> = persistFn,
 ) {
   const load = loadFn
-  const usesSupabaseStore = loadFn === loadDb && supabaseConfigured()
+  const usesSupabaseStore = loadFn === loadSupabase
   /** Serialize load→mutate→persist within one process. */
   async function write(mutator: (db: Db) => Db | Promise<Db>): Promise<Db> {
     return exclusiveDbWrite(loadFn, persistFn, mutator)

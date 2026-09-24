@@ -26840,7 +26840,7 @@ function writeDossier(db, pack, declaration, dossier) {
 }
 function createApp(loadFn = loadDb, persistFn = saveDb, replaceFn = persistFn) {
   const load = loadFn;
-  const usesSupabaseStore = loadFn === loadDb && supabaseConfigured();
+  const usesSupabaseStore = loadFn === loadDb2;
   async function write(mutator) {
     return exclusiveDbWrite(loadFn, persistFn, mutator);
   }
