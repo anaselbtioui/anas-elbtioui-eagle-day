@@ -91,6 +91,8 @@ export function BrokerDossierPage() {
 
   const { profile, pack, dossier, provenance, declaration } = bundle
   const gapsBlocked = dossier.missingPieces.length > 0
+  const closed = Boolean(dossier.closedReason)
+  const liveActionsDisabled = closed
 
   const sourcesLine = [
     dossier.missingPieces.length
@@ -100,6 +102,7 @@ export function BrokerDossierPage() {
   ].join(' · ')
 
   function submitRequest() {
+    if (liveActionsDisabled) return
     void requestPiece(dossierId, piece, note.trim()).then(() => {
       setRequestOpen(false)
       setNote('')
@@ -107,6 +110,7 @@ export function BrokerDossierPage() {
   }
 
   function openDraft() {
+    if (liveActionsDisabled) return
     void addDraft(
       dossierId,
       intent,
@@ -118,6 +122,7 @@ export function BrokerDossierPage() {
   }
 
   function onDraftBlur() {
+    if (liveActionsDisabled) return
     if (!activeDraft || draftText === activeDraft.body) return
     void setDraftBody(dossierId, activeDraft.id, draftText)
   }
@@ -129,19 +134,46 @@ export function BrokerDossierPage() {
         <p className="mt-1 text-ink-muted">
           {profile.motorist.name} · {pack.incident.city}
         </p>
-        <span
-          className={cn(
-            'mt-3 inline-block rounded-full px-3 py-1 text-xs font-semibold',
-            dossier.status === 'blocked_missing_evidence'
-              ? 'bg-alert-soft text-alert'
-              : dossier.status === 'waiting_motorist'
-                ? 'bg-sand-deep text-ink'
-                : 'bg-moss-soft text-moss',
-          )}
-          data-testid="dossier-status"
-        >
-          {t(`broker.status.${dossier.status}`)}
-        </span>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              'inline-block rounded-full px-3 py-1 text-xs font-semibold',
+              dossier.status === 'blocked_missing_evidence'
+                ? 'bg-alert-soft text-alert'
+                : dossier.status === 'waiting_motorist'
+                  ? 'bg-sand-deep text-ink'
+                  : 'bg-moss-soft text-moss',
+            )}
+            data-testid="dossier-status"
+          >
+            {t(`broker.status.${dossier.status}`)}
+          </span>
+          {closed ? (
+            <span
+              className="inline-block rounded-full bg-alert-soft px-3 py-1 text-xs font-semibold text-alert"
+              data-testid="dossier-closed"
+            >
+              {t(
+                dossier.closedReason === 'cancelled'
+                  ? 'broker.closedCancelled'
+                  : 'broker.closedArchived',
+              )}
+            </span>
+          ) : null}
+        </div>
+        {closed ? (
+          <p
+            className="mt-3 rounded-[var(--radius-labas)] border border-alert/30 bg-alert-soft px-4 py-3 text-sm text-ink"
+            data-testid="dossier-closed-banner"
+            role="status"
+          >
+            {t(
+              dossier.closedReason === 'cancelled'
+                ? 'broker.closedBannerCancelled'
+                : 'broker.closedBannerArchived',
+            )}
+          </p>
+        ) : null}
       </div>
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -151,6 +183,7 @@ export function BrokerDossierPage() {
             id="owner"
             className="min-h-12 rounded-[var(--radius-labas)] border border-border bg-surface px-3"
             value={provenance.owner || '—'}
+            disabled={liveActionsDisabled}
             onChange={(e) => void setOwner(dossierId, e.target.value)}
             data-testid="owner-select"
           >
@@ -163,10 +196,20 @@ export function BrokerDossierPage() {
         </div>
         <Button
           variant="moss"
-          disabled={gapsBlocked}
+          disabled={gapsBlocked || liveActionsDisabled}
           onClick={() => void handoff(dossierId)}
           data-testid="handoff-cta"
-          title={gapsBlocked ? t('broker.handoffBlocked') : undefined}
+          title={
+            liveActionsDisabled
+              ? t(
+                  dossier.closedReason === 'cancelled'
+                    ? 'broker.closedCancelled'
+                    : 'broker.closedArchived',
+                )
+              : gapsBlocked
+                ? t('broker.handoffBlocked')
+                : undefined
+          }
         >
           {t('broker.handoffCta')}
         </Button>
@@ -274,6 +317,7 @@ export function BrokerDossierPage() {
                   <input
                     type="checkbox"
                     checked={task.done}
+                    disabled={liveActionsDisabled}
                     onChange={() => void toggleTaskDone(dossierId, task.id)}
                     className="h-5 w-5 accent-moss"
                   />
@@ -292,12 +336,18 @@ export function BrokerDossierPage() {
             <Button
               className="flex-1"
               variant="secondary"
+              disabled={liveActionsDisabled}
               onClick={() => setRequestOpen(true)}
               data-testid="open-request"
             >
               {t('broker.requestCta')}
             </Button>
-            <Button className="flex-1" onClick={openDraft} data-testid="open-draft">
+            <Button
+              className="flex-1"
+              disabled={liveActionsDisabled}
+              onClick={openDraft}
+              data-testid="open-draft"
+            >
               {t('broker.draftCta')}
             </Button>
           </div>

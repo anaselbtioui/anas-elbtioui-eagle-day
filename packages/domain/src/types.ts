@@ -16,6 +16,9 @@ export type DossierStatus =
   | 'with_broker'
   | 'with_insurer'
 
+/** Shared motorist→desk close. Pipeline `status` stays; this is a second fact. */
+export type DossierClosedReason = 'cancelled' | 'archived'
+
 export type Motorist = {
   id: string
   name: string
@@ -191,6 +194,9 @@ export type Dossier = {
   status: DossierStatus
   nextHumanStep: string
   notifiedWithinGuidanceNote: string | null
+  /** When the motorist closed the file for the desk (cancel or archive). */
+  closedAt: string | null
+  closedReason: DossierClosedReason | null
 }
 
 export type Profile = {

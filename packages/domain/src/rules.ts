@@ -2,6 +2,7 @@ import type {
   AssistanceOnContract,
   Declaration,
   Dossier,
+  DossierClosedReason,
   Evidence,
   EvidencePack,
   Injury,
@@ -10,6 +11,24 @@ import type {
   PvStatus,
 } from './types.ts'
 import { ACAPS_NOTIFY_GUIDANCE } from './types.ts'
+
+/**
+ * Shared motorist close for the broker desk.
+ * Cancel / stop (UI `stopped`, domain `pv: required`) wins over archive.
+ */
+export function motoristCloseFromPack(
+  pack: EvidencePack,
+  now = new Date().toISOString(),
+): { closedAt: string | null; closedReason: DossierClosedReason | null } {
+  // UI `stopped` maps to sticky pv required (cancel, injury stop, other-party stop).
+  if (pack.evidence.pv === 'required') {
+    return { closedAt: now, closedReason: 'cancelled' }
+  }
+  if (pack.incident.archivedAt) {
+    return { closedAt: pack.incident.archivedAt, closedReason: 'archived' }
+  }
+  return { closedAt: null, closedReason: null }
+}
 
 export function mustStop(
   injury: Injury,
@@ -84,6 +103,8 @@ export function dossierAfterDraft(
       ? 'Obtenir le constat signé (ou un PV) avant d’envoyer la déclaration.'
       : 'Relire les réponses, puis envoyer la déclaration au courtier.',
     notifiedWithinGuidanceNote: ACAPS_NOTIFY_GUIDANCE,
+    closedAt: null,
+    closedReason: null,
   }
 }
 
@@ -110,6 +131,8 @@ export function dossierAfterSubmit(
         ? 'Le courtier transmet le dossier à l’assureur. L’assureur tranchera garanties et suite.'
         : 'Dossier reçu par l’assureur. Pas de décision de garantie ni d’indemnisation dans l’app.',
     notifiedWithinGuidanceNote: ACAPS_NOTIFY_GUIDANCE,
+    closedAt: null,
+    closedReason: null,
   }
 }
 

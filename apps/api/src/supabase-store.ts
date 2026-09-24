@@ -282,6 +282,8 @@ export async function loadDb(): Promise<Db> {
         status: Dossier['status']
         next_human_step: string
         notified_within_guidance_note: string | null
+        closed_at: string | null
+        closed_reason: Dossier['closedReason']
       }[]
     ).map((r) => ({
       id: r.id,
@@ -290,6 +292,8 @@ export async function loadDb(): Promise<Db> {
       status: r.status,
       nextHumanStep: r.next_human_step,
       notifiedWithinGuidanceNote: r.notified_within_guidance_note,
+      closedAt: r.closed_at ?? null,
+      closedReason: r.closed_reason ?? null,
     })),
     contacts: (
       rows.contacts as {
@@ -358,6 +362,8 @@ function dossierRow(r: Dossier) {
     status: r.status,
     next_human_step: r.nextHumanStep,
     notified_within_guidance_note: r.notifiedWithinGuidanceNote,
+    closed_at: r.closedAt,
+    closed_reason: r.closedReason,
   }
 }
 

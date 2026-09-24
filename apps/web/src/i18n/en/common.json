@@ -554,8 +554,13 @@
       "declared": "Declared",
       "waiting_motorist": "Waiting on client",
       "with_broker": "With the broker",
-      "with_insurer": "With the insurer"
+      "with_insurer": "With the insurer",
+      "closed": "Closed"
     },
+    "closedCancelled": "Stopped by client",
+    "closedArchived": "Archived by client",
+    "closedBannerCancelled": "The insured stopped this accident file. Pipeline status is kept for history; live desk actions are off.",
+    "closedBannerArchived": "The insured archived this accident file. Pipeline status is kept for history; live desk actions are off.",
     "piece": {
       "constat_or_pv": "Constat or PV",
       "photos": "Photos",

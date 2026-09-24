@@ -746,3 +746,84 @@ describe('API broker profile', () => {
     expect(put.status).toBe(403)
   })
 })
+
+
+describe('API motorist close desk sync', () => {
+  it('writes cancelled on pack stop and keeps dossier readable', async () => {
+    const { app, getDb } = memory()
+    const broker = await signup(app, 'broker', 'Salma')
+    const motorist = await signup(app, 'motorist', 'Nadia El Mansouri')
+    await linkMotoristToBroker(app, motorist, broker.user.brokerId!, getDb)
+    const pack = bindPack(applyEvidenceRules(nadiaMissingConstatPack()), motorist.user)
+    pack.evidence.pv = 'required'
+    const put = await app.request(`/api/packs/${pack.incident.id}`, {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify(pack),
+    })
+    expect(put.status).toBe(200)
+
+    const queue = await app.request('/api/broker/queue', { headers: broker.headers })
+    expect(queue.status).toBe(200)
+    const items = (await queue.json()) as Array<{
+      dossierId: string
+      dossier: { status: string; closedReason: string | null; closedAt: string | null }
+      events: Array<{ label: string; actor: string }>
+    }>
+    expect(items).toHaveLength(1)
+    expect(items[0].dossier.closedReason).toBe('cancelled')
+    expect(items[0].dossier.closedAt).toBeTruthy()
+    expect(items[0].dossier.status).toBe('blocked_missing_evidence')
+    expect(items[0].events.some((e) => e.label.includes('arrêté') && e.actor === 'motorist')).toBe(
+      true,
+    )
+
+    const one = await app.request(`/api/broker/dossiers/${items[0].dossierId}`, {
+      headers: broker.headers,
+    })
+    expect(one.status).toBe(200)
+    const body = (await one.json()) as {
+      dossier: { closedReason: string | null }
+    }
+    expect(body.dossier.closedReason).toBe('cancelled')
+  })
+
+  it('writes archived when archivedAt set without cancel', async () => {
+    const { app, getDb } = memory()
+    const broker = await signup(app, 'broker', 'Salma')
+    const motorist = await signup(app, 'motorist', 'Nadia El Mansouri')
+    await linkMotoristToBroker(app, motorist, broker.user.brokerId!, getDb)
+    const pack = bindPack(applyEvidenceRules(nadiaMissingConstatPack()), motorist.user)
+    pack.evidence.pv = 'not_needed'
+    pack.evidence.constat = 'complete'
+    pack.incident.archivedAt = '2026-09-24T11:00:00.000Z'
+    const put = await app.request(`/api/packs/${pack.incident.id}`, {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify(pack),
+    })
+    expect(put.status).toBe(200)
+
+    const queue = await app.request('/api/broker/queue', { headers: broker.headers })
+    const items = (await queue.json()) as Array<{
+      dossier: { closedReason: string | null; closedAt: string | null }
+      events: Array<{ label: string }>
+    }>
+    expect(items[0].dossier.closedReason).toBe('archived')
+    expect(items[0].dossier.closedAt).toBe('2026-09-24T11:00:00.000Z')
+    expect(items[0].events.some((e) => e.label.includes('archivé'))).toBe(true)
+  })
+
+  it('does not create desk dossier when motorist has no broker', async () => {
+    const { app, getDb } = memory()
+    const motorist = await signup(app, 'motorist', 'Solo Motorist')
+    const pack = bindPack(applyEvidenceRules(nadiaMissingConstatPack()), motorist.user)
+    pack.evidence.pv = 'required'
+    await app.request(`/api/packs/${pack.incident.id}`, {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify(pack),
+    })
+    expect(getDb().dossiers).toHaveLength(0)
+  })
+})

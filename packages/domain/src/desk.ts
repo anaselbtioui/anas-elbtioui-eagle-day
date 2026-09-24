@@ -84,9 +84,14 @@ export function appendEvent(
 
 export type DeskQueueFilters = {
   query: string
-  status: Dossier['status'] | 'all'
+  /** `all` = open files only. `closed` = motorist-closed. Else pipeline status among open. */
+  status: Dossier['status'] | 'all' | 'closed'
   mineOnly: boolean
   brokerName: string | null
+}
+
+function isDossierClosed(dossier: Dossier): boolean {
+  return Boolean(dossier.closedReason)
 }
 
 /** Client-side queue search: name / contrat / city + status + owner. */
@@ -97,7 +102,15 @@ export function filterDeskBundles(
   const q = filters.query.trim().toLowerCase()
   return bundles
     .filter((b) => {
-      if (filters.status !== 'all' && b.dossier.status !== filters.status) return false
+      const closed = isDossierClosed(b.dossier)
+      if (filters.status === 'closed') {
+        if (!closed) return false
+      } else if (filters.status === 'all') {
+        if (closed) return false
+      } else {
+        if (closed) return false
+        if (b.dossier.status !== filters.status) return false
+      }
       if (filters.mineOnly && filters.brokerName && b.provenance.owner !== filters.brokerName) {
         return false
       }

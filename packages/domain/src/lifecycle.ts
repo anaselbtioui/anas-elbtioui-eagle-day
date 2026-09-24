@@ -1,4 +1,4 @@
-import type { DossierStatus } from './types.ts'
+import type { DossierClosedReason, DossierStatus } from './types.ts'
 import { isDeclareGuidanceExpired, type EvidencePackStatus } from './evidence.ts'
 import type { LifecycleTone } from './lifecycle-tone.ts'
 
@@ -59,8 +59,12 @@ function segment(stage: LifecycleStage): LifecycleSegment {
 /**
  * Dossier spine (broker + motorist LATER):
  * Collecte → Déclaration → Desk → Assureur
+ * When the motorist closed the file, active/pending stages become cancelled.
  */
-export function dossierLifecycleStages(status: DossierStatus): LifecycleStage[] {
+export function dossierLifecycleStages(
+  status: DossierStatus,
+  closedReason?: DossierClosedReason | null,
+): LifecycleStage[] {
   const collectTone: LifecycleTone =
     status === 'blocked_missing_evidence'
       ? 'red'
@@ -103,7 +107,7 @@ export function dossierLifecycleStages(status: DossierStatus): LifecycleStage[] 
   const insurerTone: LifecycleTone = status === 'with_insurer' ? 'blue' : 'gray'
   const insurerState: LifecycleStageState = status === 'with_insurer' ? 'done' : 'pending'
 
-  return [
+  const stages: LifecycleStage[] = [
     {
       id: 'collect',
       titleKey: 'lifecycle.dossier.collect',
@@ -129,15 +133,28 @@ export function dossierLifecycleStages(status: DossierStatus): LifecycleStage[] 
       tone: insurerTone,
     },
   ]
+
+  if (!closedReason) return stages
+  return stages.map((stage) =>
+    stage.state === 'active' || stage.state === 'pending'
+      ? { ...stage, state: 'cancelled' as const, tone: 'red' as const }
+      : stage,
+  )
 }
 
-export function dossierLifecycleSegments(status: DossierStatus): LifecycleSegment[] {
-  return dossierLifecycleStages(status).map(segment)
+export function dossierLifecycleSegments(
+  status: DossierStatus,
+  closedReason?: DossierClosedReason | null,
+): LifecycleSegment[] {
+  return dossierLifecycleStages(status, closedReason).map(segment)
 }
 
 /** Dominant urgency tone for filters / a11y (worst segment wins). */
-export function dossierDominantTone(status: DossierStatus): LifecycleTone {
-  const tones = dossierLifecycleSegments(status).map((s) => s.tone)
+export function dossierDominantTone(
+  status: DossierStatus,
+  closedReason?: DossierClosedReason | null,
+): LifecycleTone {
+  const tones = dossierLifecycleSegments(status, closedReason).map((s) => s.tone)
   if (tones.includes('red')) return 'red'
   if (tones.includes('amber')) return 'amber'
   if (tones.includes('blue')) return 'blue'

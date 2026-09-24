@@ -27,7 +27,7 @@ function statusTone(status: DossierStatus): string {
   }
 }
 
-const STATUS_FILTERS: Array<DossierStatus | 'all'> = [
+const STATUS_FILTERS: Array<DossierStatus | 'all' | 'closed'> = [
   'all',
   'blocked_missing_evidence',
   'waiting_motorist',
@@ -35,6 +35,7 @@ const STATUS_FILTERS: Array<DossierStatus | 'all'> = [
   'with_insurer',
   'draft',
   'declared',
+  'closed',
 ]
 
 export function BrokerQueuePage() {
@@ -45,7 +46,7 @@ export function BrokerQueuePage() {
   const error = useBrokerDeskStore((s) => s.error)
   const loadQueue = useBrokerDeskStore((s) => s.loadQueue)
   const searchQuery = useBrokerDeskStore((s) => s.searchQuery)
-  const [statusFilter, setStatusFilter] = useState<DossierStatus | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<DossierStatus | 'all' | 'closed'>('all')
 
   useEffect(() => {
     void loadQueue()
@@ -99,11 +100,23 @@ export function BrokerQueuePage() {
         header: t('broker.colStatus'),
         cell: ({ row }) => {
           const status = row.original.dossier.status
-          const label = t(`broker.status.${status}`)
+          const closedReason = row.original.dossier.closedReason
+          const label = closedReason
+            ? t(
+                closedReason === 'cancelled'
+                  ? 'broker.closedCancelled'
+                  : 'broker.closedArchived',
+              )
+            : t(`broker.status.${status}`)
           return (
-            <span className={cn('inline-flex items-center gap-2 text-xs font-semibold', statusTone(status))}>
+            <span
+              className={cn(
+                'inline-flex items-center gap-2 text-xs font-semibold',
+                closedReason ? 'text-alert' : statusTone(status),
+              )}
+            >
               <LifecycleRing
-                stages={dossierLifecycleStages(status)}
+                stages={dossierLifecycleStages(status, closedReason)}
                 label={label}
                 size={16}
               />

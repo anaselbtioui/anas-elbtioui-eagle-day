@@ -554,8 +554,13 @@
       "declared": "Déclaré",
       "waiting_motorist": "En attente client",
       "with_broker": "Chez le courtier",
-      "with_insurer": "Chez l’assureur"
+      "with_insurer": "Chez l’assureur",
+      "closed": "Clos"
     },
+    "closedCancelled": "Arrêté par le client",
+    "closedArchived": "Archivé par le client",
+    "closedBannerCancelled": "L’assuré a arrêté ce dossier. Le statut de pipeline est conservé pour l’historique ; les actions live sont désactivées.",
+    "closedBannerArchived": "L’assuré a archivé ce dossier. Le statut de pipeline est conservé pour l’historique ; les actions live sont désactivées.",
     "piece": {
       "constat_or_pv": "Constat ou PV",
       "photos": "Photos",

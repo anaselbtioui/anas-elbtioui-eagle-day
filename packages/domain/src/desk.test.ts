@@ -128,4 +128,34 @@ describe('desk search filter', () => {
     })
     expect(sorted[0]!.provenance.freshness >= sorted[1]!.provenance.freshness).toBe(true)
   })
+
+  it('hides closed from all and keeps them under closed filter', () => {
+    const [nadia, ...rest] = seedDeskBundles()
+    const closedNadia = {
+      ...nadia,
+      dossier: {
+        ...nadia.dossier,
+        closedAt: '2026-09-24T12:00:00.000Z',
+        closedReason: 'cancelled' as const,
+      },
+    }
+    const bundles = [closedNadia, ...rest]
+    const open = filterDeskBundles(bundles, {
+      query: '',
+      status: 'all',
+      mineOnly: false,
+      brokerName: null,
+    })
+    expect(open.every((b) => !b.dossier.closedReason)).toBe(true)
+    expect(open.some((b) => b.dossierId === nadia.dossierId)).toBe(false)
+
+    const closedOnly = filterDeskBundles(bundles, {
+      query: '',
+      status: 'closed',
+      mineOnly: false,
+      brokerName: null,
+    })
+    expect(closedOnly).toHaveLength(1)
+    expect(closedOnly[0]?.dossierId).toBe(nadia.dossierId)
+  })
 })

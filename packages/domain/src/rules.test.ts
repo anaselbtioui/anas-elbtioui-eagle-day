@@ -3,6 +3,7 @@ import {
   applyEvidenceRules,
   canSubmit,
   collectMissingPieces,
+  motoristCloseFromPack,
   mustStop,
   offerAssistance,
 } from './rules.ts'
@@ -112,5 +113,81 @@ describe('offerAssistance', () => {
     expect(offerAssistance('no')).toBe(false)
     expect(offerAssistance('yes')).toBe(true)
     expect(offerAssistance('unknown')).toBe(true)
+  })
+})
+
+describe('motoristCloseFromPack', () => {
+  const now = '2026-09-24T12:00:00.000Z'
+
+  it('marks cancelled when pv is required (stop / cancel)', () => {
+    const close = motoristCloseFromPack(
+      pack({
+        incident: {
+          id: 'INC-c',
+          ref: 'ACC-INCC0000',
+          motoristId: 'M-1',
+          policyId: 'P-1',
+          occurredAt: null,
+          city: 'Rabat',
+          injury: 'no',
+          vehicleImmobilised: false,
+          otherPartyId: null,
+          workCommute: null,
+          archivedAt: '2026-09-24T10:00:00.000Z',
+        },
+        evidence: { ...emptyEvidence('INC-c'), pv: 'required' },
+      }),
+      now,
+    )
+    expect(close).toEqual({ closedAt: now, closedReason: 'cancelled' })
+  })
+
+  it('marks archived when archivedAt set and not cancelled', () => {
+    const close = motoristCloseFromPack(
+      pack({
+        incident: {
+          id: 'INC-a',
+          ref: 'ACC-INCA0000',
+          motoristId: 'M-1',
+          policyId: 'P-1',
+          occurredAt: null,
+          city: 'Rabat',
+          injury: 'no',
+          vehicleImmobilised: false,
+          otherPartyId: null,
+          workCommute: null,
+          archivedAt: '2026-09-24T10:00:00.000Z',
+        },
+        evidence: { ...emptyEvidence('INC-a'), pv: 'not_needed' },
+      }),
+      now,
+    )
+    expect(close).toEqual({
+      closedAt: '2026-09-24T10:00:00.000Z',
+      closedReason: 'archived',
+    })
+  })
+
+  it('clears close when unarchived and not cancelled', () => {
+    const close = motoristCloseFromPack(
+      pack({
+        incident: {
+          id: 'INC-o',
+          ref: 'ACC-INCO0000',
+          motoristId: 'M-1',
+          policyId: 'P-1',
+          occurredAt: null,
+          city: 'Rabat',
+          injury: 'no',
+          vehicleImmobilised: false,
+          otherPartyId: null,
+          workCommute: null,
+          archivedAt: null,
+        },
+        evidence: { ...emptyEvidence('INC-o'), pv: 'not_needed' },
+      }),
+      now,
+    )
+    expect(close).toEqual({ closedAt: null, closedReason: null })
   })
 })

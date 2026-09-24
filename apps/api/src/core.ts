@@ -6,6 +6,7 @@ import {
   dossierAfterDraft,
   dossierAfterSubmit,
   emptyEvidence,
+  motoristCloseFromPack,
 } from '@labas/domain/rules.ts'
 import {
   approveDraft,
@@ -239,18 +240,29 @@ export function syncDossier(db: Db, incidentId: string): Db {
     status = 'with_insurer'
     nextHumanStep = existing.nextHumanStep
   }
+
+  const now = new Date().toISOString()
+  const derivedClose = motoristCloseFromPack(pack, now)
+  const closedReason = derivedClose.closedReason
+  const closedAt =
+    closedReason && existing?.closedReason === closedReason && existing.closedAt
+      ? existing.closedAt
+      : derivedClose.closedAt
+  const newlyClosed = Boolean(closedReason) && !existing?.closedReason
+
   const dossier = {
     id: existing?.id ?? randomUUID(),
     ...fields,
     status,
     nextHumanStep,
+    closedAt,
+    closedReason,
   }
   let next: Db = { ...working, dossiers: upsert(working.dossiers, dossier) }
   next = ensureDesk(next, dossier, pack)
   if (pieceAdded) {
     const file =
       next.deskFiles.find((f) => f.dossierId === dossier.id) ?? defaultDeskFile(dossier, pack)
-    const now = new Date().toISOString()
     const withEvent = {
       ...file,
       events: [
@@ -259,6 +271,28 @@ export function syncDossier(db: Db, incidentId: string): Db {
           at: now,
           actor: 'motorist' as const,
           label: 'Pièce ajoutée',
+          motoristVisible: true,
+        },
+        ...file.events,
+      ],
+    }
+    next = { ...next, deskFiles: upsertDeskFile(next.deskFiles, withEvent) }
+  }
+  if (newlyClosed && closedReason) {
+    const file =
+      next.deskFiles.find((f) => f.dossierId === dossier.id) ?? defaultDeskFile(dossier, pack)
+    const label =
+      closedReason === 'cancelled'
+        ? 'Dossier arrêté par l’assuré'
+        : 'Dossier archivé par l’assuré'
+    const withEvent = {
+      ...file,
+      events: [
+        {
+          id: `EVT-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          at: closedAt ?? now,
+          actor: 'motorist' as const,
+          label,
           motoristVisible: true,
         },
         ...file.events,

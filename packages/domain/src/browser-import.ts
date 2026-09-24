@@ -297,6 +297,8 @@ export function createImportBundle(input: {
       status: 'with_broker',
       nextHumanStep: 'Vérifier les champs importés. Aucune décision de garantie.',
       notifiedWithinGuidanceNote: ACAPS_NOTIFY_GUIDANCE,
+      closedAt: null,
+      closedReason: null,
     },
     provenance: {
       source: provenanceSource(input.source),

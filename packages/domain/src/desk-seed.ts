@@ -35,6 +35,8 @@ export function seedDeskBundles(): DeskBundle[] {
       nextHumanStep:
         'Obtenir le constat signé (ou un PV) avant d’envoyer la déclaration.',
       notifiedWithinGuidanceNote: ACAPS_NOTIFY_GUIDANCE,
+      closedAt: null,
+      closedReason: null,
     },
     provenance: {
       source: 'CRM broker',
@@ -83,6 +85,8 @@ export function seedDeskBundles(): DeskBundle[] {
       nextHumanStep:
         'Vérifier le numéro d’assistance sur le contrat avec le client. Ce n’est pas une décision de garantie.',
       notifiedWithinGuidanceNote: ACAPS_NOTIFY_GUIDANCE,
+      closedAt: null,
+      closedReason: null,
     },
     provenance: {
       source: 'Import navigateur simulé',
@@ -124,6 +128,8 @@ export function seedDeskBundles(): DeskBundle[] {
       nextHumanStep:
         'Blessure signalée : obtenir le PV / confirmer la prise en charge humaine. Pas de déclaration tant que le PV n’est pas obtenu.',
       notifiedWithinGuidanceNote: ACAPS_NOTIFY_GUIDANCE,
+      closedAt: null,
+      closedReason: null,
     },
     provenance: {
       source: 'Formulaire local',
