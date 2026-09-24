@@ -181,7 +181,7 @@ export function VehicleSelect({ id, value, onChange, className, highlight = fals
           ref={listRef}
           id={listId}
           role="listbox"
-          className="fixed z-[80] overflow-auto rounded-[var(--radius-labas)] border border-border bg-surface py-1 shadow-[0_12px_40px_-16px_rgba(16,40,96,0.45)]"
+          className="pointer-events-auto fixed z-[80] overflow-auto rounded-[var(--radius-labas)] border border-border bg-surface py-1 shadow-[0_12px_40px_-16px_rgba(16,40,96,0.45)]"
           style={{
             top: pos.top,
             left: pos.left,

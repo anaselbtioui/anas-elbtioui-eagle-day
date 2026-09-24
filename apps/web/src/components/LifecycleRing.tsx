@@ -153,7 +153,7 @@ export function LifecycleRing({
         ? createPortal(
             <div
               role="tooltip"
-              className="fixed z-[80] rounded-[var(--radius-labas)] border border-border bg-surface px-3 py-3 shadow-[0_12px_40px_-16px_rgba(16,40,96,0.45)]"
+              className="pointer-events-auto fixed z-[80] rounded-[var(--radius-labas)] border border-border bg-surface px-3 py-3 shadow-[0_12px_40px_-16px_rgba(16,40,96,0.45)]"
               style={{ top: pos.top, left: pos.left, width: TIP_WIDTH }}
               onMouseEnter={show}
               onMouseLeave={hide}

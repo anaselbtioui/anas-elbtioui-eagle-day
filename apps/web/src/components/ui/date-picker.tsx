@@ -151,7 +151,7 @@ export function DatePicker({
             aria-modal="true"
             aria-label={t('fields.datePickerLabel')}
             data-testid="date-picker-panel"
-            className="fixed z-[80] overflow-y-auto rounded-[var(--radius-labas)] border-2 border-border bg-surface shadow-[0_12px_40px_rgba(16,40,96,0.14)]"
+            className="pointer-events-auto fixed z-[80] overflow-y-auto rounded-[var(--radius-labas)] border-2 border-border bg-surface shadow-[0_12px_40px_rgba(16,40,96,0.14)]"
             style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
             onPointerDown={(e) => e.stopPropagation()}
           >
