@@ -216,6 +216,10 @@
     "walletNudgeComplete": "Portefeuille prêt",
     "walletNudgeCompleteHint": "Identité, véhicule et contrat sont complets.",
     "walletNudgeSettling": "Enregistrement du portefeuille…",
+    "walletNudgeBrokerAssigned": "Associé à {{name}}",
+    "walletNudgeBrokerAssignedHint": "Un seul courtier est inscrit sur Med Assurance, donc nous avons lié votre portefeuille après que vous ayez passé cette étape.",
+    "walletNudgeBrokerAssignedGotIt": "Compris",
+    "walletNudgeBrokerAssignedChange": "Changer de courtier",
     "walletNudgeOpen": "Voir",
     "walletNudgeSettings": "Profil",
     "packStatus": {

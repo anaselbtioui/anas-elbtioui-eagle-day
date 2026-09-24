@@ -51,6 +51,17 @@ describe('deriveOnboardingPhase', () => {
     expect(resumeStepId(full)).toBe('review')
   })
 
+  it('is brokerAssigned when auto-link pending even if wallet full', () => {
+    expect(
+      deriveOnboardingPhase({
+        ...full,
+        brokerAutoAssignedAt: '2026-09-24T12:00:00.000Z',
+        brokerAutoAssignedAckAt: '',
+        brokerAutoAssignPending: true,
+      }),
+    ).toBe('brokerAssigned')
+  })
+
   it('is expired when attestation date is past', () => {
     expect(deriveOnboardingPhase({ ...full, attestationValidUntil: '2020-01-01' })).toBe(
       'expired',

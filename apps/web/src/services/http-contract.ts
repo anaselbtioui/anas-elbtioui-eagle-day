@@ -88,7 +88,7 @@ export type LabasHttpApi = {
   me: () => Promise<AuthUser>
   getSession: (motoristId?: string) => Promise<SessionSnapshot>
   getProfile: (motoristId?: string) => Promise<Profile>
-  saveProfile: (profile: Profile) => Promise<Profile>
+  saveProfile: (profile: Profile & { brokerAutoAssignAck?: boolean }) => Promise<Profile>
   completeProfile: () => Promise<AuthSession>
   uploadProfileDoc: (
     kind: 'license' | 'carteGrise' | 'attestation',

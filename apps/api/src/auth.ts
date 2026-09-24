@@ -108,6 +108,8 @@ export function provisionMotorist(db: Db, displayName: string): {
         brokerPhone: null,
         onboardingStep: 0,
         updatedAt: new Date().toISOString(),
+        brokerAutoAssignedAt: null,
+        brokerAutoAssignedAckAt: null,
       }),
       vehicles: upsert(db.vehicles, { id: vehicleId, plate: null, makeModel: null }),
       insurers: upsert(db.insurers, { id: insurerId, displayName: '' }),

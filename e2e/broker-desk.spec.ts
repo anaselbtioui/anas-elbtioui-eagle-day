@@ -64,6 +64,8 @@ async function createDeclaredDossier(
         brokerPhone: null,
         onboardingStep: 0,
         updatedAt: null,
+        brokerAutoAssignedAt: null,
+        brokerAutoAssignedAckAt: null,
       },
       vehicle: { id: user.vehicleId, plate: '12345-A-6', makeModel: 'Dacia' },
       insurer: { id: user.insurerId, displayName: 'Wafa' },

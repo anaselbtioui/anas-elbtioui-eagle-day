@@ -55,6 +55,8 @@ export const nadiaProfile: Profile = {
     brokerPhone: null,
     onboardingStep: 0,
     updatedAt: null,
+    brokerAutoAssignedAt: null,
+    brokerAutoAssignedAckAt: null,
   },
   vehicle: {
     id: 'V-1',
@@ -145,6 +147,8 @@ export const saraMotorist = {
   brokerPhone: null,
   onboardingStep: 0,
   updatedAt: null,
+  brokerAutoAssignedAt: null,
+  brokerAutoAssignedAckAt: null,
 }
 
 export const omarProfile: Profile = {
@@ -165,6 +169,8 @@ export const omarProfile: Profile = {
     brokerPhone: null,
     onboardingStep: 0,
     updatedAt: null,
+    brokerAutoAssignedAt: null,
+    brokerAutoAssignedAckAt: null,
   },
   vehicle: {
     id: 'V-3',

@@ -5,6 +5,7 @@ import {
 } from '@/domain/ma-fields.ts'
 import { isMoroccanCity } from '@/domain/moroccan-cities.ts'
 import type { AssistanceOnContract, Profile as DomainProfile } from '@/domain/types.ts'
+import { brokerAutoAssignPending as domainBrokerAutoAssignPending } from '@/domain/types.ts'
 
 export type Wallet = {
   onboarded: boolean
@@ -45,6 +46,12 @@ export type Wallet = {
   alsoTellEmployerIfCommute: boolean
   /** Server optimistic-concurrency stamp (ISO). */
   updatedAt: string
+  /** Server set when sole-broker auto-link ran. */
+  brokerAutoAssignedAt: string
+  /** Server set when motorist dismissed the auto-assign notice. */
+  brokerAutoAssignedAckAt: string
+  /** Derived: assigned and not yet acked. */
+  brokerAutoAssignPending: boolean
 }
 
 /** Empty until signup provisions ids on the user. */
@@ -80,6 +87,9 @@ export const emptyWallet: Wallet = {
   phoneVerified: false,
   alsoTellEmployerIfCommute: false,
   updatedAt: '',
+  brokerAutoAssignedAt: '',
+  brokerAutoAssignedAckAt: '',
+  brokerAutoAssignPending: false,
 }
 
 /** UI / API display: « Prénom Nom ». */
@@ -168,6 +178,9 @@ export function migrateDeviceWallet(wallet: Wallet): Wallet {
     phoneVerified: named.phoneVerified,
     alsoTellEmployerIfCommute: named.alsoTellEmployerIfCommute,
     updatedAt: named.updatedAt,
+    brokerAutoAssignedAt: named.brokerAutoAssignedAt,
+    brokerAutoAssignedAckAt: named.brokerAutoAssignedAckAt,
+    brokerAutoAssignPending: named.brokerAutoAssignPending,
     onboardingStep: named.onboardingStep,
     onboarded: named.onboarded,
   }
@@ -365,6 +378,8 @@ export function walletToDomain(wallet: Wallet): DomainProfile {
       brokerPhone: wallet.brokerPhone.trim() || null,
       onboardingStep: wallet.onboardingStep,
       updatedAt: wallet.updatedAt.trim() || null,
+      brokerAutoAssignedAt: wallet.brokerAutoAssignedAt.trim() || null,
+      brokerAutoAssignedAckAt: wallet.brokerAutoAssignedAckAt.trim() || null,
     },
     vehicle: {
       id: wallet.vehicleId,
@@ -453,5 +468,15 @@ export function domainToWallet(profile: DomainProfile, extra?: Partial<Wallet>):
     onboardingStep:
       profile.motorist.onboardingStep ?? extra?.onboardingStep ?? 0,
     updatedAt: profile.motorist.updatedAt ?? extra?.updatedAt ?? '',
+    brokerAutoAssignedAt:
+      profile.motorist.brokerAutoAssignedAt ?? extra?.brokerAutoAssignedAt ?? '',
+    brokerAutoAssignedAckAt:
+      profile.motorist.brokerAutoAssignedAckAt ?? extra?.brokerAutoAssignedAckAt ?? '',
+    brokerAutoAssignPending: domainBrokerAutoAssignPending({
+      brokerAutoAssignedAt:
+        profile.motorist.brokerAutoAssignedAt ?? extra?.brokerAutoAssignedAt ?? null,
+      brokerAutoAssignedAckAt:
+        profile.motorist.brokerAutoAssignedAckAt ?? extra?.brokerAutoAssignedAckAt ?? null,
+    }),
   }
 }

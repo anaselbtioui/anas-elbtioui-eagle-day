@@ -35,6 +35,8 @@ interface ProfileState {
   persistDraft: () => Promise<void>
   /** Flush pending draft immediately (complete onboarding). */
   persistDraftNow: () => Promise<void>
+  /** Dismiss sole-broker auto-assign notice (server ack). */
+  ackBrokerAutoAssign: () => Promise<void>
   /** Server wins for non-draft fields — hydrate from GET /api/profile. */
   pullRemoteProfile: () => Promise<void>
   completeOnboarding: () => Promise<void>
@@ -151,6 +153,7 @@ async function flushPersistDraft(
   get: () => ProfileState,
   set: (partial: Partial<ProfileState> | ((s: ProfileState) => Partial<ProfileState>)) => void,
   retryOnConflict = true,
+  opts?: { brokerAutoAssignAck?: boolean },
 ): Promise<void> {
   const state = get()
   const wallet = state.profile
@@ -211,7 +214,10 @@ async function flushPersistDraft(
       toSave = mergeView(cur.serverProfile, nextDraft)
     }
 
-    const saved = await api.saveProfile(walletToDomain(toSave))
+    const saved = await api.saveProfile({
+      ...walletToDomain(toSave),
+      ...(opts?.brokerAutoAssignAck ? { brokerAutoAssignAck: true } : {}),
+    })
     const cur = get()
     // Seed server from acknowledged save; keep draft keys typed during the PUT.
     const ackServer = domainToWallet(saved, {
@@ -250,7 +256,7 @@ async function flushPersistDraft(
         return
       }
       // Draft still holds the edit — resend once on the fresh stamp so it reaches the server.
-      if (retryOnConflict) await flushPersistDraft(get, set, false)
+      if (retryOnConflict) await flushPersistDraft(get, set, false, opts)
       return
     }
     /* server sync best-effort — memory wallet + draft remain */
@@ -281,6 +287,7 @@ function schedulePersist(
 async function flushPersistNow(
   get: () => ProfileState,
   set: (partial: Partial<ProfileState> | ((s: ProfileState) => Partial<ProfileState>)) => void,
+  opts?: { brokerAutoAssignAck?: boolean },
 ): Promise<void> {
   if (persistTimer) {
     clearTimeout(persistTimer)
@@ -289,7 +296,7 @@ async function flushPersistNow(
   const waiters = persistWaiters
   persistWaiters = []
   await persistChain
-  await flushPersistDraft(get, set)
+  await flushPersistDraft(get, set, true, opts)
   for (const w of waiters) w()
 }
 
@@ -380,6 +387,7 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
   },
   persistDraft: () => schedulePersist(get, set),
   persistDraftNow: () => flushPersistNow(get, set),
+  ackBrokerAutoAssign: () => flushPersistNow(get, set, { brokerAutoAssignAck: true }),
   pullRemoteProfile: async () => {
     // Don't clobber in-progress edits.
     if (get().walletEditing) return

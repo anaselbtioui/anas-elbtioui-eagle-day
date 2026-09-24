@@ -39,6 +39,17 @@ export type Motorist = {
   onboardingStep: number | null
   /** ISO timestamp for optimistic concurrency. */
   updatedAt: string | null
+  /** When the server sole-broker auto-link last set the broker. */
+  brokerAutoAssignedAt: string | null
+  /** When the motorist dismissed the auto-assign notice. */
+  brokerAutoAssignedAckAt: string | null
+}
+
+/** True until the motorist dismisses the sole-broker auto-link notice. */
+export function brokerAutoAssignPending(
+  motorist: Pick<Motorist, 'brokerAutoAssignedAt' | 'brokerAutoAssignedAckAt'>,
+): boolean {
+  return Boolean(motorist.brokerAutoAssignedAt?.trim()) && !motorist.brokerAutoAssignedAckAt?.trim()
 }
 
 export type OtherParty = {

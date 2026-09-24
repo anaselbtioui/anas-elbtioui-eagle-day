@@ -46,8 +46,7 @@ export function BrokerPickStep({
               broker: only.displayName,
             })
           }
-          // Persist now so Continue / skip do not leave wallet unlinked.
-          void useProfileStore.getState().persistDraft()
+          // Do not persist here — Continue acks; skip leaves pending for the nudge sheet.
         } else if (
           current.brokerId &&
           !list.some((b) => b.id === current.brokerId)
@@ -71,8 +70,13 @@ export function BrokerPickStep({
   }
 
   function continueWithBroker() {
-    void useProfileStore.getState().persistDraft()
-    onContinue()
+    void (async () => {
+      await useProfileStore.getState().persistDraftNow()
+      if (useProfileStore.getState().profile.brokerAutoAssignPending) {
+        await useProfileStore.getState().ackBrokerAutoAssign()
+      }
+      onContinue()
+    })()
   }
 
   return (

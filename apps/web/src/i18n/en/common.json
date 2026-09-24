@@ -216,6 +216,10 @@
     "walletNudgeComplete": "Wallet ready",
     "walletNudgeCompleteHint": "Identity, vehicle and contract are complete.",
     "walletNudgeSettling": "Saving your wallet…",
+    "walletNudgeBrokerAssigned": "Linked to {{name}}",
+    "walletNudgeBrokerAssignedHint": "Only one broker is registered on Med Assurance, so we linked your wallet after you skipped this step.",
+    "walletNudgeBrokerAssignedGotIt": "Got it",
+    "walletNudgeBrokerAssignedChange": "Change broker",
     "walletNudgeOpen": "View",
     "walletNudgeSettings": "Profile",
     "packStatus": {

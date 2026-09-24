@@ -134,6 +134,8 @@ export async function loadDb(): Promise<Db> {
         broker_phone?: string | null
         onboarding_step?: number | null
         updated_at?: string | null
+        broker_auto_assigned_at?: string | null
+        broker_auto_assigned_ack_at?: string | null
       }[]
     ).map((r) => ({
       id: r.id,
@@ -152,6 +154,8 @@ export async function loadDb(): Promise<Db> {
       brokerPhone: r.broker_phone ?? null,
       onboardingStep: r.onboarding_step ?? 0,
       updatedAt: r.updated_at ?? null,
+      brokerAutoAssignedAt: r.broker_auto_assigned_at ?? null,
+      brokerAutoAssignedAckAt: r.broker_auto_assigned_ack_at ?? null,
     })),
     vehicles: (rows.vehicles as { id: string; plate: string | null; make_model: string | null }[]).map(
       (r) => ({
@@ -471,6 +475,8 @@ async function upsertAllTables(db: Db): Promise<void> {
         broker_phone: r.brokerPhone,
         onboarding_step: r.onboardingStep,
         updated_at: r.updatedAt,
+        broker_auto_assigned_at: r.brokerAutoAssignedAt,
+        broker_auto_assigned_ack_at: r.brokerAutoAssignedAckAt,
       })),
       'id',
     ),
@@ -606,6 +612,8 @@ function mapMotoristRow(r: {
   broker_phone?: string | null
   onboarding_step?: number | null
   updated_at?: string | null
+  broker_auto_assigned_at?: string | null
+  broker_auto_assigned_ack_at?: string | null
 }): Motorist {
   return {
     id: r.id,
@@ -624,6 +632,8 @@ function mapMotoristRow(r: {
     brokerPhone: r.broker_phone ?? null,
     onboardingStep: r.onboarding_step ?? 0,
     updatedAt: r.updated_at ?? null,
+    brokerAutoAssignedAt: r.broker_auto_assigned_at ?? null,
+    brokerAutoAssignedAckAt: r.broker_auto_assigned_ack_at ?? null,
   }
 }
 
@@ -741,6 +751,8 @@ export async function upsertProfileEntitiesUnlocked(profile: Profile): Promise<v
           broker_phone: profile.motorist.brokerPhone,
           onboarding_step: profile.motorist.onboardingStep,
           updated_at: profile.motorist.updatedAt,
+          broker_auto_assigned_at: profile.motorist.brokerAutoAssignedAt,
+          broker_auto_assigned_ack_at: profile.motorist.brokerAutoAssignedAckAt,
         },
       ],
       'id',

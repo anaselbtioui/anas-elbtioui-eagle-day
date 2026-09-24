@@ -497,4 +497,77 @@ describe('API broker desk', () => {
     expect(file.dossier.status).toBe('with_broker')
     expect(file.dossier.missingPieces).not.toContain('photos')
   })
+
+  it('sole-broker auto-link sets pending until ack', async () => {
+    const { app, getDb } = memory()
+    const motorist = await signup(app, 'motorist', 'Nadia Auto')
+    const broker = await signup(app, 'broker', 'Said Courtier')
+
+    const get = await app.request('/api/profile', { headers: motorist.headers })
+    expect(get.status).toBe(200)
+    const profile = (await get.json()) as {
+      motorist: {
+        id: string
+        updatedAt: string | null
+        brokerAutoAssignedAt: string | null
+        brokerAutoAssignedAckAt: string | null
+      }
+      vehicle: { id: string }
+      insurer: { id: string }
+      broker: { id: string; displayName: string }
+      policy: { id: string; brokerId: string | null }
+    }
+    expect(profile.policy.brokerId).toBeNull()
+
+    const put = await app.request('/api/profile', {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify({
+        motorist: profile.motorist,
+        vehicle: profile.vehicle,
+        insurer: { ...profile.insurer, displayName: 'Sanlam' },
+        broker: { id: '', displayName: '' },
+        policy: { ...profile.policy, brokerId: null },
+      }),
+    })
+    expect(put.status).toBe(200)
+    const saved = (await put.json()) as typeof profile
+    expect(saved.policy.brokerId).toBe(broker.user.brokerId)
+    expect(saved.broker.id).toBe(broker.user.brokerId)
+    expect(saved.motorist.brokerAutoAssignedAt).toBeTruthy()
+    expect(saved.motorist.brokerAutoAssignedAckAt).toBeNull()
+
+    const explicit = await app.request('/api/profile', {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify({
+        motorist: saved.motorist,
+        vehicle: saved.vehicle,
+        insurer: saved.insurer,
+        broker: saved.broker,
+        policy: saved.policy,
+      }),
+    })
+    expect(explicit.status).toBe(200)
+    const stillPending = (await explicit.json()) as typeof profile
+    expect(stillPending.motorist.brokerAutoAssignedAt).toBeTruthy()
+    expect(stillPending.motorist.brokerAutoAssignedAckAt).toBeNull()
+
+    const ack = await app.request('/api/profile', {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify({
+        motorist: stillPending.motorist,
+        vehicle: stillPending.vehicle,
+        insurer: stillPending.insurer,
+        broker: stillPending.broker,
+        policy: stillPending.policy,
+        brokerAutoAssignAck: true,
+      }),
+    })
+    expect(ack.status).toBe(200)
+    const done = (await ack.json()) as typeof profile
+    expect(done.motorist.brokerAutoAssignedAckAt).toBeTruthy()
+    expect(getDb().motorists.find((m) => m.id === motorist.user.motoristId)?.brokerAutoAssignedAckAt).toBeTruthy()
+  })
 })

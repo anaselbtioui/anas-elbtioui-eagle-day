@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { LoadingLine } from '@/components/ui/loading-line'
 import { Progress } from '@/components/ui/progress'
 import { StickyActions, StickyActionsProvider } from '@/components/ui/sticky-actions'
+import { BrokerPickStep } from '@/features/onboarding/BrokerPickStep'
 import { OnboardingWizardBody } from '@/features/onboarding/OnboardingPage'
 import {
   deriveOnboardingPhase,
@@ -15,7 +16,13 @@ import { type Wallet } from '@/services/wallet.ts'
 import { useProfileStore } from '@/store/profile'
 import { cn } from '@/lib/utils'
 
-export type WalletNudgeKind = 'empty' | 'expired' | 'expiring' | 'complete' | null
+export type WalletNudgeKind =
+  | 'empty'
+  | 'expired'
+  | 'expiring'
+  | 'complete'
+  | 'brokerAssigned'
+  | null
 
 export {
   walletEssentialsFilled,
@@ -33,9 +40,14 @@ function dismissKey(motoristId: string) {
   return `labas-wallet-complete-dismissed:${motoristId || 'anon'}`
 }
 
+function brokerAssignShownKey(motoristId: string) {
+  return `labas-broker-assign-shown:${motoristId || 'anon'}`
+}
+
 /** Map derived phase → nudge chrome (null = hide). */
 export function walletNudgeKind(profile: Wallet, completeDismissed = false): WalletNudgeKind {
   const phase = deriveOnboardingPhase(profile)
+  if (phase === 'brokerAssigned') return 'brokerAssigned'
   if (phase === 'gaps' || phase === 'claimReady') return 'empty'
   if (phase === 'expired') return 'expired'
   if (phase === 'expiring') return 'expiring'
@@ -46,6 +58,7 @@ export function walletNudgeKind(profile: Wallet, completeDismissed = false): Wal
 /** Portefeuille fields full — includes complete and expiring (attestation ≤45d). */
 function walletFieldsDone(kind: WalletNudgeKind, remainingPct: number): boolean {
   if (remainingPct > 0) return false
+  if (kind === 'brokerAssigned') return false
   return kind === 'complete' || kind === 'expiring'
 }
 
@@ -58,7 +71,10 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
   const setWalletEditing = useProfileStore((s) => s.setWalletEditing)
   const pullRemoteProfile = useProfileStore((s) => s.pullRemoteProfile)
   const persistDraftNow = useProfileStore((s) => s.persistDraftNow)
+  const ackBrokerAutoAssign = useProfileStore((s) => s.ackBrokerAutoAssign)
   const [expanded, setExpanded] = useState(false)
+  const [changingBroker, setChangingBroker] = useState(false)
+  const [acking, setAcking] = useState(false)
   const [completeDismissed, setCompleteDismissed] = useState(() => {
     try {
       return sessionStorage.getItem(dismissKey(profile.motoristId)) === '1'
@@ -92,13 +108,27 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
     finishStarted.current = false
     setFinishFlow(false)
     setSettling(false)
+    setChangingBroker(false)
   }, [profile.motoristId])
+
+  // Auto-expand once per session so they cannot only see green Wallet ready.
+  useEffect(() => {
+    if (rawKind !== 'brokerAssigned') return
+    try {
+      if (sessionStorage.getItem(brokerAssignShownKey(profile.motoristId)) === '1') return
+      sessionStorage.setItem(brokerAssignShownKey(profile.motoristId), '1')
+    } catch {
+      /* ignore */
+    }
+    setExpanded(true)
+  }, [rawKind, profile.motoristId])
 
   // Parent owns editing flag for whole expanded life (wizard must not clear it).
   // On collapse: flush then pull so last gap is on server before GET can regress UI.
   useEffect(() => {
     setWalletEditing(expanded)
     if (expanded) return
+    setChangingBroker(false)
     let cancelled = false
     void (async () => {
       try {
@@ -117,7 +147,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
     return () => setWalletEditing(false)
   }, [setWalletEditing])
 
-  // Start finish latch once when fields hit 0% while open.
+  // Start finish latch once when fields hit 0% while open (not while assign notice pending).
   useEffect(() => {
     if (!expanded) {
       finishStarted.current = false
@@ -125,6 +155,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
       setSettling(false)
       return
     }
+    if (rawKind === 'brokerAssigned') return
     if (!walletFieldsDone(rawKind, rawRemainingPct)) return
     if (finishStarted.current) return
     finishStarted.current = true
@@ -155,9 +186,13 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
 
   const kind = finishFlow ? displayKind ?? 'complete' : displayKind
   const finishingInDrawer = expanded && finishFlow && !settling
-  const showGapsWizard = expanded && !finishFlow && kind !== null
+  const showBrokerAssignSheet = expanded && kind === 'brokerAssigned' && !changingBroker
+  const showChangeBroker = expanded && kind === 'brokerAssigned' && changingBroker
+  const showGapsWizard =
+    expanded && !finishFlow && kind !== null && kind !== 'brokerAssigned' && kind !== 'complete'
   const showSettling = expanded && settling
-  const shellExpanded = showGapsWizard || showSettling || finishingInDrawer
+  const shellExpanded =
+    showGapsWizard || showSettling || finishingInDrawer || showBrokerAssignSheet || showChangeBroker
 
   // Keep shell mounted during finish even if raw kind would hide (dismissed).
   if (!kind && !finishFlow && !settling) return null
@@ -188,29 +223,45 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
     setExpanded(false)
   }
 
+  async function onGotIt() {
+    setAcking(true)
+    try {
+      await ackBrokerAutoAssign()
+      setChangingBroker(false)
+    } finally {
+      setAcking(false)
+    }
+  }
+
+  const brokerName = profile.broker.trim() || '—'
+
   const title =
     settling || finishFlow
       ? kind === 'expiring'
         ? t('motorist.walletNudgeExpiring')
         : t('motorist.walletNudgeComplete')
-      : kind === 'empty'
-        ? t('motorist.walletNudgeRemaining', { pct: displayRemainingPct })
-        : kind === 'expired'
-          ? t('motorist.walletNudgeExpired')
-          : kind === 'expiring'
-            ? t('motorist.walletNudgeExpiring')
-            : t('motorist.walletNudgeComplete')
+      : kind === 'brokerAssigned'
+        ? t('motorist.walletNudgeBrokerAssigned', { name: brokerName })
+        : kind === 'empty'
+          ? t('motorist.walletNudgeRemaining', { pct: displayRemainingPct })
+          : kind === 'expired'
+            ? t('motorist.walletNudgeExpired')
+            : kind === 'expiring'
+              ? t('motorist.walletNudgeExpiring')
+              : t('motorist.walletNudgeComplete')
 
   const subtitle =
     settling
       ? null
       : finishFlow
         ? t('motorist.walletNudgeCompleteHint')
-        : kind === 'empty' && displayGapCount > 0
-          ? t('motorist.walletNudgeGaps', { count: displayGapCount })
-          : kind === 'complete'
-            ? t('motorist.walletNudgeCompleteHint')
-            : null
+        : kind === 'brokerAssigned'
+          ? t('motorist.walletNudgeBrokerAssignedHint')
+          : kind === 'empty' && displayGapCount > 0
+            ? t('motorist.walletNudgeGaps', { count: displayGapCount })
+            : kind === 'complete'
+              ? t('motorist.walletNudgeCompleteHint')
+              : null
 
   return (
     <div className="relative z-50 flex w-full justify-center px-4 md:px-8">
@@ -222,6 +273,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
           shellExpanded && 'flex max-h-[min(90dvh,44rem)] flex-col',
           (finishFlow || kind === 'complete' || kind === 'expiring') &&
             'border-moss/30 bg-moss/5',
+          kind === 'brokerAssigned' && 'border-ink/20',
         )}
         data-testid="wallet-nudge-drawer"
         data-wallet-nudge={kind ?? 'complete'}
@@ -229,7 +281,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
         data-wallet-finishing={finishingInDrawer ? '1' : undefined}
         role="dialog"
         aria-expanded={expanded}
-        aria-busy={settling || undefined}
+        aria-busy={settling || acking || undefined}
         aria-labelledby="wallet-nudge-title"
       >
         <div className="relative shrink-0">
@@ -240,7 +292,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-muted transition-[transform,background-color] duration-150 ease-out hover:bg-sand-deep active:scale-[0.96] disabled:opacity-40"
                 onClick={finishFlow ? collapseFinish : () => setExpanded(false)}
                 aria-label={t('app.close')}
-                disabled={settling}
+                disabled={settling || acking}
               >
                 <LabasIcon name="close" className="h-5 w-5" aria-hidden />
               </button>
@@ -293,17 +345,78 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
           </div>
           {shellExpanded || kind === 'complete' || kind === 'expiring' ? (
             <Progress
-              value={displayStepPct}
+              value={kind === 'brokerAssigned' ? 100 : displayStepPct}
               durationMs={COMPLETE_SETTLE_MS}
               className="absolute inset-x-0 bottom-0 h-1 rounded-none bg-sand-deep"
               data-testid={
                 finishFlow || kind === 'complete'
                   ? 'wallet-nudge-complete-progress'
-                  : 'wallet-nudge-header-progress'
+                  : kind === 'brokerAssigned'
+                    ? 'wallet-nudge-broker-assign-progress'
+                    : 'wallet-nudge-header-progress'
               }
             />
           ) : null}
         </div>
+
+        {showBrokerAssignSheet ? (
+          <StickyActionsProvider
+            growBody={false}
+            className="min-h-0"
+            bodyClassName="space-y-4 px-5 pt-5"
+            footerClassName="px-5 pt-3"
+          >
+            <div data-testid="wallet-nudge-broker-assign">
+              <p className="text-sm leading-relaxed text-ink-muted">
+                {t('motorist.walletNudgeBrokerAssignedHint')}
+              </p>
+            </div>
+            <StickyActions>
+              <div className="flex w-full flex-col gap-2">
+                <Button
+                  className="w-full"
+                  type="button"
+                  onClick={() => void onGotIt()}
+                  disabled={acking}
+                  data-testid="wallet-nudge-broker-assign-got-it"
+                >
+                  {t('motorist.walletNudgeBrokerAssignedGotIt')}
+                </Button>
+                <Button
+                  className="w-full"
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setChangingBroker(true)}
+                  disabled={acking}
+                  data-testid="wallet-nudge-broker-assign-change"
+                >
+                  {t('motorist.walletNudgeBrokerAssignedChange')}
+                </Button>
+              </div>
+            </StickyActions>
+          </StickyActionsProvider>
+        ) : null}
+
+        {showChangeBroker ? (
+          <StickyActionsProvider
+            growBody={false}
+            className="min-h-0 max-h-[min(72dvh,36rem)]"
+            bodyClassName="space-y-1 px-5 pt-5"
+            footerClassName="px-5 pt-3"
+          >
+            <BrokerPickStep
+              onBack={() => setChangingBroker(false)}
+              onSkip={() => {
+                setChangingBroker(false)
+              }}
+              onContinue={() => {
+                setChangingBroker(false)
+                void onGotIt()
+              }}
+              gapsOnly
+            />
+          </StickyActionsProvider>
+        ) : null}
 
         {showGapsWizard ? (
           <StickyActionsProvider

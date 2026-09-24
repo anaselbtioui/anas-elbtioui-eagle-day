@@ -364,11 +364,12 @@ export function createApp(
     const denied = needMotorist(c)
     if (denied) return denied
     const auth = c.get('auth')!
-    const body = await c.req.json<Profile>()
+    const body = await c.req.json<Profile & { brokerAutoAssignAck?: boolean }>()
     if (body.motorist.id !== auth.motoristId) return c.json({ error: 'forbidden' }, 403)
 
     const chosenBrokerId =
       body.policy.brokerId?.trim() || body.broker.id?.trim() || ''
+    const ackRequested = Boolean(body.brokerAutoAssignAck)
     let saved: Profile | null = null
     let err: 'broker_not_found' | 'conflict' | null = null
     const now = new Date().toISOString()
@@ -385,6 +386,27 @@ export function createApp(
         return db
       }
 
+      const registered = listRegisteredBrokers(db)
+      const soleAuto = !chosenBrokerId && registered.length === 1
+      const chosen =
+        chosenBrokerId ||
+        (soleAuto ? registered[0]!.id : '')
+
+      let brokerAutoAssignedAt = existing?.brokerAutoAssignedAt ?? null
+      let brokerAutoAssignedAckAt = existing?.brokerAutoAssignedAckAt ?? null
+      if (soleAuto) {
+        // Server sole-broker fill — set pending until motorist acks.
+        brokerAutoAssignedAt = existing?.brokerAutoAssignedAt ?? now
+        brokerAutoAssignedAckAt = existing?.brokerAutoAssignedAckAt ?? null
+      } else if (!chosen) {
+        brokerAutoAssignedAt = null
+        brokerAutoAssignedAckAt = null
+      }
+      if (ackRequested && (brokerAutoAssignedAt || soleAuto)) {
+        brokerAutoAssignedAt = brokerAutoAssignedAt ?? now
+        brokerAutoAssignedAckAt = now
+      }
+
       const motorist = {
         ...body.motorist,
         firstName: body.motorist.firstName ?? null,
@@ -393,12 +415,9 @@ export function createApp(
         brokerPhone: body.motorist.brokerPhone ?? null,
         onboardingStep: body.motorist.onboardingStep ?? 0,
         updatedAt: now,
+        brokerAutoAssignedAt,
+        brokerAutoAssignedAckAt,
       }
-
-      const registered = listRegisteredBrokers(db)
-      const chosen =
-        chosenBrokerId ||
-        (registered.length === 1 ? registered[0]!.id : '')
 
       // Draft OK without courtier — required only when finishing onboarding (client).
       if (!chosen) {

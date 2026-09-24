@@ -78,6 +78,8 @@ export async function loadDb(): Promise<Db> {
         brokerPhone: m.brokerPhone ?? null,
         onboardingStep: m.onboardingStep ?? 0,
         updatedAt: m.updatedAt ?? null,
+        brokerAutoAssignedAt: m.brokerAutoAssignedAt ?? null,
+        brokerAutoAssignedAckAt: m.brokerAutoAssignedAckAt ?? null,
       })),
       policies: (parsed.policies ?? emptyDb().policies).map((p) => ({
         ...p,

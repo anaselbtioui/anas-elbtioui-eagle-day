@@ -230,6 +230,8 @@ export function createImportBundle(input: {
       brokerPhone: null,
       onboardingStep: 0,
       updatedAt: now,
+      brokerAutoAssignedAt: null,
+      brokerAutoAssignedAckAt: null,
     },
     vehicle: {
       id: vehicleId,

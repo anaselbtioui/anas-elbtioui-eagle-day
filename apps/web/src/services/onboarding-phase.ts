@@ -16,6 +16,7 @@ import {
 export type OnboardingPhase =
   | 'gaps'
   | 'claimReady'
+  | 'brokerAssigned'
   | 'complete'
   | 'expiring'
   | 'expired'
@@ -24,6 +25,8 @@ export function deriveOnboardingPhase(wallet: Wallet): OnboardingPhase {
   const days = attestationDaysRemaining(wallet.attestationValidUntil)
   // Past date always wins — even when other fields still incomplete.
   if (days !== null && days < 0) return 'expired'
+  // Sole-broker auto-link notice blocks wallet-complete until dismissed.
+  if (wallet.brokerAutoAssignPending) return 'brokerAssigned'
   if (!walletFullyComplete(wallet)) {
     return walletClaimReady(wallet) ? 'claimReady' : 'gaps'
   }
