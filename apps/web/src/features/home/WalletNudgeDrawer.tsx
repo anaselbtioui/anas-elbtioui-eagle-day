@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LabasIcon } from '@/components/LabasIcon'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,7 @@ export {
 /** Soften title / % ticks while typing. */
 const DISPLAY_DEBOUNCE_MS = 180
 /** Last gap → finish: hold while bar animates, then swap body. */
-const COMPLETE_SETTLE_MS = 700
+const COMPLETE_SETTLE_MS = 900
 
 function dismissKey(motoristId: string) {
   return `labas-wallet-complete-dismissed:${motoristId || 'anon'}`
@@ -43,11 +43,15 @@ export function walletNudgeKind(profile: Wallet, completeDismissed = false): Wal
   return null
 }
 
+/** Portefeuille fields full — includes complete and expiring (attestation ≤45d). */
+function walletFieldsDone(kind: WalletNudgeKind, remainingPct: number): boolean {
+  if (remainingPct > 0) return false
+  return kind === 'complete' || kind === 'expiring'
+}
+
 /**
  * Docked bottom drawer: collapsed peek → expands into onboarding wizard.
- * Incomplete: resume only gap steps with highlighted inputs.
- * Complete: ending state peek (dismissible).
- * Last gap while open: debounce + settle animation, then finish panel — no abrupt vanish.
+ * Last gap while open: latch finish flow until user closes — never auto-unmount.
  */
 export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
   const { t } = useTranslation()
@@ -65,14 +69,18 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
   const rawKind = walletNudgeKind(profile, completeDismissed)
   const rawRemainingPct = useMemo(() => onboardingRemainingPercent(profile), [profile])
   const rawGapCount = useMemo(() => onboardingGapCount(profile), [profile])
-  const rawStepPct = rawKind === 'complete' ? 100 : Math.max(0, 100 - rawRemainingPct)
+  const rawStepPct =
+    walletFieldsDone(rawKind, rawRemainingPct) ? 100 : Math.max(0, 100 - rawRemainingPct)
 
   const [displayKind, setDisplayKind] = useState(rawKind)
   const [displayRemainingPct, setDisplayRemainingPct] = useState(rawRemainingPct)
   const [displayGapCount, setDisplayGapCount] = useState(rawGapCount)
   const [displayStepPct, setDisplayStepPct] = useState(rawStepPct)
-  /** true while last gap just filled — bar runs to 100% before finish panel. */
+  /** Bar + spinner while last gap settles. */
   const [settling, setSettling] = useState(false)
+  /** Locked until user closes — survives kind/poll churn. */
+  const [finishFlow, setFinishFlow] = useState(false)
+  const finishStarted = useRef(false)
 
   useEffect(() => {
     try {
@@ -80,44 +88,47 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
     } catch {
       setCompleteDismissed(false)
     }
+    finishStarted.current = false
+    setFinishFlow(false)
+    setSettling(false)
   }, [profile.motoristId])
 
+  // Parent owns editing flag for whole expanded life (wizard must not clear it).
   useEffect(() => {
     setWalletEditing(expanded)
-    if (!expanded) {
-      void pullRemoteProfile()
-    }
-    return () => setWalletEditing(false)
+    if (!expanded) void pullRemoteProfile()
   }, [expanded, setWalletEditing, pullRemoteProfile])
 
-  // Reset settle if drawer closes or profile regresses.
   useEffect(() => {
-    if (!expanded || rawKind !== 'complete') {
+    return () => setWalletEditing(false)
+  }, [setWalletEditing])
+
+  // Start finish latch once when fields hit 0% while open.
+  useEffect(() => {
+    if (!expanded) {
+      finishStarted.current = false
+      setFinishFlow(false)
       setSettling(false)
+      return
     }
-  }, [expanded, rawKind])
+    if (!walletFieldsDone(rawKind, rawRemainingPct)) return
+    if (finishStarted.current) return
+    finishStarted.current = true
+    setFinishFlow(true)
+    setSettling(true)
+    setDisplayStepPct(100)
+    setDisplayRemainingPct(0)
+    setDisplayGapCount(0)
+    const timer = window.setTimeout(() => {
+      setSettling(false)
+      setDisplayKind(rawKind === 'expiring' ? 'expiring' : 'complete')
+    }, COMPLETE_SETTLE_MS)
+    return () => window.clearTimeout(timer)
+  }, [expanded, rawKind, rawRemainingPct])
 
-  // Debounced display + complete settle sequence.
+  // Debounce chrome while still filling gaps (not during finish latch).
   useEffect(() => {
-    const becomingComplete =
-      expanded &&
-      rawKind === 'complete' &&
-      displayKind !== 'complete' &&
-      displayKind !== null
-
-    if (becomingComplete) {
-      setSettling(true)
-      setDisplayStepPct(100)
-      const timer = window.setTimeout(() => {
-        setDisplayKind('complete')
-        setDisplayRemainingPct(0)
-        setDisplayGapCount(0)
-        setSettling(false)
-      }, COMPLETE_SETTLE_MS)
-      return () => window.clearTimeout(timer)
-    }
-
-    // Incomplete / other kinds: short debounce so % title does not thrash.
+    if (finishFlow || settling) return
     const timer = window.setTimeout(() => {
       setDisplayKind(rawKind)
       setDisplayRemainingPct(rawRemainingPct)
@@ -125,22 +136,16 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
       setDisplayStepPct(rawStepPct)
     }, DISPLAY_DEBOUNCE_MS)
     return () => window.clearTimeout(timer)
-  }, [
-    expanded,
-    rawKind,
-    rawRemainingPct,
-    rawGapCount,
-    rawStepPct,
-    displayKind,
-  ])
+  }, [finishFlow, settling, rawKind, rawRemainingPct, rawGapCount, rawStepPct])
 
-  const kind = displayKind
-  const finishingInDrawer = expanded && kind === 'complete' && !settling
-  const showGapsWizard =
-    expanded && !settling && kind !== 'complete' && kind !== null
+  const kind = finishFlow ? displayKind ?? 'complete' : displayKind
+  const finishingInDrawer = expanded && finishFlow && !settling
+  const showGapsWizard = expanded && !finishFlow && kind !== null
   const showSettling = expanded && settling
+  const shellExpanded = showGapsWizard || showSettling || finishingInDrawer
 
-  if (!kind && !settling) return null
+  // Keep shell mounted during finish even if raw kind would hide (dismissed).
+  if (!kind && !finishFlow && !settling) return null
 
   function dismissComplete() {
     try {
@@ -149,16 +154,23 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
       /* ignore */
     }
     setCompleteDismissed(true)
+    setFinishFlow(false)
+    finishStarted.current = false
     setExpanded(false)
   }
 
   function collapseFinish() {
+    setFinishFlow(false)
+    finishStarted.current = false
+    setSettling(false)
     setExpanded(false)
   }
 
   const title =
-    settling || kind === 'complete'
-      ? t('motorist.walletNudgeComplete')
+    settling || finishFlow
+      ? kind === 'expiring'
+        ? t('motorist.walletNudgeExpiring')
+        : t('motorist.walletNudgeComplete')
       : kind === 'empty'
         ? t('motorist.walletNudgeRemaining', { pct: displayRemainingPct })
         : kind === 'expired'
@@ -170,13 +182,13 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
   const subtitle =
     settling
       ? null
-      : kind === 'empty' && displayGapCount > 0
-        ? t('motorist.walletNudgeGaps', { count: displayGapCount })
-        : kind === 'complete'
-          ? t('motorist.walletNudgeCompleteHint')
-          : null
-
-  const shellExpanded = showGapsWizard || showSettling || finishingInDrawer
+      : finishFlow
+        ? t('motorist.walletNudgeCompleteHint')
+        : kind === 'empty' && displayGapCount > 0
+          ? t('motorist.walletNudgeGaps', { count: displayGapCount })
+          : kind === 'complete'
+            ? t('motorist.walletNudgeCompleteHint')
+            : null
 
   return (
     <div className="relative z-50 flex w-full justify-center px-4 md:px-8">
@@ -186,10 +198,11 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
           'rounded-t-[1.25rem]',
           'transition-[max-height,background-color,border-color] duration-500 ease-out',
           shellExpanded && 'flex max-h-[min(90dvh,44rem)] flex-col',
-          (kind === 'complete' || settling) && 'border-moss/30 bg-moss/5',
+          (finishFlow || kind === 'complete' || kind === 'expiring') &&
+            'border-moss/30 bg-moss/5',
         )}
         data-testid="wallet-nudge-drawer"
-        data-wallet-nudge={kind ?? 'empty'}
+        data-wallet-nudge={kind ?? 'complete'}
         data-wallet-settling={settling ? '1' : undefined}
         data-wallet-finishing={finishingInDrawer ? '1' : undefined}
         role="dialog"
@@ -202,12 +215,8 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
             <div className="flex justify-start px-2 pt-2">
               <button
                 type="button"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-muted transition-[transform,background-color] duration-150 ease-out hover:bg-sand-deep active:scale-[0.96]"
-                onClick={
-                  finishingInDrawer || settling
-                    ? collapseFinish
-                    : () => setExpanded(false)
-                }
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-muted transition-[transform,background-color] duration-150 ease-out hover:bg-sand-deep active:scale-[0.96] disabled:opacity-40"
+                onClick={finishFlow ? collapseFinish : () => setExpanded(false)}
                 aria-label={t('app.close')}
                 disabled={settling}
               >
@@ -225,17 +234,19 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
               type="button"
               className="min-w-0 flex-1 text-left"
               onClick={() => {
-                if (kind === 'complete' || settling) return
+                if (finishFlow || kind === 'complete') return
                 if (!expanded) setExpanded(true)
               }}
-              disabled={expanded || kind === 'complete' || settling}
+              disabled={expanded || finishFlow || kind === 'complete'}
               data-testid="wallet-nudge-reopen"
             >
               <span
                 id="wallet-nudge-title"
                 className={cn(
                   'block text-balance font-display font-bold leading-snug transition-colors duration-500 ease-out',
-                  kind === 'complete' || settling ? 'text-moss' : 'text-ink',
+                  finishFlow || kind === 'complete' || kind === 'expiring'
+                    ? 'text-moss'
+                    : 'text-ink',
                   shellExpanded ? 'text-lg' : 'text-base',
                 )}
               >
@@ -247,7 +258,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
                 </span>
               ) : null}
             </button>
-            {kind === 'complete' && !finishingInDrawer && !settling ? (
+            {(kind === 'complete' || kind === 'expiring') && !shellExpanded ? (
               <button
                 type="button"
                 className="mt-0.5 shrink-0 text-sm font-semibold text-ink-muted underline-offset-4 hover:text-ink hover:underline"
@@ -258,13 +269,13 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
               </button>
             ) : null}
           </div>
-          {shellExpanded || kind === 'complete' ? (
+          {shellExpanded || kind === 'complete' || kind === 'expiring' ? (
             <Progress
               value={displayStepPct}
               durationMs={COMPLETE_SETTLE_MS}
               className="absolute inset-x-0 bottom-0 h-1 rounded-none bg-sand-deep"
               data-testid={
-                kind === 'complete' || settling
+                finishFlow || kind === 'complete'
                   ? 'wallet-nudge-complete-progress'
                   : 'wallet-nudge-header-progress'
               }
@@ -275,7 +286,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
         {showGapsWizard ? (
           <StickyActionsProvider
             growBody={false}
-            className="min-h-0 max-h-[min(72dvh,36rem)] transition-opacity duration-300 ease-out"
+            className="min-h-0 max-h-[min(72dvh,36rem)]"
             bodyClassName="space-y-1 px-5 pt-5"
             footerClassName="px-5 pt-3"
           >
@@ -292,7 +303,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
 
         {showSettling ? (
           <div
-            className="flex min-h-[8rem] flex-col items-center justify-center gap-3 px-5 py-10 opacity-100 transition-opacity duration-300 ease-out"
+            className="flex min-h-[10rem] flex-col items-center justify-center gap-3 px-5 py-10"
             data-testid="wallet-nudge-settling"
           >
             <LoadingLine label={t('motorist.walletNudgeSettling')} />
@@ -302,7 +313,7 @@ export function WalletNudgeDrawer({ profile }: { profile: Wallet }) {
         {finishingInDrawer ? (
           <StickyActionsProvider
             growBody={false}
-            className="min-h-0 opacity-100 transition-opacity duration-500 ease-out"
+            className="min-h-0"
             bodyClassName="space-y-4 px-5 pt-5"
             footerClassName="px-5 pt-3"
           >

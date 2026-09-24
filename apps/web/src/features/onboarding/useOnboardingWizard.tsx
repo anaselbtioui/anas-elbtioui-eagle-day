@@ -35,14 +35,16 @@ export function useOnboardingWizard(opts: {
   const stepId = ONBOARDING_STEPS[step] ?? 'welcome'
   const stepTitle = t(stepTitleKey(stepId))
 
-  // Pause remote poll while wizard is open; pull once on unmount.
+  // Pause remote poll while wizard is open; pull once on unmount (full onboarding only).
+  // gapsOnly lives inside WalletNudgeDrawer — parent owns walletEditing / pull on close.
   useEffect(() => {
+    if (opts.gapsOnly) return
     setWalletEditing(true)
     return () => {
       setWalletEditing(false)
       void pullRemoteProfile()
     }
-  }, [setWalletEditing, pullRemoteProfile])
+  }, [opts.gapsOnly, setWalletEditing, pullRemoteProfile])
 
   function goTo(n: number) {
     const clamped = Math.min(Math.max(n, 0), STEP_COUNT - 1)
