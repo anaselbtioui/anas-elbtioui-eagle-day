@@ -234,6 +234,15 @@ async function flushPersistDraft(
     })
     const remainingDraft = clearAcknowledgedDraft(cur.draft, sentDraft, sentRevs, ackServer)
     applyMerged(set, ackServer, remainingDraft)
+    const label = `${ackServer.firstName.trim()} ${ackServer.lastName.trim()}`.trim()
+    if (label) {
+      try {
+        const { useSessionStore } = await import('@/store/session.ts')
+        useSessionStore.getState().patchUser({ displayName: label })
+      } catch {
+        /* circular import edge */
+      }
+    }
   } catch (err) {
     /* Conflict: re-seed server, keep draft so user edits survive. */
     if (err instanceof Error && err.message === 'conflict') {
@@ -366,6 +375,15 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
       dirtyRevision[key] = nextRevision++
     }
     applyMerged(set, get().serverProfile, draft)
+    if ('firstName' in patch || 'lastName' in patch) {
+      const merged = mergeView(get().serverProfile, draft)
+      const label = `${merged.firstName.trim()} ${merged.lastName.trim()}`.trim()
+      if (label) {
+        void import('@/store/session.ts').then(({ useSessionStore }) => {
+          useSessionStore.getState().patchUser({ displayName: label })
+        })
+      }
+    }
   },
   setWalletEditing: (editing) => set({ walletEditing: editing }),
   ensureDeviceWallet: () => {

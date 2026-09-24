@@ -14,6 +14,8 @@ interface SessionState {
   user: AuthUser | null
   setRole: (role: AppRole) => void
   applyAuth: (token: string, user: AuthUser) => void
+  /** Patch cached auth user (e.g. displayName after wallet save). */
+  patchUser: (patch: Partial<AuthUser>) => void
   signOut: () => void
   /** Drop token/user; keep role picker entry (motorist vs broker). */
   signOutKeepEntry: () => void
@@ -96,6 +98,16 @@ export const useSessionStore = create<SessionState>()(
           user,
           role: user.role,
           brokerName: user.role === 'broker' ? user.displayName : null,
+        })
+      },
+      patchUser: (patch) => {
+        set((s) => {
+          if (!s.user) return s
+          const user = { ...s.user, ...patch }
+          return {
+            user,
+            brokerName: user.role === 'broker' ? user.displayName : s.brokerName,
+          }
         })
       },
       signOut: () => {

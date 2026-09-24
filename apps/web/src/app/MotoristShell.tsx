@@ -151,6 +151,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
       .slice(0, 24)
   }, [history, pack, searchQuery, labelCopy, cityFallback])
 
+  // Wallet profile is motorist name SSOT. Auth displayName is bootstrap/cache only.
   const displayName =
     walletDisplayName(profile) || user?.displayName?.trim() || t('role.motorist')
 

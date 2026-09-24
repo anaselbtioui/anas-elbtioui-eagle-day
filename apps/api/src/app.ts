@@ -4,6 +4,7 @@ import { cors } from 'hono/cors'
 import type { AppUserRecord, AuthUser } from '@labas/domain/auth.ts'
 import {
   assignMotoristBroker,
+  displayNameFromParts,
   hashPassword,
   insertUser,
   isRole,
@@ -168,6 +169,21 @@ function writeDossier(
     dossier,
     pack,
   )
+}
+
+/** Keep app_users.display_name aligned with motorist first/last (wallet SSOT). */
+function syncUserDisplayName(
+  db: Db,
+  userId: string,
+  firstName: string | null | undefined,
+  lastName: string | null | undefined,
+  fallback: string,
+): Db {
+  const row = db.users.find((u) => u.id === userId)
+  if (!row) return db
+  const displayName = displayNameFromParts(firstName, lastName, fallback || row.displayName)
+  if (!displayName || displayName === row.displayName) return db
+  return { ...db, users: upsert(db.users, { ...row, displayName }) }
 }
 
 export function createApp(
@@ -452,7 +468,13 @@ export function createApp(
           broker: { id: '', displayName: body.broker.displayName || '' },
           policy,
         }
-        return next
+        return syncUserDisplayName(
+          next,
+          auth.id,
+          motorist.firstName,
+          motorist.lastName,
+          auth.displayName,
+        )
       }
 
       const match = registered.find((b) => b.id === chosen)
@@ -493,7 +515,13 @@ export function createApp(
         broker: { id: broker.id, displayName: broker.displayName },
         policy,
       }
-      return next
+      return syncUserDisplayName(
+        next,
+        auth.id,
+        motorist.firstName,
+        motorist.lastName,
+        auth.displayName,
+      )
     })
     if (err === 'conflict') return c.json({ error: 'conflict' }, 409)
     if (err) return c.json({ error: err }, 400)

@@ -47,6 +47,7 @@ vi.mock('@/store/session.ts', () => ({
         motoristId: 'M-remote',
       },
       applyAuth: vi.fn(),
+      patchUser: vi.fn(),
     }),
   },
 }))

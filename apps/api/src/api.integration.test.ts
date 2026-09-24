@@ -498,6 +498,35 @@ describe('API broker desk', () => {
     expect(file.dossier.missingPieces).not.toContain('photos')
   })
 
+  it('profile PUT syncs app_users.display_name from first/last', async () => {
+    const { app, getDb } = memory()
+    const motorist = await signup(app, 'motorist', 'Old Signup Name')
+    const get = await app.request('/api/profile', { headers: motorist.headers })
+    const profile = (await get.json()) as {
+      motorist: Record<string, unknown>
+      vehicle: Record<string, unknown>
+      insurer: Record<string, unknown>
+      broker: Record<string, unknown>
+      policy: Record<string, unknown>
+    }
+    const put = await app.request('/api/profile', {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify({
+        ...profile,
+        motorist: {
+          ...profile.motorist,
+          firstName: 'Anass',
+          lastName: 'Bettioui',
+        },
+        insurer: { ...profile.insurer, displayName: 'Sanlam' },
+      }),
+    })
+    expect(put.status).toBe(200)
+    const row = getDb().users.find((u) => u.id === motorist.user.id)
+    expect(row?.displayName).toBe('Anass Bettioui')
+  })
+
   it('sole-broker auto-link sets pending until ack', async () => {
     const { app, getDb } = memory()
     const motorist = await signup(app, 'motorist', 'Nadia Auto')

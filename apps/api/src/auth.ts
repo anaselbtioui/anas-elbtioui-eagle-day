@@ -13,6 +13,16 @@ export function publicUser(row: AppUserRecord): AuthUser {
   return user
 }
 
+/** Auth label from motorist first/last — keeps app_users.display_name aligned with wallet. */
+export function displayNameFromParts(
+  firstName: string | null | undefined,
+  lastName: string | null | undefined,
+  fallback = '',
+): string {
+  const label = `${(firstName ?? '').trim()} ${(lastName ?? '').trim()}`.trim()
+  return label || fallback.trim()
+}
+
 function jwtSecret(): string {
   return process.env.LABAS_JWT_SECRET ?? 'labas-dev-jwt'
 }
