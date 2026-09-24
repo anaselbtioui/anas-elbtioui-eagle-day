@@ -16,6 +16,7 @@ import {
   provisionMotorist,
   publicUser,
   signToken,
+  softDeleteUser,
   userFromToken,
   verifyPassword,
 } from './auth.ts'
@@ -279,7 +280,7 @@ export function createApp(
     let created: AppUserRecord | null = null
     let taken = false
     await write(async (db) => {
-      if (db.users.some((u) => u.email === email)) {
+      if (db.users.some((u) => u.email === email && !u.deletedAt)) {
         taken = true
         return db
       }
@@ -314,6 +315,7 @@ export function createApp(
         vehicleId,
         insurerId,
         policyId,
+        deletedAt: null,
       }
       created = row
       return insertUser(next, row)
@@ -328,12 +330,29 @@ export function createApp(
     const body = await readJson<{ email?: string; password?: string }>(c, {})
     const email = normalizeEmail(body.email ?? '')
     const db = await load()
-    const row = db.users.find((u) => u.email === email)
+    const row = db.users.find((u) => u.email === email && !u.deletedAt)
     if (!row || !(await verifyPassword(body.password ?? '', row.passwordHash))) {
       return c.json({ error: 'invalid_credentials' }, 401)
     }
     const user = publicUser(row)
     return c.json({ token: await signToken(user), user })
+  })
+
+  /** Soft-delete the signed-in account. JWT stops working after this. */
+  app.post('/api/auth/delete-account', async (c) => {
+    const denied = needAuth(c)
+    if (denied) return denied
+    const auth = c.get('auth')!
+    let found = false
+    await write((db) => {
+      const row = db.users.find((u) => u.id === auth.id)
+      if (!row) return db
+      found = true
+      if (row.deletedAt) return db
+      return softDeleteUser(db, auth.id)
+    })
+    if (!found) return c.json({ error: 'not_found' }, 404)
+    return c.json({ ok: true })
   })
 
   app.get('/api/auth/me', async (c) => {

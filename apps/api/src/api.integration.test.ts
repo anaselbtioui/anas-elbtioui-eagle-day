@@ -148,6 +148,56 @@ describe('API auth', () => {
     expect(refresh.status).toBe(401)
   })
 
+  it('soft-deletes account and frees email for re-signup', async () => {
+    const { app, getDb } = memory()
+    const email = `delete-me.${randomUUID()}@labas.test`
+    const signupRes = await app.request('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        role: 'motorist',
+        email,
+        password: 'test-pass-12',
+        displayName: 'Delete Me',
+      }),
+    })
+    expect(signupRes.status).toBe(201)
+    const session = (await signupRes.json()) as { token: string; user: { id: string } }
+    const headers = { Authorization: `Bearer ${session.token}` }
+
+    const del = await app.request('/api/auth/delete-account', {
+      method: 'POST',
+      headers,
+      body: '{}',
+    })
+    expect(del.status).toBe(200)
+
+    const row = getDb().users.find((u) => u.id === session.user.id)
+    expect(row?.deletedAt).toBeTruthy()
+
+    const me = await app.request('/api/auth/me', { headers })
+    expect(me.status).toBe(401)
+
+    const signin = await app.request('/api/auth/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'test-pass-12' }),
+    })
+    expect(signin.status).toBe(401)
+
+    const again = await app.request('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        role: 'motorist',
+        email,
+        password: 'test-pass-12',
+        displayName: 'Delete Me Again',
+      }),
+    })
+    expect(again.status).toBe(201)
+  })
+
   it('sign-in ignores entry role and returns the account space', async () => {
     const { app } = memory()
     const email = `mismatch.${randomUUID()}@labas.test`
@@ -298,6 +348,34 @@ describe('API feature coverage', () => {
     expect(patched.status).toBe(200)
     const body = (await patched.json()) as { evidence: { pv: string } }
     expect(body.evidence.pv).toBe('required')
+  })
+
+  it('PUT cancel keeps pv required when other party is known', async () => {
+    const { app } = memory()
+    const motorist = await signup(app, 'motorist', 'Cancel Keep')
+    const created = await app.request('/api/packs', { method: 'POST', headers: motorist.headers })
+    const pack = (await created.json()) as EvidencePack
+    const otherId = `${pack.incident.id}-O`
+    const cancelled: EvidencePack = {
+      ...pack,
+      incident: { ...pack.incident, injury: 'no', otherPartyId: otherId },
+      otherParty: { id: otherId, status: 'known', name: 'Karim', plate: null },
+      evidence: { ...pack.evidence, pv: 'required' },
+    }
+    const saved = await app.request(`/api/packs/${pack.incident.id}`, {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify(cancelled),
+    })
+    expect(saved.status).toBe(200)
+    const body = (await saved.json()) as EvidencePack
+    expect(body.evidence.pv).toBe('required')
+
+    const again = await app.request(`/api/packs/${pack.incident.id}`, {
+      headers: motorist.headers,
+    })
+    const reloaded = (await again.json()) as EvidencePack
+    expect(reloaded.evidence.pv).toBe('required')
   })
 
   it('GET file by incident after draft', async () => {

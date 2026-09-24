@@ -1,16 +1,10 @@
-import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AuthFormCard, AuthSplitLayout } from '@/app/AuthSplitLayout'
-import { MobileShell } from '@/app/MobileShell'
-import { BrandLogo } from '@/components/BrandLogo'
-import { LogoutButton } from '@/components/LogoutButton'
-import { Button } from '@/components/ui/button'
+import { DESKTOP_MIN_MQ, MobileUnavailableScreen } from '@/app/DesktopOnlyGate'
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
-  SheetTitle,
 } from '@/components/ui/sheet'
 import { useOnboardingWizard } from '@/features/onboarding/useOnboardingWizard'
 import { useMediaQuery } from '@/lib/useMediaQuery'
@@ -92,8 +86,7 @@ export function OnboardingPage() {
   const navigate = useNavigate()
   const profile = useProfileStore((s) => s.profile)
   const signOut = useSessionStore((s) => s.signOut)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const isDesktop = useMediaQuery('(min-width: 48em)')
+  const isDesktop = useMediaQuery(DESKTOP_MIN_MQ)
 
   function leaveLogin() {
     if (!confirm(`${t('auth.logoutConfirmTitle')}\n\n${t('auth.logoutConfirmBody')}`)) return
@@ -104,7 +97,6 @@ export function OnboardingPage() {
   const wizard = useOnboardingWizard({
     onClose: leaveLogin,
     onFinished: () => {
-      setDrawerOpen(false)
       navigate('/')
     },
   })
@@ -114,7 +106,7 @@ export function OnboardingPage() {
     return <Navigate to="/" replace />
   }
 
-  const { stepId, stepTitle, goTo, progress, form } = wizard
+  const { stepId, stepTitle, progress, form } = wizard
 
   if (isDesktop) {
     return (
@@ -133,41 +125,5 @@ export function OnboardingPage() {
     )
   }
 
-  return (
-    <MobileShell hideHeader>
-      <div className="flex min-h-[calc(100dvh-2.5rem)] flex-col items-center justify-center gap-7 px-4 pb-10 pt-6">
-        <BrandLogo size="xl" className="mb-1 drop-shadow-none" />
-        <p className="font-display max-w-[18rem] text-center text-[1.35rem] font-semibold leading-snug text-ink">
-          {t('onboarding.subtitle')}
-        </p>
-        <Button
-          className="w-full max-w-xs"
-          size="lg"
-          onClick={() => {
-            goTo(profile.onboardingStep || 0)
-            setDrawerOpen(true)
-          }}
-        >
-          {t('onboarding.openDrawer')}
-        </Button>
-        {profile.onboardingStep > 0 ? (
-          <p className="text-sm text-ink-muted">{t('onboarding.resumeHint')}</p>
-        ) : null}
-        <LogoutButton />
-      </div>
-
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent hideClose={false}>
-          <div className="mb-5 space-y-4">
-            {progress}
-            <SheetTitle>{stepTitle}</SheetTitle>
-            {stepId === 'welcome' ? null : (
-              <SheetDescription>{t('onboarding.subtitle')}</SheetDescription>
-            )}
-          </div>
-          {form}
-        </SheetContent>
-      </Sheet>
-    </MobileShell>
-  )
+  return <MobileUnavailableScreen />
 }

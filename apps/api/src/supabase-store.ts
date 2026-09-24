@@ -44,6 +44,7 @@ type AppUserRow = {
   vehicle_id: string | null
   insurer_id: string | null
   policy_id: string | null
+  deleted_at: string | null
 }
 
 function mapAppUserRow(r: AppUserRow): AppUserRecord {
@@ -59,15 +60,18 @@ function mapAppUserRow(r: AppUserRow): AppUserRecord {
     vehicleId: r.vehicle_id,
     insurerId: r.insurer_id,
     policyId: r.policy_id,
+    deletedAt: r.deleted_at ?? null,
   }
 }
 
-/** Targeted auth lookup — JWT is valid only while this row exists. */
+/** Targeted auth lookup — JWT is valid only while this row exists and is not soft-deleted. */
 export async function fetchAppUserById(id: string): Promise<AppUserRecord | null> {
   const sb = client()
   const { data, error } = await sb.from('app_users').select('*').eq('id', id).maybeSingle()
   throwIf(error, 'select app_user')
-  return data ? mapAppUserRow(data as AppUserRow) : null
+  if (!data) return null
+  const row = mapAppUserRow(data as AppUserRow)
+  return row.deletedAt ? null : row
 }
 
 let memoryCache: { db: Db; at: number } | null = null
@@ -570,6 +574,7 @@ async function upsertAllTables(db: Db): Promise<void> {
         vehicle_id: r.vehicleId,
         insurer_id: r.insurerId,
         policy_id: r.policyId,
+        deleted_at: r.deletedAt,
       })),
       'id',
     ),
@@ -658,6 +663,7 @@ export async function fetchProfileById(motoristId: string): Promise<Profile | nu
     .from('app_users')
     .select('policy_id, vehicle_id, insurer_id, broker_id')
     .eq('motorist_id', motoristId)
+    .is('deleted_at', null)
     .maybeSingle()
   throwIf(uErr, 'select app_user')
   if (!user?.policy_id || !user.vehicle_id || !user.insurer_id) return null
@@ -724,6 +730,7 @@ export async function upsertAppUserUnlocked(user: AppUserRecord): Promise<void> 
         vehicle_id: user.vehicleId,
         insurer_id: user.insurerId,
         policy_id: user.policyId,
+        deleted_at: user.deletedAt,
       },
     ],
     'id',

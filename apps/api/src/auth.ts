@@ -9,7 +9,7 @@ const scrypt = promisify(scryptCb)
 const TOKEN_MINUTES = Number(process.env.LABAS_JWT_TTL_MINUTES) || 15
 
 export function publicUser(row: AppUserRecord): AuthUser {
-  const { passwordHash: _pw, ...user } = row
+  const { passwordHash: _pw, deletedAt: _del, ...user } = row
   return user
 }
 
@@ -73,7 +73,8 @@ export async function userFromToken(
     const id = typeof payload.sub === 'string' ? payload.sub : null
     if (!id) return null
     const row = await findUser(id)
-    return row ? publicUser(row) : null
+    if (!row || row.deletedAt) return null
+    return publicUser(row)
   } catch {
     return null
   }
@@ -149,7 +150,17 @@ export function provisionBroker(db: Db, displayName: string): { db: Db; brokerId
 }
 
 export function insertUser(db: Db, row: AppUserRecord): Db {
-  return { ...db, users: upsert(db.users, row) }
+  return { ...db, users: upsert(db.users, { ...row, deletedAt: row.deletedAt ?? null }) }
+}
+
+/** Soft-delete: stamp deletedAt; email freed for re-signup via partial unique index. */
+export function softDeleteUser(db: Db, userId: string, at = new Date().toISOString()): Db {
+  const row = db.users.find((u) => u.id === userId)
+  if (!row || row.deletedAt) return db
+  return {
+    ...db,
+    users: upsert(db.users, { ...row, deletedAt: at, onboarded: false }),
+  }
 }
 
 export function markOnboarded(db: Db, userId: string): Db {
@@ -169,7 +180,9 @@ export function assignMotoristBroker(
   const policy = db.policies.find((p) => p.id === policyId)
   const broker = db.brokers.find((b) => b.id === brokerId)
   if (!user || user.role !== 'motorist' || !policy || !broker) return db
-  const registered = db.users.some((u) => u.role === 'broker' && u.brokerId === brokerId)
+  const registered = db.users.some(
+    (u) => u.role === 'broker' && u.brokerId === brokerId && !u.deletedAt,
+  )
   if (!registered) return db
   return {
     ...db,
@@ -185,7 +198,7 @@ export function listRegisteredBrokers(db: Db): Array<{
   email: string
 }> {
   return db.users
-    .filter((u) => u.role === 'broker' && u.brokerId)
+    .filter((u) => u.role === 'broker' && u.brokerId && !u.deletedAt)
     .map((u) => {
       const row = db.brokers.find((b) => b.id === u.brokerId)
       return {
@@ -209,7 +222,7 @@ export function listBrokerClients(db: Db, brokerId: string) {
   const seen = new Set<string>()
 
   for (const u of db.users) {
-    if (u.role !== 'motorist' || !u.motoristId) continue
+    if (u.role !== 'motorist' || !u.motoristId || u.deletedAt) continue
     const policy = u.policyId ? db.policies.find((p) => p.id === u.policyId) : null
     if (u.brokerId !== brokerId && policy?.brokerId !== brokerId) continue
     const motorist = db.motorists.find((m) => m.id === u.motoristId)
@@ -229,7 +242,9 @@ export function listBrokerClients(db: Db, brokerId: string) {
   // Policies linked without matching user.brokerId yet
   for (const p of db.policies) {
     if (p.brokerId !== brokerId) continue
-    const user = db.users.find((u) => u.role === 'motorist' && u.policyId === p.id)
+    const user = db.users.find(
+      (u) => u.role === 'motorist' && u.policyId === p.id && !u.deletedAt,
+    )
     if (user?.motoristId && seen.has(user.motoristId)) continue
     if (!user?.motoristId) continue
     const motorist = db.motorists.find((m) => m.id === user.motoristId)

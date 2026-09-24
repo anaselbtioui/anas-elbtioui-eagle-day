@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AvatarPhotoField } from '@/features/home/AvatarPhotoField'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
@@ -22,6 +23,7 @@ import {
 import { isMoroccanCity } from '@/domain/moroccan-cities.ts'
 import { countryCodeToFlagEmoji, isValidMoroccanPhone } from '@/lib/phone'
 import { useProfileStore } from '@/store/profile'
+import { useSessionStore } from '@/store/session'
 import { api } from '@/services/api.ts'
 import {
   attestationDaysRemaining,
@@ -208,6 +210,8 @@ export function ProfileSettingsModal({
   onOpenChange: (open: boolean) => void
 }) {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
+  const signOut = useSessionStore((s) => s.signOut)
   const { setProfile, persistDraft, saving, error } = useProfileStore()
   const [draft, setDraft] = useState<Wallet>(emptyWallet)
   const [baseline, setBaseline] = useState<Wallet>(emptyWallet)
@@ -215,6 +219,9 @@ export function ProfileSettingsModal({
   const [persistError, setPersistError] = useState<string | null>(null)
   const [persistBusy, setPersistBusy] = useState(false)
   const [brokerEmail, setBrokerEmail] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const uiLang = (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('en')
     ? 'en'
     : 'fr'
@@ -224,6 +231,9 @@ export function ProfileSettingsModal({
       setCategory('profil')
       setPersistError(null)
       setBrokerEmail(null)
+      setDeleteConfirm(false)
+      setDeleteBusy(false)
+      setDeleteError(null)
       return
     }
     // Snapshot once per open — typing stays local until Enregistrer.
@@ -231,6 +241,28 @@ export function ProfileSettingsModal({
     setDraft(snap)
     setBaseline(snap)
   }, [open])
+
+  useEffect(() => {
+    if (category !== 'compte') {
+      setDeleteConfirm(false)
+      setDeleteError(null)
+    }
+  }, [category])
+
+  async function confirmDeleteAccount() {
+    if (deleteBusy) return
+    setDeleteBusy(true)
+    setDeleteError(null)
+    try {
+      await api.deleteAccount()
+      signOut()
+      onOpenChange(false)
+      navigate('/', { replace: true })
+    } catch {
+      setDeleteError(t('motorist.deleteAccountError'))
+      setDeleteBusy(false)
+    }
+  }
 
   useEffect(() => {
     if (!open || !draft.brokerId) {
@@ -573,6 +605,51 @@ export function ProfileSettingsModal({
                   <p className="mt-1 text-sm text-ink-muted">
                     {t('motorist.settingsCatHint.compte')}
                   </p>
+                  <div className="mt-6 rounded-[var(--radius-labas)] border border-alert/30 bg-alert-soft p-4">
+                    <p className="text-sm font-medium text-ink">{t('motorist.deleteAccountTitle')}</p>
+                    <p className="mt-1 text-sm text-ink-muted">{t('motorist.deleteAccountBody')}</p>
+                    {deleteError ? (
+                      <p className="mt-2 text-sm text-alert" role="alert">
+                        {deleteError}
+                      </p>
+                    ) : null}
+                    {!deleteConfirm ? (
+                      <Button
+                        type="button"
+                        variant="alert"
+                        className="mt-4"
+                        data-testid="settings-delete-account"
+                        onClick={() => setDeleteConfirm(true)}
+                      >
+                        {t('motorist.deleteAccount')}
+                      </Button>
+                    ) : (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          disabled={deleteBusy}
+                          onClick={() => {
+                            setDeleteConfirm(false)
+                            setDeleteError(null)
+                          }}
+                        >
+                          {t('app.close')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="alert"
+                          disabled={deleteBusy}
+                          data-testid="settings-delete-account-confirm"
+                          onClick={() => void confirmDeleteAccount()}
+                        >
+                          {deleteBusy
+                            ? t('motorist.deleteAccountBusy')
+                            : t('motorist.deleteAccountConfirm')}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : null}
             </StickyActionsProvider>

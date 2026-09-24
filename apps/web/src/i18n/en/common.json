@@ -28,7 +28,9 @@
     "resetProfile": "Erase my profile",
     "resetProfileTitle": "Erase my profile?",
     "resetProfileBody": "This clears the wallet and evidence on this device. It is permanent.",
-    "resetProfileConfirm": "Erase permanently"
+    "resetProfileConfirm": "Erase permanently",
+    "mobileUnavailableTitle": "Desktop view only for now",
+    "mobileUnavailableBody": "Med Assurance is built for a wider screen. Open this page on a computer or widen the window to continue."
   },
   "role": {
     "title": "After the accident, before the insurer",
@@ -213,6 +215,12 @@
       "general": "Display language for this device",
       "compte": "Account and data on this device"
     },
+    "deleteAccountTitle": "Delete account",
+    "deleteAccountBody": "Deactivates your login. You can create a new account with the same email later. Incident history stays on the server.",
+    "deleteAccount": "Delete my account",
+    "deleteAccountConfirm": "Yes, delete account",
+    "deleteAccountBusy": "Deleting…",
+    "deleteAccountError": "Could not delete account. Try again.",
     "avatarLabel": "Profile photo",
     "avatarHint": "Square crop. Shows in the sidebar account menu.",
     "walletNudgePeek": "To complete",

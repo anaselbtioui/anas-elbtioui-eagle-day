@@ -33,6 +33,8 @@ export function derivePv(
 ): PvStatus {
   if (current === 'obtained') return 'obtained'
   if (mustStop(injury, otherPartyStatus)) return 'required'
+  // Sticky: manual cancel / prior stop must not be cleared by the “happy path” rule below.
+  if (current === 'required') return 'required'
   if (injury === 'no' && otherPartyStatus === 'known') return 'not_needed'
   return current
 }

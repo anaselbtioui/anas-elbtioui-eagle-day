@@ -86,6 +86,8 @@ export type LabasHttpApi = {
   signIn: (input: SigninInput) => Promise<AuthSession>
   refresh: () => Promise<AuthSession>
   me: () => Promise<AuthUser>
+  /** Soft-delete the signed-in account. */
+  deleteAccount: () => Promise<{ ok: true }>
   getSession: (motoristId?: string) => Promise<SessionSnapshot>
   getProfile: (motoristId?: string) => Promise<Profile>
   saveProfile: (profile: Profile & { brokerAutoAssignAck?: boolean }) => Promise<Profile>

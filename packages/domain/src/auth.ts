@@ -20,4 +20,6 @@ export type AuthSession = {
 
 export type AppUserRecord = AuthUser & {
   passwordHash: string
+  /** ISO timestamp when the account was soft-deleted; null while active. */
+  deletedAt: string | null
 }

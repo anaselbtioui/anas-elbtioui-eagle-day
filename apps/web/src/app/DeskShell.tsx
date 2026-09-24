@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { AppShell, ShellNavLink, shellActiveEntry } from '@/app/AppShell'
+import { DesktopOnlyGate } from '@/app/DesktopOnlyGate'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { filterDeskBundles } from '@/domain/desk.ts'
@@ -48,6 +49,7 @@ export function DeskShell({ children }: { children?: ReactNode }) {
   }
 
   return (
+    <DesktopOnlyGate>
     <>
     <AppShell
       homeTo="/desk"
@@ -159,5 +161,6 @@ export function DeskShell({ children }: { children?: ReactNode }) {
       </Dialog.Portal>
     </Dialog.Root>
     </>
+    </DesktopOnlyGate>
   )
 }

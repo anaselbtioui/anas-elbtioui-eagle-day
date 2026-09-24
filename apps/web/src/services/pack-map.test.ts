@@ -36,4 +36,26 @@ describe('pack-map', () => {
     expect(back.status).toBe('stopped')
     expect(back.stopReason).toBe('other')
   })
+
+  it('round-trips cancel after known other party (pv stays required through rules)', async () => {
+    const { applyEvidenceRules } = await import('@/domain/rules.ts')
+    let ui = createEmptyPack()
+    ui.id = 'INC-cancel-known'
+    ui.injury = 'no'
+    ui.otherDriver = 'cooperates'
+    ui.constat = {
+      otherName: 'Karim',
+      otherPlate: '1-A-1',
+      otherPhone: '',
+      otherInsurer: '',
+      notes: '',
+      attestedDocsChecked: false,
+    }
+    ui = evidenceReducer(ui, { type: 'STOP', reason: 'other' })
+    const domain = applyEvidenceRules(
+      toDomainPack(ui, { motoristId: 'M-1', policyId: 'P-1', city: 'Rabat' }),
+    )
+    expect(domain.evidence.pv).toBe('required')
+    expect(fromDomainPack(domain).status).toBe('stopped')
+  })
 })

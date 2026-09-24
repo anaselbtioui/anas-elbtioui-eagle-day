@@ -82,6 +82,29 @@ describe('applyEvidenceRules', () => {
     const evidence = { ...emptyEvidence('INC-1'), constat: 'complete' as const, pv: 'not_needed' as const }
     expect(canSubmit(evidence)).toBe(true)
   })
+
+  it('keeps pv required after manual cancel even when other party is known', () => {
+    const next = applyEvidenceRules(
+      pack({
+        incident: {
+          id: 'INC-3',
+          ref: 'ACC-INC30000',
+          motoristId: 'M-3',
+          policyId: 'P-1',
+          occurredAt: null,
+          city: 'Rabat',
+          injury: 'no',
+          vehicleImmobilised: false,
+          otherPartyId: 'O-3',
+          workCommute: null,
+          archivedAt: null,
+        },
+        otherParty: { id: 'O-3', status: 'known', name: 'Y', plate: null },
+        evidence: { ...emptyEvidence('INC-3'), pv: 'required' },
+      }),
+    )
+    expect(next.evidence.pv).toBe('required')
+  })
 })
 
 describe('offerAssistance', () => {

@@ -68,6 +68,8 @@ export const httpApi: LabasHttpApi = {
     req<AuthSession>('/api/auth/signin', { method: 'POST', body: JSON.stringify(input) }),
   refresh: () => req<AuthSession>('/api/auth/refresh', { method: 'POST', body: '{}' }),
   me: () => req<AuthUser>('/api/auth/me'),
+  deleteAccount: () =>
+    req<{ ok: true }>('/api/auth/delete-account', { method: 'POST', body: '{}' }),
   getSession: (motoristId) => {
     const q = motoristId ? `?motoristId=${encodeURIComponent(motoristId)}` : ''
     return req<SessionSnapshot>(`/api/session${q}`)

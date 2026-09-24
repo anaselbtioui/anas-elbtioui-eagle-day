@@ -28,7 +28,9 @@
     "resetProfile": "Effacer mon profil",
     "resetProfileTitle": "Effacer mon profil ?",
     "resetProfileBody": "Cette action efface le portefeuille et les preuves sur cet appareil. Elle est définitive.",
-    "resetProfileConfirm": "Effacer définitivement"
+    "resetProfileConfirm": "Effacer définitivement",
+    "mobileUnavailableTitle": "Vue ordinateur uniquement pour l’instant",
+    "mobileUnavailableBody": "Med Assurance est conçu pour un écran plus large. Ouvrez cette page sur un ordinateur ou élargissez la fenêtre pour continuer."
   },
   "role": {
     "title": "Après l’accident, avant l’assureur",
@@ -213,6 +215,12 @@
       "general": "Langue d’affichage sur cet appareil",
       "compte": "Compte et données sur cet appareil"
     },
+    "deleteAccountTitle": "Supprimer le compte",
+    "deleteAccountBody": "Désactive votre connexion. Vous pourrez créer un nouveau compte avec le même e-mail plus tard. L’historique des sinistres reste côté serveur.",
+    "deleteAccount": "Supprimer mon compte",
+    "deleteAccountConfirm": "Oui, supprimer le compte",
+    "deleteAccountBusy": "Suppression…",
+    "deleteAccountError": "Impossible de supprimer le compte. Réessayez.",
     "avatarLabel": "Photo de profil",
     "avatarHint": "Recadrage carré. Visible dans le menu compte de la barre latérale.",
     "walletNudgePeek": "À compléter",

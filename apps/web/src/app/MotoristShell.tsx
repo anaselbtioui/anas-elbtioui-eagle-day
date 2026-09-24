@@ -1,6 +1,7 @@
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { DesktopOnlyGate } from '@/app/DesktopOnlyGate'
 import { AppShell, ShellNavLink, shellActiveEntry } from '@/app/AppShell'
 import { LabasIcon } from '@/components/LabasIcon'
 import { Button } from '@/components/ui/button'
@@ -183,6 +184,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
 
   return (
     <>
+      <DesktopOnlyGate>
       <AppShell
         homeTo="/"
         navLabel={t('motorist.navLabel')}
@@ -307,6 +309,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
         {children}
       </AppShell>
       <ProfileSettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+      </DesktopOnlyGate>
     </>
   )
 }
