@@ -110,6 +110,7 @@
   },
   "fields": {
     "citySearch": "Search a city…",
+    "cityEmpty": "No city matches",
     "cityUseLocation": "My location",
     "cityGeoDenied": "Location unavailable. Choose a city from the list.",
     "errorPersonName": "Letters only (no digits)",

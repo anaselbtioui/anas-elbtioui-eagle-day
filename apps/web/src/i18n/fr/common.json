@@ -110,6 +110,7 @@
   },
   "fields": {
     "citySearch": "Rechercher une ville…",
+    "cityEmpty": "Aucune ville ne correspond",
     "cityUseLocation": "Ma position",
     "cityGeoDenied": "Position indisponible. Choisissez une ville dans la liste.",
     "errorPersonName": "Lettres uniquement (pas de chiffres)",

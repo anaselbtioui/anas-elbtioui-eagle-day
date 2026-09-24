@@ -1,14 +1,13 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useMemo, useRef, useState } from 'react'
 import { Geolocation } from '@capacitor/geolocation'
 import { useTranslation } from 'react-i18next'
 import {
-  canonicalCityName,
-  filterCities,
+  MOROCCAN_CITIES,
   findNearestCity,
   isMoroccanCity,
 } from '@/domain/moroccan-cities.ts'
 import { LabasIcon } from '@/components/LabasIcon'
+import { SearchablePickPanel, type SearchablePickOption } from '@/components/SearchablePickPanel'
 import { cn } from '@/lib/utils'
 
 type CitySelectProps = {
@@ -16,37 +15,17 @@ type CitySelectProps = {
   value: string
   onChange: (city: string) => void
   className?: string
-  /** Wallet gap resume — paint alert border on the search input. */
+  /** Wallet gap resume — paint alert border on the trigger. */
   highlight?: boolean
   'data-testid'?: string
   /** Show “Ma position” control. Default true. */
   allowGeolocate?: boolean
 }
 
-const LIST_GAP = 4
-const EDGE = 8
-/** Matches previous max-h-56 (~14rem). */
-const LIST_MAX_PX = 224
-
-function stickyFooterTop(): number {
-  const el = document.querySelector('[data-sticky-actions-footer]:not([hidden])')
-  if (!(el instanceof HTMLElement)) return window.innerHeight
-  const r = el.getBoundingClientRect()
-  if (r.height <= 0 || r.top >= window.innerHeight) return window.innerHeight
-  return r.top
-}
-
-type ListPos = {
-  top: number
-  left: number
-  width: number
-  maxHeight: number
-}
-
 /**
- * Searchable single city pick from curated Moroccan list.
- * Optional Capacitor geolocation → nearest list city.
- * List portals above sticky footers; height flips/clamps to stay on screen.
+ * Curated Moroccan city pick — button trigger + portaled search (same pattern
+ * as insurer). Avoids a free-text city input so Chrome address autofill cannot
+ * overlay / misalign / spill into nearby name fields.
  */
 export function CitySelect({
   id,
@@ -58,80 +37,24 @@ export function CitySelect({
   allowGeolocate = true,
 }: CitySelectProps) {
   const { t } = useTranslation()
-  const listId = useId()
-  const rootRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const listRef = useRef<HTMLUListElement>(null)
-  const [query, setQuery] = useState(value)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [geoBusy, setGeoBusy] = useState(false)
   const [geoHint, setGeoHint] = useState<string | null>(null)
-  const [pos, setPos] = useState<ListPos>({ top: 0, left: 0, width: 0, maxHeight: LIST_MAX_PX })
 
-  useEffect(() => {
-    setQuery(value)
-  }, [value])
+  const trimmed = value.trim()
+  const valid = !trimmed || isMoroccanCity(trimmed)
+  const label = trimmed || t('fields.citySearch')
 
-  useLayoutEffect(() => {
-    if (!open) return
-    function place() {
-      const r = inputRef.current?.getBoundingClientRect()
-      if (!r) return
-      const bottomLimit = stickyFooterTop() - EDGE
-      const spaceBelow = Math.max(0, bottomLimit - (r.bottom + LIST_GAP))
-      const spaceAbove = Math.max(0, r.top - EDGE - LIST_GAP)
-      const preferBelow =
-        spaceBelow >= Math.min(LIST_MAX_PX, 140) || spaceBelow >= spaceAbove
-      const maxHeight = Math.max(72, Math.min(LIST_MAX_PX, preferBelow ? spaceBelow : spaceAbove))
-      setPos({
-        top: preferBelow ? r.bottom + LIST_GAP : r.top - LIST_GAP - maxHeight,
-        left: r.left,
-        width: r.width,
-        maxHeight,
-      })
-    }
-    place()
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    return () => {
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
-    }
-  }, [open, query])
-
-  useEffect(() => {
-    if (!open) return
-    function onDoc(e: MouseEvent) {
-      const target = e.target as Node
-      if (rootRef.current?.contains(target)) return
-      if (listRef.current?.contains(target)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
-
-  const options = useMemo(() => filterCities(query, 14), [query])
-  const valid = !value.trim() || isMoroccanCity(value)
+  const options: SearchablePickOption[] = useMemo(
+    () => MOROCCAN_CITIES.map((city) => ({ value: city.name, label: city.name })),
+    [],
+  )
 
   function pick(name: string) {
     onChange(name)
-    setQuery(name)
     setOpen(false)
     setGeoHint(null)
-  }
-
-  function onBlurCommit() {
-    const canon = canonicalCityName(query)
-    if (canon) {
-      pick(canon)
-      return
-    }
-    if (value && isMoroccanCity(value)) {
-      setQuery(value)
-      return
-    }
-    setQuery(value)
   }
 
   async function useMyLocation() {
@@ -151,85 +74,33 @@ export function CitySelect({
     }
   }
 
-  const list =
-    open && options.length > 0
-      ? createPortal(
-          <ul
-            ref={listRef}
-            id={listId}
-            role="listbox"
-            className="pointer-events-auto fixed z-[80] overflow-auto rounded-[var(--radius-labas)] border border-border bg-surface py-1 shadow-[0_12px_40px_-16px_rgba(16,40,96,0.45)]"
-            style={{
-              top: pos.top,
-              left: pos.left,
-              width: pos.width,
-              maxHeight: pos.maxHeight,
-            }}
-            data-testid="city-select-list"
-          >
-            {options.map((city) => (
-              <li key={city.name} role="option" aria-selected={city.name === value}>
-                <button
-                  type="button"
-                  className={cn(
-                    'flex w-full px-4 py-2.5 text-left text-sm font-medium text-ink hover:bg-sand-deep',
-                    city.name === value && 'bg-ink-soft',
-                  )}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => pick(city.name)}
-                >
-                  {city.name}
-                </button>
-              </li>
-            ))}
-          </ul>,
-          document.body,
-        )
-      : null
-
   return (
-    <div ref={rootRef} className={cn('relative space-y-2', className)} data-testid={testId ?? 'city-select'}>
+    <div className={cn('relative space-y-2', className)} data-testid={testId ?? 'city-select'}>
       <div className="flex gap-2">
-        <input
-          ref={inputRef}
+        <button
+          ref={triggerRef}
           id={id}
-          role="combobox"
+          type="button"
+          aria-label={t('onboarding.city')}
+          aria-haspopup="listbox"
           aria-expanded={open}
-          aria-controls={listId}
-          aria-autocomplete="list"
-          // Curated list only — never invite browser address autofill (it can
-          // spill the city into nearby given-name / first-name fields).
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          name={`labas-city-${listId}`}
-          value={query}
-          placeholder={t('fields.citySearch')}
           className={cn(
-            'flex min-h-12 w-full rounded-[var(--radius-labas)] border-2 bg-surface px-4 py-3 text-base text-ink',
+            'flex min-h-12 min-w-0 flex-1 items-center rounded-[var(--radius-labas)] border-2 bg-surface py-3 pl-4 pr-10 text-left text-base',
+            "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23102860'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")] bg-[length:1.1rem] bg-[right_0.875rem_center] bg-no-repeat",
             'transition-[border-color,box-shadow] duration-150 ease-out',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:border-ink',
             !valid || highlight ? 'border-alert' : 'border-border',
             highlight && 'ring-2 ring-alert/35',
+            trimmed ? 'text-ink' : 'text-ink-muted',
           )}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            setOpen(true)
-            setGeoHint(null)
-          }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => {
-            window.setTimeout(() => onBlurCommit(), 120)
-          }}
+          data-testid="city-select-input"
+          onClick={() => setOpen((v) => !v)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') setOpen(false)
-            if (e.key === 'Enter' && options[0]) {
-              e.preventDefault()
-              pick(options[0].name)
-            }
           }}
-          data-testid="city-select-input"
-        />
+        >
+          <span className="min-w-0 truncate">{label}</span>
+        </button>
         {allowGeolocate ? (
           <button
             type="button"
@@ -250,7 +121,21 @@ export function CitySelect({
           </button>
         ) : null}
       </div>
-      {list}
+
+      <SearchablePickPanel
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={triggerRef}
+        options={options}
+        value={trimmed}
+        onPick={pick}
+        searchPlaceholder={t('fields.citySearch')}
+        emptyLabel={t('fields.cityEmpty')}
+        listTestId="city-select-list"
+        searchTestId="city-select-search"
+        optionTestId={(v) => `city-option-${v}`}
+      />
+
       {geoHint ? (
         <p className="text-sm text-ink-muted" data-testid="city-geo-hint">
           {geoHint}
