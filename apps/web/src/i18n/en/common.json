@@ -191,7 +191,9 @@
     "settingsHint": "",
     "settingsLocalNote": "Local photos",
     "settingsEdit": "Assistant",
-    "settingsAccountHint": "Account and data on this device",
+    "settingsAccountHint": "Language and data on this device.",
+    "settingsLanguage": "Display language",
+    "settingsLanguageHint": "Applies across Med Assurance on this device.",
     "brokerUnset": "No broker linked",
     "brokerContactHint": "Broker phone and details come from their Med Assurance account — not motorist input.",
     "settingsCat": {
@@ -206,7 +208,7 @@
       "vehicule": "Plate and vehicle description",
       "contrat": "Insurer, contract number, attestation and assistance",
       "courtier": "Linked via Med Assurance — the broker provides their details",
-      "compte": "Account and data on this device"
+      "compte": "Language and data on this device"
     },
     "walletNudgePeek": "To complete",
     "walletNudgeRemaining": "{{pct}}% left to complete your wallet",

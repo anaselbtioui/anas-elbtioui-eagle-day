@@ -128,14 +128,18 @@ function isEditableCategory(
 
 function FieldRow({
   label,
+  htmlFor,
   children,
 }: {
   label: string
+  htmlFor?: string
   children: ReactNode
 }) {
   return (
     <div className="border-b border-border/50 py-3 last:border-b-0">
-      <Label className="text-sm font-medium text-ink-muted">{label}</Label>
+      <Label htmlFor={htmlFor} className="text-sm font-medium text-ink-muted">
+        {label}
+      </Label>
       <div className="mt-1.5">{children}</div>
     </div>
   )
@@ -148,13 +152,16 @@ export function ProfileSettingsModal({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { setProfile, persistDraft, saving, error } = useProfileStore()
   const [draft, setDraft] = useState<Wallet>(emptyWallet)
   const [category, setCategory] = useState<SettingsCategory>('identite')
   const [persistError, setPersistError] = useState<string | null>(null)
   const [persistBusy, setPersistBusy] = useState(false)
   const [brokerEmail, setBrokerEmail] = useState<string | null>(null)
+  const uiLang = (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('en')
+    ? 'en'
+    : 'fr'
 
   useEffect(() => {
     if (!open) {
@@ -414,6 +421,23 @@ export function ProfileSettingsModal({
                   <p className="mt-1 text-sm text-ink-muted">
                     {t('motorist.settingsCatHint.compte')}
                   </p>
+                  <div className="mt-6 space-y-0 overflow-hidden rounded-[var(--radius-labas)] border border-border bg-surface">
+                    <FieldRow label={t('motorist.settingsLanguage')} htmlFor="settings-language">
+                      <select
+                        id="settings-language"
+                        value={uiLang}
+                        onChange={(e) => {
+                          void i18n.changeLanguage(e.target.value)
+                        }}
+                        className="flex min-h-12 w-full rounded-[var(--radius-labas)] border-2 border-border bg-surface px-4 py-3 text-base text-ink focus-visible:border-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+                        data-testid="settings-language"
+                      >
+                        <option value="fr">Français</option>
+                        <option value="en">English</option>
+                      </select>
+                    </FieldRow>
+                  </div>
+                  <p className="mt-3 text-sm text-ink-muted">{t('motorist.settingsLanguageHint')}</p>
                   <p className="mt-6 text-sm text-ink-muted">{t('motorist.settingsAccountHint')}</p>
                 </>
               ) : null}
