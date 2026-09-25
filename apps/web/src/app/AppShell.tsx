@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AccountMenu } from '@/components/AccountMenu'
 import { BrandMark } from '@/components/BrandLogo'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
@@ -76,7 +76,10 @@ type AppShellProps = {
   onSettings: () => void
   /** Primary CTA under logo (e.g. motorist “I had an accident”). */
   sidebarPrimary?: ReactNode
+  /** Compact search field — shown when the header search icon is toggled open. */
   search?: ReactNode
+  /** Accessible name for the header search toggle. */
+  searchLabel?: string
   nav: ReactNode
   listTitle?: string
   list?: ReactNode
@@ -98,6 +101,7 @@ export function AppShell({
   onSettings,
   sidebarPrimary,
   search,
+  searchLabel = 'Search',
   nav,
   listTitle,
   list,
@@ -105,26 +109,54 @@ export function AppShell({
   bottomDock,
   children,
 }: AppShellProps) {
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchWrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!search) setSearchOpen(false)
+  }, [search])
+
+  useEffect(() => {
+    if (!searchOpen) return
+    const root = searchWrapRef.current
+    const input = root?.querySelector('input')
+    input?.focus()
+  }, [searchOpen])
+
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-transparent text-ink md:flex-row">
       <aside
         className="z-20 flex w-full shrink-0 flex-col border-b border-border/50 bg-[#faf8f3] px-3 py-4 backdrop-blur-md md:h-full md:w-60 md:border-b-0 md:border-r"
         aria-label={navLabel}
       >
-        <Link
-          to={homeTo}
-          className="mb-3 inline-flex items-center gap-2.5 px-1"
-          aria-label="Med Assurance"
-        >
-          <BrandMark size="lg" className="h-14 w-14" />
-          <span className="font-display text-base font-extrabold leading-none text-ink sm:text-lg">
-            Med Assurance
-          </span>
-        </Link>
+        <div className="mb-3 flex items-center gap-1.5 px-1">
+          <Link
+            to={homeTo}
+            className="inline-flex shrink-0 items-center"
+            aria-label="Med Assurance"
+          >
+            <BrandMark size="lg" className="h-14 w-14" />
+          </Link>
+          {search ? (
+            searchOpen ? (
+              <div ref={searchWrapRef} className="min-w-0 flex-1">
+                {search}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-[transform,background-color] duration-150 ease-out hover:bg-sand-deep hover:text-ink active:scale-[0.96]"
+                aria-label={searchLabel}
+                data-testid="shell-search-toggle"
+                onClick={() => setSearchOpen(true)}
+              >
+                <LabasIcon name="search" className="h-5 w-5" tone="onSand" aria-hidden />
+              </button>
+            )
+          ) : null}
+        </div>
 
         {sidebarPrimary ? <div className="mb-3 px-0.5">{sidebarPrimary}</div> : null}
-
-        {search ? <div className="mb-3 px-0.5">{search}</div> : null}
 
         <nav className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">{nav}</nav>
 

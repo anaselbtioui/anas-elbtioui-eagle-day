@@ -318,28 +318,76 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
         avatarTestId="motorist-avatar"
         onSettings={() => setSettingsOpen(true)}
         sidebarPrimary={
-          <Button
-            className="h-11 w-full min-h-11 justify-start gap-2.5 pl-2.5 pr-3 text-sm"
-            loading={starting}
-            onClick={() => {
-              void onNewAccident()
-            }}
-            data-testid="sidebar-new-accident"
-            title={t('home.doorNowHint')}
-            aria-label={t('home.doorNow')}
-          >
-            {!starting ? (
+          <div className="space-y-2">
+            <Button
+              className="h-11 w-full min-h-11 justify-start gap-2.5 pl-2.5 pr-3 text-sm"
+              loading={starting}
+              onClick={() => {
+                void onNewAccident()
+              }}
+              data-testid="sidebar-new-accident"
+              title={t('home.doorNowHint')}
+              aria-label={t('home.doorNow')}
+            >
+              {!starting ? (
+                <LabasIcon
+                  name="warning"
+                  className="h-[1.125rem] w-[1.125rem] shrink-0"
+                  tone="onInk"
+                  aria-hidden
+                />
+              ) : null}
+              <span className="leading-none">
+                {starting ? t('now.starting') : t('home.doorNowShort')}
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-11 w-full min-h-11 justify-start gap-2.5 pl-2.5 pr-3 text-sm"
+              data-testid="sidebar-declare-claim"
+              title={t('home.doorLaterHint')}
+              aria-label={t('home.doorLater')}
+              onClick={() => {
+                if (!claimReady) {
+                  showToast(t('home.laterBlocked'), 'alert')
+                  return
+                }
+                navigate('/later')
+              }}
+            >
               <LabasIcon
-                name="warning"
+                name="clipboard"
                 className="h-[1.125rem] w-[1.125rem] shrink-0"
-                tone="onInk"
+                tone="onSand"
                 aria-hidden
               />
-            ) : null}
-            <span className="leading-none">
-              {starting ? t('now.starting') : t('home.doorNowShort')}
-            </span>
-          </Button>
+              <span className="leading-none">{t('home.doorLater')}</span>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-11 w-full min-h-11 justify-start gap-2.5 pl-2.5 pr-3 text-sm"
+              data-testid="sidebar-vehicle-immobilised"
+              title={t('home.doorAssistHint')}
+              aria-label={t('home.doorAssist')}
+              onClick={() => {
+                if (!claimReady) {
+                  showToast(t('home.assistBlocked'), 'alert')
+                  return
+                }
+                navigate('/assist')
+              }}
+            >
+              <LabasIcon
+                name="car"
+                className="h-[1.125rem] w-[1.125rem] shrink-0"
+                tone="onSand"
+                aria-hidden
+              />
+              <span className="leading-none">{t('home.doorAssist')}</span>
+            </Button>
+          </div>
         }
         search={
           <Input
@@ -352,6 +400,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
             aria-label={t('motorist.searchPh')}
           />
         }
+        searchLabel={t('motorist.searchPh')}
         nav={
           <>
             <ShellNavLink

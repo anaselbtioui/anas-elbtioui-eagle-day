@@ -88,6 +88,7 @@ export function DeskShell({ children }: { children?: ReactNode }) {
           aria-label={t('broker.searchPh')}
         />
       }
+      searchLabel={t('broker.searchPh')}
       nav={
         <>
           <ShellNavLink
