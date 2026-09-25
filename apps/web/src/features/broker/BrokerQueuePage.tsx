@@ -45,7 +45,6 @@ export function BrokerQueuePage() {
   const loading = useBrokerDeskStore((s) => s.loading)
   const error = useBrokerDeskStore((s) => s.error)
   const loadQueue = useBrokerDeskStore((s) => s.loadQueue)
-  const searchQuery = useBrokerDeskStore((s) => s.searchQuery)
   const [statusFilter, setStatusFilter] = useState<DossierStatus | 'all' | 'closed'>('all')
 
   useEffect(() => {
@@ -55,12 +54,12 @@ export function BrokerQueuePage() {
   const filtered = useMemo(
     () =>
       filterDeskBundles(bundles, {
-        query: searchQuery,
+        query: '',
         status: statusFilter,
         mineOnly: false,
         brokerName: null,
       }),
-    [bundles, searchQuery, statusFilter],
+    [bundles, statusFilter],
   )
 
   const columns = useMemo<ColumnDef<DeskBundle>[]>(

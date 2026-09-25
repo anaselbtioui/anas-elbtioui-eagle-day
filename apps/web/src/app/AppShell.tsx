@@ -1,7 +1,11 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { AccountMenu } from '@/components/AccountMenu'
 import { BrandMark } from '@/components/BrandLogo'
+import {
+  CommandPalette,
+  type CommandPaletteItem,
+} from '@/components/CommandPalette'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
 import { cn } from '@/lib/utils'
 
@@ -64,6 +68,16 @@ export function ShellNavLink({
   )
 }
 
+export type ShellCommandSearch = {
+  title: string
+  placeholder: string
+  emptyLabel: string
+  query: string
+  onQueryChange: (query: string) => void
+  items: CommandPaletteItem[]
+  inputTestId?: string
+}
+
 type AppShellProps = {
   homeTo: string
   navLabel: string
@@ -76,8 +90,8 @@ type AppShellProps = {
   onSettings: () => void
   /** Primary CTA under logo (e.g. motorist “I had an accident”). */
   sidebarPrimary?: ReactNode
-  /** Compact search field — shown when the header search icon is toggled open. */
-  search?: ReactNode
+  /** Global Cmd/Ctrl+K command palette. */
+  commandSearch?: ShellCommandSearch
   /** Accessible name for the header search toggle. */
   searchLabel?: string
   nav: ReactNode
@@ -100,7 +114,7 @@ export function AppShell({
   avatarTestId,
   onSettings,
   sidebarPrimary,
-  search,
+  commandSearch,
   searchLabel = 'Search',
   nav,
   listTitle,
@@ -110,18 +124,24 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const [searchOpen, setSearchOpen] = useState(false)
-  const searchWrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!search) setSearchOpen(false)
-  }, [search])
-
-  useEffect(() => {
-    if (!searchOpen) return
-    const root = searchWrapRef.current
-    const input = root?.querySelector('input')
-    input?.focus()
-  }, [searchOpen])
+    if (!commandSearch) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return
+      const target = e.target
+      if (
+        target instanceof HTMLElement &&
+        target.closest('[role="dialog"], [data-command-palette-ignore]')
+      ) {
+        // Still allow Cmd+K to toggle when focus is outside our palette.
+      }
+      e.preventDefault()
+      setSearchOpen((open) => !open)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [commandSearch])
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-transparent text-ink md:flex-row">
@@ -137,22 +157,21 @@ export function AppShell({
           >
             <BrandMark size="lg" className="h-14 w-14" />
           </Link>
-          {search ? (
-            searchOpen ? (
-              <div ref={searchWrapRef} className="min-w-0 flex-1">
-                {search}
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-[transform,background-color] duration-150 ease-out hover:bg-sand-deep hover:text-ink active:scale-[0.96]"
-                aria-label={searchLabel}
-                data-testid="shell-search-toggle"
-                onClick={() => setSearchOpen(true)}
-              >
-                <LabasIcon name="search" className="h-5 w-5" tone="onSand" aria-hidden />
-              </button>
-            )
+          {commandSearch ? (
+            <button
+              type="button"
+              className="ml-auto inline-flex h-10 items-center gap-1.5 rounded-full px-2.5 text-ink-muted transition-[transform,background-color] duration-150 ease-out hover:bg-sand-deep hover:text-ink active:scale-[0.96]"
+              aria-label={searchLabel}
+              data-testid="shell-search-toggle"
+              onClick={() => setSearchOpen(true)}
+            >
+              <LabasIcon name="search" className="h-5 w-5" tone="onSand" aria-hidden />
+              <kbd className="hidden rounded-md border border-border/80 bg-surface/80 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-ink-muted sm:inline">
+                {typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+                  ? '⌘K'
+                  : 'Ctrl+K'}
+              </kbd>
+            </button>
           ) : null}
         </div>
 
@@ -201,6 +220,20 @@ export function AppShell({
           </div>
         ) : null}
       </div>
+
+      {commandSearch ? (
+        <CommandPalette
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+          query={commandSearch.query}
+          onQueryChange={commandSearch.onQueryChange}
+          items={commandSearch.items}
+          placeholder={commandSearch.placeholder}
+          emptyLabel={commandSearch.emptyLabel}
+          title={commandSearch.title}
+          inputTestId={commandSearch.inputTestId}
+        />
+      ) : null}
     </div>
   )
 }

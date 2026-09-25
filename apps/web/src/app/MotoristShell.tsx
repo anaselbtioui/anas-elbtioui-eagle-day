@@ -1,13 +1,13 @@
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DesktopOnlyGate } from '@/app/DesktopOnlyGate'
 import { AppShell, ShellNavLink, shellActiveEntry } from '@/app/AppShell'
+import type { CommandPaletteItem } from '@/components/CommandPalette'
 import { LabasIcon } from '@/components/LabasIcon'
 import { RecentPackRow } from '@/components/RecentPackRow'
 import { Button } from '@/components/ui/button'
 import { FluidHover } from '@/components/ui/fluid-hover'
-import { Input } from '@/components/ui/input'
 import { Skeleton, SkeletonStatus } from '@/components/ui/skeleton'
 import { displayAccidentRef } from '@/domain/accident-ref'
 import type { EvidencePack } from '@/domain/evidence'
@@ -173,31 +173,33 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
     const byId = new Map<string, EvidencePack>()
     for (const h of history) byId.set(h.id, h)
     if (pack) byId.set(pack.id, pack)
-    const q = searchQuery.trim().toLowerCase()
     return [...byId.values()]
-      .filter((p) => {
-        if (p.archivedAt) return false
-        if (!q) return true
-        const title = accidentDisplayTitle(
-          { ...p, city: p.city || cityFallback },
-          labelCopy,
-        ).toLowerCase()
-        const ref = displayAccidentRef(p.ref, p.id).toLowerCase()
-        return (
-          title.includes(q) ||
-          ref.includes(q) ||
-          p.id.toLowerCase().includes(q) ||
-          (p.ref ?? '').toLowerCase().includes(q) ||
-          (p.city ?? '').toLowerCase().includes(q) ||
-          p.status.toLowerCase().includes(q)
-        )
-      })
+      .filter((p) => !p.archivedAt)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, 24)
-  }, [history, pack, searchQuery, labelCopy, cityFallback])
+  }, [history, pack])
 
-  const showRecentSkeleton =
-    packsStatus !== 'ready' && recentPacks.length === 0 && !searchQuery.trim()
+  const searchHits = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return recentPacks
+    return recentPacks.filter((p) => {
+      const title = accidentDisplayTitle(
+        { ...p, city: p.city || cityFallback },
+        labelCopy,
+      ).toLowerCase()
+      const ref = displayAccidentRef(p.ref, p.id).toLowerCase()
+      return (
+        title.includes(q) ||
+        ref.includes(q) ||
+        p.id.toLowerCase().includes(q) ||
+        (p.ref ?? '').toLowerCase().includes(q) ||
+        (p.city ?? '').toLowerCase().includes(q) ||
+        p.status.toLowerCase().includes(q)
+      )
+    })
+  }, [recentPacks, searchQuery, labelCopy, cityFallback])
+
+  const showRecentSkeleton = packsStatus !== 'ready' && recentPacks.length === 0
 
   const walletName = walletDisplayName(profile)
   const sessionName = user?.displayName?.trim() || ''
@@ -206,13 +208,6 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
   const avatarUrl = profile.avatarPhotoLocal.trim() || undefined
   const avatarLoading =
     !remoteHydrated && Boolean(profile.avatarPhotoPath.trim()) && !avatarUrl
-
-  function onSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== 'Enter') return
-    const first = recentPacks.find((p) => !packDeclareBlocked(p.status, claimReady))
-    if (!first) return
-    openRecentPack(first.id)
-  }
 
   function openRecentPack(id: string) {
     const found =
@@ -233,15 +228,32 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
     navigate('/now')
   }
 
+  const commandItems: CommandPaletteItem[] = searchHits.map((p) => {
+    const title = accidentDisplayTitle(
+      { ...p, city: p.city || cityFallback },
+      labelCopy,
+    )
+    const ref = displayAccidentRef(p.ref, p.id)
+    const declareBlocked = packDeclareBlocked(p.status, claimReady)
+    return {
+      id: p.id,
+      title,
+      subtitle: ref,
+      disabled: declareBlocked,
+      icon: (
+        <LabasIcon name="warning" className="h-4 w-4 shrink-0" tone="onSand" aria-hidden />
+      ),
+      onSelect: () => openRecentPack(p.id),
+    }
+  })
+
   let recentList: ReactNode
   if (showRecentSkeleton) {
     recentList = <RecentPacksSkeleton label={t('motorist.loadingRecent')} />
   } else if (recentPacks.length === 0) {
     recentList = (
       <ul className="space-y-0.5">
-        <li className="px-3 py-2 text-sm text-ink-muted">
-          {searchQuery.trim() ? t('motorist.noMatch') : t('motorist.pastEmpty')}
-        </li>
+        <li className="px-3 py-2 text-sm text-ink-muted">{t('motorist.pastEmpty')}</li>
       </ul>
     )
   } else {
@@ -389,17 +401,15 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
             </Button>
           </div>
         }
-        search={
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={onSearchKeyDown}
-            placeholder={t('motorist.searchPh')}
-            className="min-h-10 border border-border bg-surface/80 px-3 py-2 text-sm"
-            data-testid="motorist-search"
-            aria-label={t('motorist.searchPh')}
-          />
-        }
+        commandSearch={{
+          title: t('motorist.searchTitle'),
+          placeholder: t('motorist.searchPh'),
+          emptyLabel: t('motorist.noMatch'),
+          query: searchQuery,
+          onQueryChange: setSearchQuery,
+          items: commandItems,
+          inputTestId: 'motorist-search',
+        }}
         searchLabel={t('motorist.searchPh')}
         nav={
           <>
