@@ -25,7 +25,7 @@ export const labasIcons = {
   logout: 'streamline-color:logout-1',
   location: 'streamline-color:location-pin-3',
   camera: 'streamline-color:camera-1',
-  search: 'streamline-color:search-1',
+  search: 'streamline-color:magnifying-glass',
 } as const
 
 export type LabasIconName = keyof typeof labasIcons
@@ -67,7 +67,7 @@ function recolor(body: string, tone: LabasIconTone): string {
 }
 
 const cache = new Map<string, IconifyIcon>()
-const CACHE_VER = 'v6'
+const CACHE_VER = 'v7'
 
 function cacheKey(name: LabasIconName, tone: LabasIconTone) {
   return `${CACHE_VER}:${name}:${tone}`
