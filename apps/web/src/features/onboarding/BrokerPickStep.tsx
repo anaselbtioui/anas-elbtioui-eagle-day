@@ -14,12 +14,15 @@ export function BrokerPickStep({
   onSkipAll,
   onContinue,
   gapsOnly = false,
+  persistOnPick = true,
 }: {
   onBack: () => void
   onSkip: () => void
   onSkipAll?: () => void
   onContinue: () => void
   gapsOnly?: boolean
+  /** When false, selection stays in the profile store until Continue. */
+  persistOnPick?: boolean
 }) {
   const { t } = useTranslation()
   const { profile, setProfile } = useProfileStore()
@@ -66,7 +69,9 @@ export function BrokerPickStep({
 
   function pick(id: string, displayName: string) {
     setProfile({ brokerId: id, broker: displayName })
-    void useProfileStore.getState().persistDraft()
+    if (persistOnPick) {
+      void useProfileStore.getState().persistDraft()
+    }
   }
 
   function continueWithBroker() {

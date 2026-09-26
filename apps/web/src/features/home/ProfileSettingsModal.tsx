@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { UnsavedExitDialog } from '@/components/UnsavedExitDialog'
 import { SettingsModalShell, type SettingsNavItem } from '@/components/SettingsModalShell'
 import { AvatarPhotoField } from '@/features/home/AvatarPhotoField'
+import { BrokerPickStep } from '@/features/onboarding/BrokerPickStep'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
 import { CitySelect } from '@/components/CitySelect'
 import { InsurerSelect } from '@/components/InsurerSelect'
@@ -224,6 +225,7 @@ export function ProfileSettingsModal({
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [discardOpen, setDiscardOpen] = useState(false)
+  const [changingBroker, setChangingBroker] = useState(false)
   const uiLang = (i18n.resolvedLanguage ?? i18n.language).toLowerCase().startsWith('en')
     ? 'en'
     : 'fr'
@@ -248,6 +250,7 @@ export function ProfileSettingsModal({
       setDeleteBusy(false)
       setDeleteError(null)
       setDiscardOpen(false)
+      setChangingBroker(false)
       return
     }
     // Snapshot once per open — typing stays local until Enregistrer.
@@ -255,6 +258,10 @@ export function ProfileSettingsModal({
     setDraft(snap)
     setBaseline(snap)
   }, [open])
+
+  useEffect(() => {
+    if (category !== 'courtier') setChangingBroker(false)
+  }, [category])
 
   useEffect(() => {
     if (category !== 'compte') {
@@ -496,32 +503,61 @@ export function ProfileSettingsModal({
         ) : null}
 
         {category === 'courtier' ? (
-          <>
-            <h2 className="font-display text-xl font-bold text-ink">
-              {t('motorist.settingsCat.courtier')}
-            </h2>
-            <p className="mt-1 text-sm text-ink-muted">
-              {t('motorist.settingsCatHint.courtier')}
-            </p>
-            <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
-              <FieldRow label={t('onboarding.broker')}>
-                <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-name">
-                  {draft.broker.trim() || t('motorist.brokerUnset')}
-                </p>
-              </FieldRow>
-              <FieldRow label={t('onboarding.brokerEmail')}>
-                <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-email">
-                  {brokerEmail ?? '—'}
-                </p>
-              </FieldRow>
-              <FieldRow label={t('onboarding.brokerPhone')}>
-                <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-phone">
-                  {brokerPhone?.trim() || '—'}
-                </p>
-              </FieldRow>
-            </div>
-            <p className="mt-3 text-sm text-ink-muted">{t('motorist.brokerContactHint')}</p>
-          </>
+          changingBroker ? (
+            <BrokerPickStep
+              persistOnPick={false}
+              onBack={() => {
+                setProfile({ brokerId: draft.brokerId, broker: draft.broker })
+                setChangingBroker(false)
+              }}
+              onSkip={() => {
+                setProfile({ brokerId: draft.brokerId, broker: draft.broker })
+                setChangingBroker(false)
+              }}
+              onContinue={() => {
+                const snap = { ...useProfileStore.getState().profile }
+                setDraft(snap)
+                setBaseline(snap)
+                setChangingBroker(false)
+              }}
+            />
+          ) : (
+            <>
+              <h2 className="font-display text-xl font-bold text-ink">
+                {t('motorist.settingsCat.courtier')}
+              </h2>
+              <p className="mt-1 text-sm text-ink-muted">
+                {t('motorist.settingsCatHint.courtier')}
+              </p>
+              <div className="mt-4 rounded-[var(--radius-labas)] border border-border bg-surface px-4">
+                <FieldRow label={t('onboarding.broker')}>
+                  <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-name">
+                    {draft.broker.trim() || t('motorist.brokerUnset')}
+                  </p>
+                </FieldRow>
+                <FieldRow label={t('onboarding.brokerEmail')}>
+                  <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-email">
+                    {brokerEmail ?? '—'}
+                  </p>
+                </FieldRow>
+                <FieldRow label={t('onboarding.brokerPhone')}>
+                  <p className="min-h-10 py-2 text-base text-ink" data-testid="settings-broker-phone">
+                    {brokerPhone?.trim() || '—'}
+                  </p>
+                </FieldRow>
+              </div>
+              <p className="mt-3 text-sm text-ink-muted">{t('motorist.brokerContactHint')}</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4 w-full"
+                data-testid="settings-change-broker"
+                onClick={() => setChangingBroker(true)}
+              >
+                {t('motorist.walletNudgeBrokerAssignedChange')}
+              </Button>
+            </>
+          )
         ) : null}
 
         {category === 'general' ? (

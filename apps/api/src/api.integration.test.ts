@@ -827,3 +827,74 @@ describe('API motorist close desk sync', () => {
     expect(getDb().dossiers).toHaveLength(0)
   })
 })
+
+describe('API motorist change broker', () => {
+  it('moves desk dossier from broker A to B and refreshes owner label', async () => {
+    const { app, getDb } = memory()
+    const brokerA = await signup(app, 'broker', 'Salma Alaoui')
+    const brokerB = await signup(app, 'broker', 'Karim Benani')
+    const motorist = await signup(app, 'motorist', 'Nadia El Mansouri')
+    await linkMotoristToBroker(app, motorist, brokerA.user.brokerId!, getDb)
+
+    const pack = bindPack(applyEvidenceRules(nadiaMissingConstatPack()), motorist.user)
+    pack.evidence.constat = 'complete'
+    await app.request(`/api/packs/${pack.incident.id}`, {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify(pack),
+    })
+    const submit = await app.request(`/api/declarations/${pack.incident.id}/submit`, {
+      method: 'POST',
+      headers: motorist.headers,
+    })
+    expect(submit.status).toBe(200)
+
+    const queueABefore = await app.request('/api/broker/queue', { headers: brokerA.headers })
+    const itemsABefore = (await queueABefore.json()) as Array<{
+      dossierId: string
+      provenance: { owner: string }
+    }>
+    expect(itemsABefore).toHaveLength(1)
+    expect(itemsABefore[0].provenance.owner).toBe('Salma Alaoui')
+    const dossierId = itemsABefore[0].dossierId
+
+    const profileRes = await app.request('/api/profile', { headers: motorist.headers })
+    const profile = (await profileRes.json()) as {
+      motorist: Record<string, unknown>
+      vehicle: Record<string, unknown>
+      insurer: Record<string, unknown>
+      broker: Record<string, unknown>
+      policy: { id: string; brokerId: string | null }
+    }
+    const brokerBRow = getDb().brokers.find((b) => b.id === brokerB.user.brokerId!)
+    expect(brokerBRow).toBeTruthy()
+
+    const put = await app.request('/api/profile', {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify({
+        ...profile,
+        broker: brokerBRow,
+        policy: { ...profile.policy, brokerId: brokerB.user.brokerId },
+      }),
+    })
+    expect(put.status).toBe(200)
+
+    const queueAAfter = await app.request('/api/broker/queue', { headers: brokerA.headers })
+    expect(await queueAAfter.json()).toEqual([])
+
+    const forbidden = await app.request(`/api/broker/dossiers/${dossierId}`, {
+      headers: brokerA.headers,
+    })
+    expect(forbidden.status).toBe(403)
+
+    const queueB = await app.request('/api/broker/queue', { headers: brokerB.headers })
+    const itemsB = (await queueB.json()) as Array<{
+      dossierId: string
+      provenance: { owner: string }
+    }>
+    expect(itemsB).toHaveLength(1)
+    expect(itemsB[0].dossierId).toBe(dossierId)
+    expect(itemsB[0].provenance.owner).toBe('Karim Benani')
+  })
+})

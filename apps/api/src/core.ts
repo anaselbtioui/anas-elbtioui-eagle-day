@@ -235,6 +235,26 @@ export function ensureDesk(db: Db, dossier: Db['dossiers'][number], pack: Eviden
   }
 }
 
+/** After motorist reassigns broker, refresh display Owner on their desk files. */
+export function refreshDeskOwnersForMotorist(db: Db, motoristId: string): Db {
+  const profile = profileFromDb(db, motoristId)
+  if (!profile) return db
+  const owner = deskOwnerFromBroker(profile.broker)
+  const dossierIds = new Set<string>()
+  for (const file of filesForMotorist(db, motoristId)) {
+    if (file.dossier) dossierIds.add(file.dossier.id)
+  }
+  if (dossierIds.size === 0) return db
+  let changed = false
+  const deskFiles = db.deskFiles.map((f) => {
+    if (!dossierIds.has(f.dossierId)) return f
+    if (f.provenance.owner === owner) return f
+    changed = true
+    return { ...f, provenance: { ...f.provenance, owner } }
+  })
+  return changed ? { ...db, deskFiles } : db
+}
+
 function deskFileOrDefault(
   db: Db,
   dossier: Db['dossiers'][number],

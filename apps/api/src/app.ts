@@ -54,6 +54,7 @@ import {
   packsForMotorist,
   persistDeskBundle,
   profileFromDb,
+  refreshDeskOwnersForMotorist,
   mergeNadiaDemo,
   mergeSaraDemo,
   writePackAndSync,
@@ -459,12 +460,15 @@ export function createApp(
 
       // Draft OK without courtier — required only when finishing onboarding (client).
       if (!chosen) {
+        const policyId = auth.policyId ?? body.policy.id
+        const previousBrokerId =
+          db.policies.find((p) => p.id === policyId)?.brokerId ?? null
         const policy = {
           ...body.policy,
-          id: auth.policyId ?? body.policy.id,
+          id: policyId,
           brokerId: null,
         }
-        const next: Db = {
+        let next: Db = {
           ...db,
           motorists: upsert(db.motorists, motorist),
           vehicles: upsert(db.vehicles, body.vehicle),
@@ -476,6 +480,9 @@ export function createApp(
                 : body.insurer.displayName.trim(),
           }),
           policies: upsert(db.policies, policy),
+        }
+        if (previousBrokerId) {
+          next = refreshDeskOwnersForMotorist(next, auth.motoristId!)
         }
         saved = {
           ...body,
@@ -505,9 +512,12 @@ export function createApp(
         return db
       }
       const broker = db.brokers.find((b) => b.id === chosen)!
+      const policyId = auth.policyId ?? body.policy.id
+      const previousBrokerId =
+        db.policies.find((p) => p.id === policyId)?.brokerId ?? null
       const policy = {
         ...body.policy,
-        id: auth.policyId ?? body.policy.id,
+        id: policyId,
         brokerId: chosen,
       }
       let next: Db = {
@@ -524,6 +534,9 @@ export function createApp(
         policies: upsert(db.policies, policy),
       }
       next = assignMotoristBroker(next, auth.id, policy.id, chosen)
+      if (chosen !== previousBrokerId) {
+        next = refreshDeskOwnersForMotorist(next, auth.motoristId!)
+      }
       saved = {
         ...body,
         motorist,
