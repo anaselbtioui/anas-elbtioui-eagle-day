@@ -7,6 +7,7 @@ import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { GoogleSignInButton } from '@/features/auth/GoogleSignInButton'
 import { isPersonName } from '@/domain/ma-fields.ts'
 import { api } from '@/services/api.ts'
 import { useSessionStore, type AppRole } from '@/store/session'
@@ -24,8 +25,12 @@ type FieldErrors = {
 function authErrorMessage(code: string, t: (k: string) => string): string {
   if (code === 'email_taken') return t('auth.errorTaken')
   if (code === 'invalid_credentials') return t('auth.errorCredentials')
+  if (code === 'use_google') return t('auth.errorUseGoogle')
   if (code === 'weak_password') return t('auth.errorWeak')
   if (code === 'name_required') return t('auth.errorName')
+  if (code === 'invalid_google_token') return t('auth.errorGoogle')
+  if (code === 'google_not_configured') return t('auth.errorGoogleConfig')
+  if (code === 'role_required') return t('auth.errorRoleRequired')
   return t('auth.errorGeneric')
 }
 
@@ -206,6 +211,25 @@ export function AuthPage() {
     }
   }
 
+  async function onGoogleCredential(idToken: string) {
+    if (!picked || busy) return
+    setError(null)
+    setBusy(true)
+    try {
+      const session = await api.signInWithGoogle({ idToken, role: picked })
+      applyAuth(session.token, session.user)
+      if (session.user.role === 'broker') {
+        navigate('/desk', { replace: true })
+        return
+      }
+      navigate(session.user.onboarded ? '/' : '/onboarding', { replace: true })
+    } catch (err) {
+      setError(authErrorMessage(err instanceof Error ? err.message : '', t))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const title = mode === 'signup' ? t('auth.signupTitle') : t('auth.signinTitle')
   const brandTitle = picked ? t('app.tagline') : t('role.title')
   const brandBody = !picked
@@ -369,6 +393,15 @@ export function AuthPage() {
               <Button className="w-full" type="submit" loading={busy} data-testid="auth-submit">
                 {mode === 'signup' ? t('auth.submitSignup') : t('auth.submitSignin')}
               </Button>
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center" aria-hidden>
+                  <span className="w-full border-t border-border" />
+                </div>
+                <p className="relative mx-auto w-fit bg-surface px-2 text-xs font-medium text-ink-muted">
+                  {t('auth.or')}
+                </p>
+              </div>
+              <GoogleSignInButton disabled={busy} onCredential={(token) => void onGoogleCredential(token)} />
               <button
                 type="button"
                 className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-ink-muted underline-offset-4 hover:underline"

@@ -4,6 +4,7 @@ resources/
 .env
 .env.*
 !.env.example
+client_secret*.json
 .vercel
 node_modules/
 apps/api/src/data/

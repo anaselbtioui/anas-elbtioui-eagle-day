@@ -65,6 +65,11 @@ export type SigninInput = {
   password: string
 }
 
+export type GoogleSignInInput = {
+  idToken: string
+  role?: AuthUser['role']
+}
+
 export type RegisteredBroker = {
   id: string
   displayName: string
@@ -100,6 +105,7 @@ export type BrokerClient = {
 export type LabasHttpApi = {
   signUp: (input: SignupInput) => Promise<AuthSession>
   signIn: (input: SigninInput) => Promise<AuthSession>
+  signInWithGoogle: (input: GoogleSignInInput) => Promise<AuthSession>
   refresh: () => Promise<AuthSession>
   me: () => Promise<AuthUser>
   /** Soft-delete the signed-in account. */

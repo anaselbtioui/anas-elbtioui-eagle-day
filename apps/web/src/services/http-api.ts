@@ -49,7 +49,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     if (res.status === 401) {
-      const authAttempt = /\/api\/auth\/(signin|signup)(?:\?|$)/.test(path)
+      const authAttempt = /\/api\/auth\/(signin|signup|google)(?:\?|$)/.test(path)
       if (!authAttempt) {
         void import('@/store/session.ts').then(({ useSessionStore }) => {
           if (useSessionStore.getState().token) useSessionStore.getState().signOut()
@@ -68,6 +68,8 @@ export const httpApi: LabasHttpApi = {
     req<AuthSession>('/api/auth/signup', { method: 'POST', body: JSON.stringify(input) }),
   signIn: (input) =>
     req<AuthSession>('/api/auth/signin', { method: 'POST', body: JSON.stringify(input) }),
+  signInWithGoogle: (input) =>
+    req<AuthSession>('/api/auth/google', { method: 'POST', body: JSON.stringify(input) }),
   refresh: () => req<AuthSession>('/api/auth/refresh', { method: 'POST', body: '{}' }),
   me: () => req<AuthUser>('/api/auth/me'),
   deleteAccount: () =>

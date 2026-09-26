@@ -19,6 +19,7 @@ import {
   signToken,
   softDeleteUser,
   userFromToken,
+  verifyGoogleIdToken,
   verifyPassword,
 } from './auth.ts'
 import { applyEvidenceRules, canSubmit, dossierAfterDraft, dossierAfterSubmit, offerAssistance } from '@labas/domain/rules.ts'
@@ -311,6 +312,7 @@ export function createApp(
         id: randomUUID(),
         email,
         passwordHash: await hashPassword(password),
+        authProvider: 'password',
         role: body.role!,
         displayName,
         onboarded: body.role === 'broker',
@@ -335,11 +337,88 @@ export function createApp(
     const email = normalizeEmail(body.email ?? '')
     const db = await load()
     const row = db.users.find((u) => u.email === email && !u.deletedAt)
-    if (!row || !(await verifyPassword(body.password ?? '', row.passwordHash))) {
+    if (!row) return c.json({ error: 'invalid_credentials' }, 401)
+    if (row.authProvider === 'google' || !row.passwordHash) {
+      return c.json({ error: 'use_google' }, 401)
+    }
+    if (!(await verifyPassword(body.password ?? '', row.passwordHash))) {
       return c.json({ error: 'invalid_credentials' }, 401)
     }
     const user = publicUser(row)
     return c.json({ token: await signToken(user), user })
+  })
+
+  /** Google ID token → Labas JWT (motorist or broker). */
+  app.post('/api/auth/google', async (c) => {
+    const body = await readJson<{ idToken?: string; role?: string }>(c, {})
+    const idToken = (body.idToken ?? '').trim()
+    if (!idToken) return c.json({ error: 'token_required' }, 400)
+    if (!process.env.GOOGLE_CLIENT_ID?.trim()) {
+      return c.json({ error: 'google_not_configured' }, 503)
+    }
+    const profile = await verifyGoogleIdToken(idToken)
+    if (!profile) return c.json({ error: 'invalid_google_token' }, 401)
+
+    const email = profile.email
+    let sessionUser: AuthUser | null = null
+    let created = false
+    let roleRequired = false
+
+    await write(async (db) => {
+      const existing = db.users.find((u) => u.email === email && !u.deletedAt)
+      if (existing) {
+        sessionUser = publicUser(existing)
+        return db
+      }
+      if (!isRole(body.role)) {
+        roleRequired = true
+        return db
+      }
+      let next = db
+      let motoristId: string | null = null
+      let brokerId: string | null = null
+      let vehicleId: string | null = null
+      let insurerId: string | null = null
+      let policyId: string | null = null
+      const displayName = profile.name
+      if (body.role === 'motorist') {
+        const provisioned = provisionMotorist(next, displayName)
+        next = provisioned.db
+        motoristId = provisioned.motoristId
+        vehicleId = provisioned.vehicleId
+        insurerId = provisioned.insurerId
+        policyId = provisioned.policyId
+      } else {
+        const provisioned = provisionBroker(next, displayName)
+        next = provisioned.db
+        brokerId = provisioned.brokerId
+      }
+      const row: AppUserRecord = {
+        id: randomUUID(),
+        email,
+        passwordHash: null,
+        authProvider: 'google',
+        role: body.role,
+        displayName,
+        onboarded: body.role === 'broker',
+        motoristId,
+        brokerId,
+        vehicleId,
+        insurerId,
+        policyId,
+        deletedAt: null,
+      }
+      sessionUser = publicUser(row)
+      created = true
+      return insertUser(next, row)
+    })
+
+    if (roleRequired) return c.json({ error: 'role_required' }, 400)
+    if (!sessionUser) return c.json({ error: 'signup_failed' }, 500)
+    return c.json(
+      { token: await signToken(sessionUser), user: sessionUser },
+      created ? 201 : 200,
+    )
   })
 
   /** Soft-delete the signed-in account. JWT stops working after this. */

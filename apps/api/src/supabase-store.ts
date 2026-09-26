@@ -35,7 +35,8 @@ function throwIf(error: { message: string } | null, action: string): void {
 type AppUserRow = {
   id: string
   email: string
-  password_hash: string
+  password_hash: string | null
+  auth_provider?: string | null
   role: AppUserRecord['role']
   display_name: string
   onboarded: boolean
@@ -48,10 +49,12 @@ type AppUserRow = {
 }
 
 function mapAppUserRow(r: AppUserRow): AppUserRecord {
+  const authProvider = r.auth_provider === 'google' ? 'google' : 'password'
   return {
     id: r.id,
     email: r.email,
     passwordHash: r.password_hash,
+    authProvider,
     role: r.role,
     displayName: r.display_name,
     onboarded: r.onboarded,
@@ -592,6 +595,7 @@ async function upsertAllTables(db: Db): Promise<void> {
         id: r.id,
         email: r.email,
         password_hash: r.passwordHash,
+        auth_provider: r.authProvider,
         role: r.role,
         display_name: r.displayName,
         onboarded: r.onboarded,
@@ -764,6 +768,7 @@ export async function upsertAppUserUnlocked(user: AppUserRecord): Promise<void> 
         id: user.id,
         email: user.email,
         password_hash: user.passwordHash,
+        auth_provider: user.authProvider,
         role: user.role,
         display_name: user.displayName,
         onboarded: user.onboarded,

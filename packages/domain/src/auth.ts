@@ -1,5 +1,7 @@
 export type AppRole = 'motorist' | 'broker'
 
+export type AuthProvider = 'password' | 'google'
+
 export type AuthUser = {
   id: string
   email: string
@@ -19,7 +21,9 @@ export type AuthSession = {
 }
 
 export type AppUserRecord = AuthUser & {
-  passwordHash: string
+  /** Null for Google-only accounts. */
+  passwordHash: string | null
+  authProvider: AuthProvider
   /** ISO timestamp when the account was soft-deleted; null while active. */
   deletedAt: string | null
 }

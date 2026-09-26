@@ -9,6 +9,8 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url))
 const domainSrc = path.resolve(rootDir, '../../packages/domain/src')
 
 export default defineConfig({
+  // Load VITE_* from monorepo root `.env` (same file as the API).
+  envDir: path.resolve(rootDir, '../..'),
   plugins: [
     react(),
     tailwindcss(),

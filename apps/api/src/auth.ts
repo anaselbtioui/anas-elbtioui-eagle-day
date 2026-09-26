@@ -9,7 +9,7 @@ const scrypt = promisify(scryptCb)
 const TOKEN_MINUTES = Number(process.env.LABAS_JWT_TTL_MINUTES) || 15
 
 export function publicUser(row: AppUserRecord): AuthUser {
-  const { passwordHash: _pw, deletedAt: _del, ...user } = row
+  const { passwordHash: _pw, deletedAt: _del, authProvider: _ap, ...user } = row
   return user
 }
 
@@ -282,4 +282,50 @@ export function listBrokerClients(db: Db, brokerId: string) {
 
 export function isRole(value: string | undefined): value is AppRole {
   return value === 'motorist' || value === 'broker'
+}
+
+export type GoogleIdProfile = {
+  email: string
+  emailVerified: boolean
+  name: string
+}
+
+type GoogleIdTokenVerifier = (idToken: string) => Promise<GoogleIdProfile | null>
+
+async function defaultVerifyGoogleIdToken(idToken: string): Promise<GoogleIdProfile | null> {
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim()
+  if (!clientId || !idToken.trim()) return null
+  try {
+    const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const body = (await res.json()) as {
+      aud?: string
+      email?: string
+      email_verified?: string | boolean
+      name?: string
+      error?: string
+    }
+    if (body.error || body.aud !== clientId) return null
+    const email = normalizeEmail(body.email ?? '')
+    if (!email.includes('@')) return null
+    const emailVerified =
+      body.email_verified === true || body.email_verified === 'true'
+    if (!emailVerified) return null
+    const name = (body.name ?? '').trim() || email.split('@')[0] || 'User'
+    return { email, emailVerified, name }
+  } catch {
+    return null
+  }
+}
+
+let googleIdTokenVerifier: GoogleIdTokenVerifier = defaultVerifyGoogleIdToken
+
+/** Test hook — swap Google token verification without hitting the network. */
+export function setGoogleIdTokenVerifierForTests(fn: GoogleIdTokenVerifier | null): void {
+  googleIdTokenVerifier = fn ?? defaultVerifyGoogleIdToken
+}
+
+export function verifyGoogleIdToken(idToken: string): Promise<GoogleIdProfile | null> {
+  return googleIdTokenVerifier(idToken)
 }

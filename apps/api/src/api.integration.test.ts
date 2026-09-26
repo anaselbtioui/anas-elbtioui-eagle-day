@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app.ts'
+import { setGoogleIdTokenVerifierForTests } from './auth.ts'
 import { profileFromDb, seedDeskDb } from './core.ts'
 import { emptyDb, type Db } from './store.ts'
 import type { AuthUser } from '@labas/domain/auth.ts'
@@ -197,6 +198,87 @@ describe('API auth', () => {
       }),
     })
     expect(again.status).toBe(201)
+  })
+
+  it('google signup provisions motorist and returning user ignores role', async () => {
+    process.env.GOOGLE_CLIENT_ID = 'test-google-client.apps.googleusercontent.com'
+    setGoogleIdTokenVerifierForTests(async (idToken) => {
+      if (idToken !== 'good-token') return null
+      return {
+        email: 'google.motorist@labas.test',
+        emailVerified: true,
+        name: 'Google Motorist',
+      }
+    })
+    try {
+      const { app, getDb } = memory()
+      const created = await app.request('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: 'good-token', role: 'motorist' }),
+      })
+      expect(created.status).toBe(201)
+      const first = (await created.json()) as {
+        user: { email: string; role: string; displayName: string; motoristId: string | null }
+      }
+      expect(first.user.email).toBe('google.motorist@labas.test')
+      expect(first.user.role).toBe('motorist')
+      expect(first.user.motoristId).toBeTruthy()
+      expect(getDb().users.find((u) => u.email === 'google.motorist@labas.test')?.authProvider).toBe(
+        'google',
+      )
+
+      const returning = await app.request('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: 'good-token', role: 'broker' }),
+      })
+      expect(returning.status).toBe(200)
+      const second = (await returning.json()) as { user: { role: string } }
+      expect(second.user.role).toBe('motorist')
+
+      const passwordAttempt = await app.request('/api/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'google.motorist@labas.test',
+          password: 'anything-12',
+        }),
+      })
+      expect(passwordAttempt.status).toBe(401)
+      expect(await passwordAttempt.json()).toEqual({ error: 'use_google' })
+    } finally {
+      setGoogleIdTokenVerifierForTests(null)
+      delete process.env.GOOGLE_CLIENT_ID
+    }
+  })
+
+  it('google signup provisions broker when role is broker', async () => {
+    process.env.GOOGLE_CLIENT_ID = 'test-google-client.apps.googleusercontent.com'
+    setGoogleIdTokenVerifierForTests(async () => ({
+      email: 'google.broker@labas.test',
+      emailVerified: true,
+      name: 'Google Broker',
+    }))
+    try {
+      const { app, getDb } = memory()
+      const created = await app.request('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: 'tok', role: 'broker' }),
+      })
+      expect(created.status).toBe(201)
+      const body = (await created.json()) as {
+        user: { role: string; brokerId: string | null; onboarded: boolean }
+      }
+      expect(body.user.role).toBe('broker')
+      expect(body.user.brokerId).toBeTruthy()
+      expect(body.user.onboarded).toBe(true)
+      expect(getDb().brokers.some((b) => b.id === body.user.brokerId)).toBe(true)
+    } finally {
+      setGoogleIdTokenVerifierForTests(null)
+      delete process.env.GOOGLE_CLIENT_ID
+    }
   })
 
   it('flags desk dossier when motorist deletes account', async () => {
