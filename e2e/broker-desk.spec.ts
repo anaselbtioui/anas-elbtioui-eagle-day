@@ -145,7 +145,6 @@ test('broker desk: queue shows declared dossier + gaps', async ({ page, request 
   await expect(page.getByRole('heading', { name: /^Dossiers$/i })).toBeVisible()
   await expect(page.getByTestId('nav-desk-queue')).toBeVisible()
   await expect(page.getByTestId('nav-desk-clients')).toBeVisible()
-  await expect(page.getByTestId('nav-desk-import')).toBeVisible()
   const row = page.getByTestId(`dossier-${dossierId}`)
   await expect(row).toBeVisible({ timeout: 15_000 })
   await row.click()

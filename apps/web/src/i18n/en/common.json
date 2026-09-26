@@ -32,6 +32,13 @@
     "mobileUnavailableTitle": "Desktop view only for now",
     "mobileUnavailableBody": "Med Assurance is built for a wider screen. Open this page on a computer or widen the window to continue."
   },
+  "table": {
+    "rowsPerPage": "Rows per page",
+    "showing": "{{from}}–{{to}} of {{total}}",
+    "pageOf": "{{page}} / {{pages}}",
+    "previous": "Previous",
+    "next": "Next"
+  },
   "role": {
     "title": "After the accident, before the insurer",
     "body": "On-scene motorist guide + broker desk. Same file on both sides — no cover decision.",
@@ -481,6 +488,9 @@
     "navClients": "Clients",
     "navImport": "Import",
     "navDossiers": "Recent",
+    "sortRecent": "Recent",
+    "sortByStatus": "Status",
+    "sortLabel": "Sort",
     "searchTitle": "Search files",
     "searchPh": "Search…",
     "filterAll": "All",

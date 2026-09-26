@@ -47,6 +47,7 @@ import {
   listDeskBundles,
   listDeskBundlesForBroker,
   brokerOwnsBundle,
+  brokerCanSeeMotorist,
   mergePack,
   newEmptyPack,
   packFromDb,
@@ -1144,6 +1145,22 @@ export function createApp(
     if (!bundle) return c.json({ error: 'not_found' }, 404)
     if (!brokerOwnsBundle(bundle, auth.brokerId!)) return c.json({ error: 'forbidden' }, 403)
     return c.json(bundle)
+  })
+
+  app.get('/api/broker/motorists/:motoristId/avatar/url', async (c) => {
+    const denied = needBrokerId(c)
+    if (denied) return denied
+    if (!storageConfigured()) return c.json({ error: 'storage_unconfigured' }, 503)
+    const auth = c.get('auth')!
+    const motoristId = c.req.param('motoristId')
+    const db = await load()
+    if (!brokerCanSeeMotorist(db, auth.brokerId!, motoristId)) {
+      return c.json({ error: 'forbidden' }, 403)
+    }
+    const motorist = db.motorists.find((m) => m.id === motoristId)
+    if (!motorist?.avatarPhotoPath) return c.json({ error: 'not_found' }, 404)
+    const url = await signedEvidenceUrl(motorist.avatarPhotoPath)
+    return c.json({ url, path: motorist.avatarPhotoPath })
   })
 
   app.post('/api/broker/dossiers/:dossierId/requests', async (c) => {

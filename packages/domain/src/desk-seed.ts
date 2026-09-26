@@ -40,7 +40,7 @@ export function seedDeskBundles(): DeskBundle[] {
     },
     provenance: {
       source: 'CRM broker',
-      freshness: '19 sept. 2026 · 08:40',
+      freshness: '2026-09-19T08:40:00.000Z',
       owner: 'Salma',
     },
     tasks: [
@@ -90,7 +90,7 @@ export function seedDeskBundles(): DeskBundle[] {
     },
     provenance: {
       source: 'Import navigateur simulé',
-      freshness: '19 sept. 2026 · 08:12',
+      freshness: '2026-09-19T08:12:00.000Z',
       owner: 'Youssef',
     },
     tasks: [
@@ -133,7 +133,7 @@ export function seedDeskBundles(): DeskBundle[] {
     },
     provenance: {
       source: 'Formulaire local',
-      freshness: '19 sept. 2026 · 07:55',
+      freshness: '2026-09-19T07:55:00.000Z',
       owner: 'Imane',
     },
     tasks: [

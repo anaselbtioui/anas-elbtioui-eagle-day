@@ -26,6 +26,7 @@ export const labasIcons = {
   location: 'streamline-color:location-pin-3',
   camera: 'streamline-color:camera-1',
   search: 'streamline-color:magnifying-glass',
+  sort: 'streamline-color:sort-descending',
 } as const
 
 export type LabasIconName = keyof typeof labasIcons

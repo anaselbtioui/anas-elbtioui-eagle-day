@@ -4,7 +4,7 @@ import { signUpAs } from './helpers.ts'
 test('broker import: new fixture merges into desk', async ({ page }) => {
   test.setTimeout(60_000)
   await signUpAs(page, 'broker', 'Salma Import')
-  await page.getByTestId('nav-desk-import').click()
+  await page.goto('/desk/import')
   await expect(page.getByTestId('import-mode-badge')).toBeVisible()
   await page.getByTestId('import-source-TRT').click()
   await page.getByTestId('import-outcome-new').click()

@@ -158,6 +158,7 @@ export type LabasHttpApi = {
   }) => Promise<BrokerProfileSaveResult>
   uploadBrokerAvatar: (dataUrl: string) => Promise<{ path: string }>
   brokerAvatarUrl: () => Promise<{ url: string; path: string }>
+  brokerMotoristAvatarUrl: (motoristId: string) => Promise<{ url: string; path: string }>
   getBrokerDossier: (dossierId: string) => Promise<DeskBundle>
   requestBrokerPiece: (
     dossierId: string,

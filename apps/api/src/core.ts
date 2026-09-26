@@ -41,6 +41,7 @@ import {
   bundleFromParts,
   defaultDeskFile,
   deskFileFromBundle,
+  deskOwnerFromBroker,
   upsertDeskFile,
   type DeskFile,
 } from './desk.ts'
@@ -136,6 +137,22 @@ export function brokerOwnsBundle(bundle: DeskBundle, brokerId: string): boolean 
   return bundle.profile.policy.brokerId === brokerId
 }
 
+/** True when broker already sees this motorist on desk or clients list. */
+export function brokerCanSeeMotorist(db: Db, brokerId: string, motoristId: string): boolean {
+  if (
+    listDeskBundlesForBroker(db, brokerId).some((b) => b.profile.motorist.id === motoristId)
+  ) {
+    return true
+  }
+  return db.policies.some((p) => {
+    if (p.brokerId !== brokerId) return false
+    const user = db.users.find(
+      (u) => u.role === 'motorist' && u.policyId === p.id && u.motoristId === motoristId && !u.deletedAt,
+    )
+    return Boolean(user)
+  })
+}
+
 export function upsertProfile(db: Db, profile: Profile): Db {
   return {
     ...db,
@@ -197,8 +214,37 @@ export function filesForMotorist(db: Db, motoristId: string): IncidentFile[] {
 }
 
 export function ensureDesk(db: Db, dossier: Db['dossiers'][number], pack: EvidencePack): Db {
-  if (db.deskFiles.some((f) => f.dossierId === dossier.id)) return db
-  return { ...db, deskFiles: upsertDeskFile(db.deskFiles, defaultDeskFile(dossier, pack)) }
+  const existing = db.deskFiles.find((f) => f.dossierId === dossier.id)
+  const profile = profileFromDb(db, pack.incident.motoristId)
+  const owner = profile ? deskOwnerFromBroker(profile.broker) : '—'
+  if (!existing) {
+    return {
+      ...db,
+      deskFiles: upsertDeskFile(db.deskFiles, defaultDeskFile(dossier, pack, owner)),
+    }
+  }
+  // Backfill legacy "—" with motorist's linked broker name.
+  if (existing.provenance.owner && existing.provenance.owner !== '—') return db
+  if (!owner || owner === '—') return db
+  return {
+    ...db,
+    deskFiles: upsertDeskFile(db.deskFiles, {
+      ...existing,
+      provenance: { ...existing.provenance, owner },
+    }),
+  }
+}
+
+function deskFileOrDefault(
+  db: Db,
+  dossier: Db['dossiers'][number],
+  pack: EvidencePack,
+): DeskFile {
+  const existing = db.deskFiles.find((f) => f.dossierId === dossier.id)
+  if (existing) return existing
+  const profile = profileFromDb(db, pack.incident.motoristId)
+  const owner = profile ? deskOwnerFromBroker(profile.broker) : '—'
+  return defaultDeskFile(dossier, pack, owner)
 }
 
 export function syncDossier(db: Db, incidentId: string): Db {
@@ -261,8 +307,7 @@ export function syncDossier(db: Db, incidentId: string): Db {
   let next: Db = { ...working, dossiers: upsert(working.dossiers, dossier) }
   next = ensureDesk(next, dossier, pack)
   if (pieceAdded) {
-    const file =
-      next.deskFiles.find((f) => f.dossierId === dossier.id) ?? defaultDeskFile(dossier, pack)
+    const file = deskFileOrDefault(next, dossier, pack)
     const withEvent = {
       ...file,
       events: [
@@ -279,8 +324,7 @@ export function syncDossier(db: Db, incidentId: string): Db {
     next = { ...next, deskFiles: upsertDeskFile(next.deskFiles, withEvent) }
   }
   if (newlyClosed && closedReason) {
-    const file =
-      next.deskFiles.find((f) => f.dossierId === dossier.id) ?? defaultDeskFile(dossier, pack)
+    const file = deskFileOrDefault(next, dossier, pack)
     const label =
       closedReason === 'cancelled'
         ? 'Dossier arrêté par l’assuré'
@@ -393,7 +437,7 @@ export function assembleBundle(db: Db, dossierId: string): DeskBundle | null {
   if (!pack) return null
   const profile = profileFromDb(db, pack.incident.motoristId)
   if (!profile) return null
-  const file = db.deskFiles.find((f) => f.dossierId === dossier.id) ?? defaultDeskFile(dossier, pack)
+  const file = deskFileOrDefault(db, dossier, pack)
   return bundleFromParts(dossier, pack, profile, declaration, file)
 }
 

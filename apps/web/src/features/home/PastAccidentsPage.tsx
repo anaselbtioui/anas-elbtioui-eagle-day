@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
-import { ShellListFrame, ShellScroll } from '@/app/AppShell'
+import { ShellFill, ShellListFrame } from '@/app/AppShell'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { DataTable } from '@/components/ui/data-table'
@@ -262,16 +262,16 @@ export function PastAccidentsPage() {
     selected?.status === 'stopped' || selected?.status === 'expired' ? selected : undefined
 
   return (
-    <ShellScroll>
-      <ShellListFrame className="space-y-5">
-        <header>
+    <ShellFill>
+      <ShellListFrame className="gap-5">
+        <header className="shrink-0">
           <h1 className="font-display text-2xl font-bold text-ink md:text-3xl">
             {t('motorist.pastTitle')}
           </h1>
         </header>
 
         {detail ? (
-          <Card data-testid="past-pack-detail">
+          <Card className="shrink-0" data-testid="past-pack-detail">
             <CardTitle className="font-mono text-lg">
               {displayAccidentRef(detail.ref, detail.id)}
             </CardTitle>
@@ -321,14 +321,14 @@ export function PastAccidentsPage() {
         ) : null}
 
         {packId && !selected ? (
-          <p className="text-sm text-ink-muted" data-testid="past-pack-missing">
+          <p className="shrink-0 text-sm text-ink-muted" data-testid="past-pack-missing">
             {t('motorist.packMissing')}
           </p>
         ) : null}
 
-        <div className="space-y-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
           <div
-            className="flex flex-wrap gap-2 p-0.5"
+            className="flex shrink-0 flex-wrap gap-2 p-0.5"
             role="tablist"
             aria-label={t('motorist.pastTitle')}
           >
@@ -375,6 +375,6 @@ export function PastAccidentsPage() {
           />
         </div>
       </ShellListFrame>
-    </ShellScroll>
+    </ShellFill>
   )
 }

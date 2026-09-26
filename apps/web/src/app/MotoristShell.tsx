@@ -333,6 +333,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
           <div className="space-y-2">
             <Button
               className="h-11 w-full min-h-11 justify-start gap-2.5 pl-2.5 pr-3 text-sm"
+              variant="alert"
               loading={starting}
               onClick={() => {
                 void onNewAccident()
@@ -355,7 +356,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
             </Button>
             <Button
               type="button"
-              variant="secondary"
+              variant="moss"
               className="h-11 w-full min-h-11 justify-start gap-2.5 pl-2.5 pr-3 text-sm"
               data-testid="sidebar-declare-claim"
               title={t('home.doorLaterHint')}
@@ -371,14 +372,14 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
               <LabasIcon
                 name="clipboard"
                 className="h-[1.125rem] w-[1.125rem] shrink-0"
-                tone="onSand"
+                tone="onInk"
                 aria-hidden
               />
               <span className="leading-none">{t('home.doorLater')}</span>
             </Button>
             <Button
               type="button"
-              variant="secondary"
+              variant="softMoss"
               className="h-11 w-full min-h-11 justify-start gap-2.5 pl-2.5 pr-3 text-sm"
               data-testid="sidebar-vehicle-immobilised"
               title={t('home.doorAssistHint')}

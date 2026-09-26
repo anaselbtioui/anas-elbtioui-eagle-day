@@ -67,7 +67,18 @@ export function defaultTasks(dossier: Dossier): BrokerTask[] {
   }))
 }
 
-export function defaultDeskFile(dossier: Dossier, pack: EvidencePack): DeskFile {
+/** Desk owner = motorist's linked broker (agency contact). Empty → em dash. */
+export function deskOwnerFromBroker(broker: Profile['broker']): string {
+  const parts = [broker.firstName?.trim(), broker.lastName?.trim()].filter(Boolean).join(' ')
+  const name = parts || broker.displayName.trim()
+  return name || '—'
+}
+
+export function defaultDeskFile(
+  dossier: Dossier,
+  pack: EvidencePack,
+  owner = '—',
+): DeskFile {
   const now = new Date().toISOString()
   return {
     dossierId: dossier.id,
@@ -75,7 +86,7 @@ export function defaultDeskFile(dossier: Dossier, pack: EvidencePack): DeskFile 
     provenance: {
       source: 'Formulaire local',
       freshness: now,
-      owner: '—',
+      owner,
     },
     tasks: defaultTasks(dossier),
     requests: [],

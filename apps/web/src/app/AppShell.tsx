@@ -7,12 +7,28 @@ import {
   type CommandPaletteItem,
 } from '@/components/CommandPalette'
 import { LabasIcon, type LabasIconName } from '@/components/LabasIcon'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 
 export const shellActiveEntry =
   'bg-ink-soft text-ink ring-1 ring-inset ring-ink/20 font-semibold'
 
-/** Scrollable main pane for list/detail pages (wizards use StickyActionsProvider instead). */
+/** Fills main pane. No outer page scroll — table / body scrolls inside. */
+export function ShellFill({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', className)}>
+      {children}
+    </div>
+  )
+}
+
+/** Scrollable main pane for long detail / wizard-adjacent pages. */
 export function ShellScroll({
   children,
   className,
@@ -21,7 +37,12 @@ export function ShellScroll({
   className?: string
 }) {
   return (
-    <div className={cn('labas-scroll min-h-0 flex-1 overflow-y-auto', className)}>{children}</div>
+    <ScrollArea
+      orientation="vertical"
+      className={cn('min-h-0 flex-1', className)}
+    >
+      {children}
+    </ScrollArea>
   )
 }
 
@@ -33,7 +54,7 @@ export function ShellListFrame({
   children: ReactNode
   className?: string
 }) {
-  return <div className={cn('w-full', className)}>{children}</div>
+  return <div className={cn('flex min-h-0 w-full flex-1 flex-col', className)}>{children}</div>
 }
 
 export function ShellNavLink({
@@ -95,7 +116,7 @@ type AppShellProps = {
   /** Accessible name for the header search toggle. */
   searchLabel?: string
   nav: ReactNode
-  listTitle?: string
+  listTitle?: ReactNode
   list?: ReactNode
   toast?: ReactNode
   /** Docked chrome under main scroll (e.g. collapsed bottom drawer). */
@@ -182,13 +203,17 @@ export function AppShell({
         {list != null ? (
           <div className="mt-4 hidden min-h-0 flex-1 flex-col md:flex">
             {listTitle ? (
-              <p className="mb-2 px-3 text-xs font-semibold text-ink-muted">
+              <div className="mb-2 px-3 text-xs font-semibold text-ink-muted">
                 {listTitle}
-              </p>
+              </div>
             ) : null}
-            <div className="labas-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-1">
+            <ScrollArea
+              orientation="vertical"
+              className="min-h-0 flex-1"
+              viewportClassName="p-1"
+            >
               {list}
-            </div>
+            </ScrollArea>
           </div>
         ) : (
           <div className="mt-4 hidden flex-1 md:block" />

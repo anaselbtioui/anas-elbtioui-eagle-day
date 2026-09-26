@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ShellListFrame, ShellScroll } from '@/app/AppShell'
+import { ShellFill, ShellListFrame } from '@/app/AppShell'
 import { DataTable } from '@/components/ui/data-table'
 import { LoadingLine } from '@/components/ui/loading-line'
 import type { ColumnDef } from '@tanstack/table-core'
@@ -78,15 +78,15 @@ export function BrokerClientsPage() {
   ]
 
   return (
-    <ShellScroll>
+    <ShellFill>
       <ShellListFrame>
-      <div className="mb-5">
+      <div className="mb-5 shrink-0">
         <h1 className="font-display text-3xl font-bold">{t('broker.clientsTitle')}</h1>
         <p className="mt-2 max-w-xl text-base text-ink-muted">{t('broker.clientsHint')}</p>
       </div>
 
       {loading ? <LoadingLine /> : null}
-      {error ? <p className="mb-3 text-sm text-alert">{error}</p> : null}
+      {error ? <p className="mb-3 shrink-0 text-sm text-alert">{error}</p> : null}
 
       {!loading ? (
         <DataTable
@@ -97,6 +97,6 @@ export function BrokerClientsPage() {
         />
       ) : null}
       </ShellListFrame>
-    </ShellScroll>
+    </ShellFill>
   )
 }

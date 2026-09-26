@@ -32,6 +32,13 @@
     "mobileUnavailableTitle": "Vue ordinateur uniquement pour l’instant",
     "mobileUnavailableBody": "Med Assurance est conçu pour un écran plus large. Ouvrez cette page sur un ordinateur ou élargissez la fenêtre pour continuer."
   },
+  "table": {
+    "rowsPerPage": "Lignes par page",
+    "showing": "{{from}}–{{to}} sur {{total}}",
+    "pageOf": "{{page}} / {{pages}}",
+    "previous": "Précédent",
+    "next": "Suivant"
+  },
   "role": {
     "title": "Après l’accident, avant l’assureur",
     "body": "Guide automobiliste sur place + desk courtier. Même dossier des deux côtés — sans décision de garantie.",
@@ -481,6 +488,9 @@
     "navClients": "Clients",
     "navImport": "Import",
     "navDossiers": "Récents",
+    "sortRecent": "Récents",
+    "sortByStatus": "Statut",
+    "sortLabel": "Trier",
     "searchTitle": "Rechercher un dossier",
     "searchPh": "Rechercher…",
     "filterAll": "Tous",

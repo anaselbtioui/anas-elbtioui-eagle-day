@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
-import { ShellListFrame, ShellScroll } from '@/app/AppShell'
+import { ShellFill, ShellListFrame } from '@/app/AppShell'
 import { LabasIcon } from '@/components/LabasIcon'
 import { LifecycleRing } from '@/components/LifecycleRing'
 import { Button } from '@/components/ui/button'
@@ -236,55 +236,11 @@ export function HomePage() {
     })
   }
 
-  function goLater() {
-    if (!claimReady) {
-      showToast(t('home.laterBlocked'), 'alert')
-      return
-    }
-    navigate('/later')
-  }
-
-  function goAssist() {
-    if (!claimReady) {
-      showToast(t('home.assistBlocked'), 'alert')
-      return
-    }
-    navigate('/assist')
-  }
-
   return (
-    <ShellScroll>
-    <ShellListFrame className="space-y-6">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <button
-          type="button"
-          onClick={goLater}
-          className={cn(
-            'font-semibold underline-offset-4 hover:underline',
-            claimReady ? 'text-ink' : 'text-ink-muted',
-          )}
-          data-testid="home-door-later"
-          aria-disabled={!claimReady}
-        >
-          {t('home.doorLater')}
-        </button>
-        <button
-          type="button"
-          onClick={goAssist}
-          className={cn(
-            'font-semibold underline-offset-4 hover:underline',
-            claimReady ? 'text-ink' : 'text-ink-muted',
-          )}
-          data-testid="home-door-assist"
-          aria-disabled={!claimReady}
-        >
-          {t('home.doorAssist')}
-        </button>
-        <span className="text-ink-muted">{t('app.notAClaim')}</span>
-      </div>
-
-      <section>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <ShellFill>
+    <ShellListFrame className="gap-6">
+      <section className="flex min-h-0 flex-1 flex-col">
+        <div className="mb-5 flex shrink-0 flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-xl font-bold text-ink md:text-2xl">
             {t('motorist.accidentsTitle')}
           </h2>
@@ -315,6 +271,6 @@ export function HomePage() {
         />
       </section>
     </ShellListFrame>
-    </ShellScroll>
+    </ShellFill>
   )
 }

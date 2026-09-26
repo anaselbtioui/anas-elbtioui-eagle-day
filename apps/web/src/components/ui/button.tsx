@@ -44,6 +44,12 @@ const buttonVariants = cva(
           'hover:bg-[#1a7d62]',
           'active:shadow-[0_0_0_0_#156b54]',
         ].join(' '),
+        softMoss: [
+          'bg-moss-soft text-moss border border-moss/25',
+          'shadow-[0_3px_0_0_color-mix(in_srgb,var(--color-moss)_28%,transparent)]',
+          'hover:bg-[color-mix(in_srgb,var(--color-moss)_14%,white)]',
+          'active:shadow-[0_0_0_0_transparent]',
+        ].join(' '),
         alert: [
           'bg-alert text-white border border-alert',
           'shadow-[0_4px_0_0_#8a1c16]',

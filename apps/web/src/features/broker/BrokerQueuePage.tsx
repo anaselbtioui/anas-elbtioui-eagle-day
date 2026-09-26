@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ColumnDef } from '@tanstack/table-core'
-import { ShellListFrame, ShellScroll } from '@/app/AppShell'
+import { ShellFill, ShellListFrame } from '@/app/AppShell'
 import { LifecycleRing } from '@/components/LifecycleRing'
 import { DataTable } from '@/components/ui/data-table'
 import { LoadingLine } from '@/components/ui/loading-line'
 import { filterDeskBundles, type DeskBundle } from '@/domain/desk.ts'
 import { dossierLifecycleStages } from '@/domain/lifecycle.ts'
 import { useBrokerDeskStore } from '@/store/brokerDesk'
-import type { DossierStatus } from '@/domain/types.ts'
+import type { DossierClosedReason, DossierStatus } from '@/domain/types.ts'
 import { cn } from '@/lib/utils'
 
 function statusTone(status: DossierStatus): string {
@@ -37,6 +37,14 @@ const STATUS_FILTERS: Array<DossierStatus | 'all' | 'closed'> = [
   'declared',
   'closed',
 ]
+
+/** Stages a dossier would show on the ring when in this filter state. */
+function filterLifecycleStages(s: Exclude<DossierStatus | 'closed', 'all'>) {
+  if (s === 'closed') {
+    return dossierLifecycleStages('with_broker', 'archived' satisfies DossierClosedReason)
+  }
+  return dossierLifecycleStages(s)
+}
 
 export function BrokerQueuePage() {
   const { t } = useTranslation()
@@ -163,32 +171,51 @@ export function BrokerQueuePage() {
   )
 
   return (
-    <ShellScroll>
+    <ShellFill>
       <ShellListFrame>
-      <div className="mb-5">
+      <div className="mb-5 shrink-0">
         <h1 className="font-display text-3xl font-bold">{t('broker.queueTitle')}</h1>
       </div>
 
-      <div className="mb-5 flex flex-wrap gap-2 p-0.5">
-        {STATUS_FILTERS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setStatusFilter(s)}
-            className={cn(
-              'inline-flex min-h-10 items-center rounded-[var(--radius-labas)] px-3 py-2 text-xs font-semibold transition-colors',
-              statusFilter === s
-                ? 'bg-ink-soft text-ink ring-1 ring-inset ring-ink/20'
-                : 'bg-sand-deep text-ink-muted hover:text-ink',
-            )}
-          >
-            {s === 'all' ? t('broker.filterAll') : t(`broker.status.${s}`)}
-          </button>
-        ))}
+      <div
+        className="mb-5 flex shrink-0 flex-wrap gap-2 p-0.5"
+        role="tablist"
+        aria-label={t('broker.queueTitle')}
+      >
+        {STATUS_FILTERS.map((s) => {
+          const selected = statusFilter === s
+          const label = s === 'all' ? t('broker.filterAll') : t(`broker.status.${s}`)
+          return (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setStatusFilter(s)}
+              className={cn(
+                'inline-flex min-h-10 items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-colors',
+                selected
+                  ? 'bg-ink-soft text-ink ring-1 ring-inset ring-ink/20'
+                  : 'bg-sand-deep text-ink-muted hover:text-ink',
+              )}
+              data-testid={`queue-filter-${s}`}
+            >
+              {s !== 'all' ? (
+                <LifecycleRing
+                  stages={filterLifecycleStages(s)}
+                  tipStages={[]}
+                  label={label}
+                  size={14}
+                />
+              ) : null}
+              {label}
+            </button>
+          )
+        })}
       </div>
 
       {loading ? <LoadingLine /> : null}
-      {error ? <p className="mb-3 text-sm text-alert">{error}</p> : null}
+      {error ? <p className="mb-3 shrink-0 text-sm text-alert">{error}</p> : null}
 
       {!loading ? (
         <DataTable
@@ -202,6 +229,6 @@ export function BrokerQueuePage() {
         />
       ) : null}
       </ShellListFrame>
-    </ShellScroll>
+    </ShellFill>
   )
 }

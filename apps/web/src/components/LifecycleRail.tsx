@@ -7,12 +7,26 @@ function stateLabelKey(state: LifecycleStageState): string {
   return `lifecycle.state.${state}`
 }
 
+export type LifecycleRailAction = {
+  id: string
+  label: string
+  onClick: () => void
+  disabled?: boolean
+}
+
+export type LifecycleRailStage = LifecycleStage & {
+  /** Localized short detail under the stage (non-interactive). */
+  detail?: string
+  /** Actionable chips under the stage (e.g. request a missing piece). */
+  actions?: LifecycleRailAction[]
+}
+
 type LifecycleRailProps = {
-  stages: LifecycleStage[]
+  stages: LifecycleRailStage[]
   className?: string
 }
 
-/** Compact vertical rail — next / current / done stages for hover tip. */
+/** Compact vertical rail — next / current / done stages. */
 export function LifecycleRail({ stages, className }: LifecycleRailProps) {
   const { t } = useTranslation()
   return (
@@ -20,6 +34,8 @@ export function LifecycleRail({ stages, className }: LifecycleRailProps) {
       {stages.map((stage, i) => {
         const paint = lifecycleTonePaint(stage.tone)
         const last = i === stages.length - 1
+        const detail = stage.detail ?? (stage.block ? t(stage.block.titleKey) : null)
+        const actions = stage.actions
         return (
           <li key={stage.id} className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-x-2.5">
             <div className="relative flex justify-center pt-1">
@@ -60,8 +76,29 @@ export function LifecycleRail({ stages, className }: LifecycleRailProps) {
                   {t(stateLabelKey(stage.state))}
                 </span>
               </div>
-              {stage.block ? (
-                <p className="mt-1 text-xs leading-snug text-ink-muted">{t(stage.block.titleKey)}</p>
+              {actions?.length ? (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {actions.map((action) => (
+                    <button
+                      key={action.id}
+                      type="button"
+                      disabled={action.disabled}
+                      onClick={action.onClick}
+                      className={cn(
+                        'rounded-[var(--radius-labas)] border border-border bg-sand-deep px-2 py-1',
+                        'text-xs font-semibold text-ink transition-colors',
+                        'hover:border-moss/40 hover:bg-moss-soft hover:text-moss',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-moss/40',
+                        'disabled:pointer-events-none disabled:opacity-50',
+                      )}
+                      data-testid={`lifecycle-action-${action.id}`}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              ) : detail ? (
+                <p className="mt-1 text-xs leading-snug text-ink-muted">{detail}</p>
               ) : null}
             </div>
           </li>
