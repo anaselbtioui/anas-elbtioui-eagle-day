@@ -26,7 +26,7 @@ interface ProfileState {
   error: string | null
   /** False until first GET /api/profile attempt finishes (success or fail). */
   remoteHydrated: boolean
-  /** True while onboarding page or wallet nudge drawer is editing. */
+  /** True while onboarding, wallet nudge, or profile settings is editing. */
   walletEditing: boolean
   setProfile: (patch: Partial<Wallet>) => void
   setWalletEditing: (editing: boolean) => void

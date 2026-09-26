@@ -213,7 +213,7 @@ export function ProfileSettingsModal({
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const signOut = useSessionStore((s) => s.signOut)
-  const { setProfile, persistDraft, saving, error } = useProfileStore()
+  const { setProfile, persistDraftNow, saving, error, setWalletEditing } = useProfileStore()
   const [draft, setDraft] = useState<Wallet>(emptyWallet)
   const [baseline, setBaseline] = useState<Wallet>(emptyWallet)
   const [category, setCategory] = useState<SettingsCategory>('profil')
@@ -251,13 +251,16 @@ export function ProfileSettingsModal({
       setDeleteError(null)
       setDiscardOpen(false)
       setChangingBroker(false)
+      setWalletEditing(false)
       return
     }
+    // Block pullRemote while settings open — same guard as wallet nudge.
+    setWalletEditing(true)
     // Snapshot once per open — typing stays local until Enregistrer.
     const snap = { ...useProfileStore.getState().profile }
     setDraft(snap)
     setBaseline(snap)
-  }, [open])
+  }, [open, setWalletEditing])
 
   useEffect(() => {
     if (category !== 'courtier') setChangingBroker(false)
@@ -322,15 +325,25 @@ export function ProfileSettingsModal({
     setPersistBusy(true)
     setPersistError(null)
     try {
-      const next = {
+      const next: Wallet = {
         ...draft,
         cin: draft.cin.trim() ? normalizeCin(draft.cin) : '',
         plate: draft.plate.trim() ? normalizePlate(draft.plate) : '',
       }
-      setProfile(next)
-      await persistDraft()
-      setDraft(next)
-      setBaseline(next)
+      // Only dirt keys that changed. Full-wallet setProfile used to stamp every
+      // field into draft and could overwrite filled server data with blanks.
+      const patch: Partial<Wallet> = {}
+      for (const key of Object.keys(next) as Array<keyof Wallet>) {
+        if (next[key] !== baseline[key]) {
+          ;(patch as Record<string, unknown>)[key] = next[key]
+        }
+      }
+      if (Object.keys(patch).length === 0) return
+      setProfile(patch)
+      await persistDraftNow()
+      const merged = useProfileStore.getState().profile
+      setDraft(merged)
+      setBaseline(merged)
     } catch {
       setPersistError(t('onboarding.saveError'))
     } finally {

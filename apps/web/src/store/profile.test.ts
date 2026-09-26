@@ -130,7 +130,8 @@ describe('pullRemoteProfile remote-wins', () => {
   beforeEach(() => {
     resetProfilePersistForTests()
     getProfile.mockReset()
-    saveProfile.mockClear()
+    saveProfile.mockReset()
+    saveProfile.mockImplementation(async (p: Profile) => p)
     localStorage.clear()
     resetStore()
   })
@@ -257,6 +258,81 @@ describe('pullRemoteProfile remote-wins', () => {
     expect(state.draft.attestationValidUntil).toBe('2099-06-01')
     expect(state.profile.plate).toBe('12345-A-50')
     expect(state.profile.attestationValidUntil).toBe('2099-06-01')
+  })
+
+  it('partial settings patch does not wipe filled portefeuille fields', async () => {
+    // Server already has almost-complete wallet (one gap). Settings must only
+    // dirt the edited key — a full-wallet setProfile used to blank the rest.
+    const filled = {
+      ...emptyWallet,
+      motoristId: 'M-remote',
+      vehicleId: 'V-1',
+      insurerId: 'I-1',
+      policyId: 'P-1',
+      brokerId: 'B-1',
+      broker: 'Said Courtier',
+      firstName: 'Nadia',
+      lastName: 'El Mansouri',
+      phone: '+212612345678',
+      cin: 'BE123456',
+      city: 'Casablanca',
+      plate: '12345-A-50',
+      vehicle: 'Dacia Logan 2020',
+      insurer: 'RMA',
+      licenseNumber: 'L-1',
+      attestationValidUntil: '', // sole gap → ~9% left
+    }
+    useProfileStore.setState({
+      profile: filled,
+      serverProfile: filled,
+      draft: {},
+      error: null,
+      saving: false,
+      remoteHydrated: true,
+      walletEditing: false,
+    })
+    const before = walletRemainingPercent(useProfileStore.getState().profile)
+    expect(before).toBe(9)
+
+    // Simulate settings save that only changed lastName (not a full wallet stamp).
+    useProfileStore.getState().setProfile({ lastName: 'Alaoui' })
+    await useProfileStore.getState().persistDraftNow()
+
+    const after = useProfileStore.getState().profile
+    expect(after.lastName).toBe('Alaoui')
+    expect(after.plate).toBe('12345-A-50')
+    expect(after.brokerId).toBe('B-1')
+    expect(after.cin).toBe('BE123456')
+    expect(walletRemainingPercent(after)).toBe(before)
+  })
+
+  it('full-wallet setProfile with blank plate wipes server plate (regression guard)', async () => {
+    // Documents the bug settings used to hit — full object stamp overlays blanks.
+    const filled = {
+      ...emptyWallet,
+      motoristId: 'M-remote',
+      plate: '12345-A-50',
+      vehicle: 'Dacia Logan 2020',
+      firstName: 'Nadia',
+      lastName: 'El Mansouri',
+    }
+    useProfileStore.setState({
+      profile: filled,
+      serverProfile: filled,
+      draft: {},
+      error: null,
+      saving: false,
+      remoteHydrated: true,
+      walletEditing: false,
+    })
+    useProfileStore.getState().setProfile({
+      ...filled,
+      lastName: 'Alaoui',
+      plate: '',
+      vehicle: '',
+    })
+    expect(useProfileStore.getState().profile.plate).toBe('')
+    expect(walletRemainingPercent(useProfileStore.getState().profile)).toBeGreaterThan(9)
   })
 
   it('keeps filled portefeuille fields when a stale pull returns blanks', async () => {
