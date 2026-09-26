@@ -39,7 +39,19 @@ export function BrokerClientsPage() {
       id: 'name',
       accessorFn: (row) => row.name,
       header: t('broker.colClient'),
-      cell: ({ row }) => <span className="font-semibold text-ink">{row.original.name}</span>,
+      cell: ({ row }) => (
+        <div className="min-w-[8rem]">
+          <span className="font-semibold text-ink">{row.original.name}</span>
+          {row.original.accountDeleted ? (
+            <span
+              className="mt-1 block text-xs font-semibold text-ink-muted"
+              data-testid="client-account-deleted"
+            >
+              {t('broker.accountDeleted')}
+            </span>
+          ) : null}
+        </div>
+      ),
     },
     {
       id: 'email',

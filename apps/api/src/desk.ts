@@ -121,6 +121,7 @@ export function bundleFromParts(
   profile: Profile,
   declaration: DeskBundle['declaration'],
   file: DeskFile,
+  motoristAccountDeleted = false,
 ): DeskBundle {
   return {
     dossierId: dossier.id,
@@ -134,6 +135,7 @@ export function bundleFromParts(
     requests: file.requests,
     drafts: file.drafts,
     events: file.events ?? [],
+    motoristAccountDeleted,
   }
 }
 

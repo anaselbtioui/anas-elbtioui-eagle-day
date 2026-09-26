@@ -199,6 +199,48 @@ describe('API auth', () => {
     expect(again.status).toBe(201)
   })
 
+  it('flags desk dossier when motorist deletes account', async () => {
+    const { app, getDb } = memory()
+    const broker = await signup(app, 'broker', 'Salma')
+    const motorist = await signup(app, 'motorist', 'Nadia El Mansouri')
+    await linkMotoristToBroker(app, motorist, broker.user.brokerId!, getDb)
+    const pack = bindPack(applyEvidenceRules(nadiaMissingConstatPack()), motorist.user)
+    pack.evidence.constat = 'complete'
+    await app.request(`/api/packs/${pack.incident.id}`, {
+      method: 'PUT',
+      headers: motorist.headers,
+      body: JSON.stringify(pack),
+    })
+    await app.request(`/api/declarations/${pack.incident.id}/submit`, {
+      method: 'POST',
+      headers: motorist.headers,
+    })
+
+    const del = await app.request('/api/auth/delete-account', {
+      method: 'POST',
+      headers: motorist.headers,
+      body: '{}',
+    })
+    expect(del.status).toBe(200)
+
+    const queue = await app.request('/api/broker/queue', { headers: broker.headers })
+    const items = (await queue.json()) as Array<{
+      dossierId: string
+      motoristAccountDeleted: boolean
+    }>
+    expect(items).toHaveLength(1)
+    expect(items[0].motoristAccountDeleted).toBe(true)
+
+    const clients = await app.request('/api/broker/clients', { headers: broker.headers })
+    const list = (await clients.json()) as Array<{
+      motoristId: string
+      accountDeleted: boolean
+    }>
+    expect(list.some((c) => c.motoristId === motorist.user.motoristId && c.accountDeleted)).toBe(
+      true,
+    )
+  })
+
   it('sign-in ignores entry role and returns the account space', async () => {
     const { app } = memory()
     const email = `mismatch.${randomUUID()}@labas.test`

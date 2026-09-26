@@ -478,6 +478,8 @@
     "photosNone": "None",
     "photosCount": "{{count}}",
     "injuryFlag": "Injury reported — PV required",
+    "accountDeleted": "Account deleted",
+    "accountDeletedHint": "This motorist closed their Labas account. The dossier stays on your desk.",
     "immobilisedFlag": "Vehicle immobilised",
     "notDeclared": "Not sent",
     "declaredAt": "{{date}}",

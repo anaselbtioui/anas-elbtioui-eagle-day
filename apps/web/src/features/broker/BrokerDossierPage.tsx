@@ -217,6 +217,15 @@ export function BrokerDossierPage() {
               <p className="font-display text-lg font-semibold leading-tight text-ink">
                 {profile.motorist.name}
               </p>
+              {bundle.motoristAccountDeleted ? (
+                <p
+                  className="rounded-[var(--radius-labas)] border border-border bg-sand-deep px-3 py-2 text-sm text-ink-muted"
+                  data-testid="dossier-account-deleted"
+                  role="status"
+                >
+                  {t('broker.accountDeletedHint')}
+                </p>
+              ) : null}
               {profile.motorist.phone ? (
                 <p className="font-mono text-sm tabular-nums text-ink-muted">
                   {profile.motorist.phone}

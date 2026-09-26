@@ -458,7 +458,13 @@ export function assembleBundle(db: Db, dossierId: string): DeskBundle | null {
   const profile = profileFromDb(db, pack.incident.motoristId)
   if (!profile) return null
   const file = deskFileOrDefault(db, dossier, pack)
-  return bundleFromParts(dossier, pack, profile, declaration, file)
+  const motoristAccountDeleted = db.users.some(
+    (u) =>
+      u.role === 'motorist' &&
+      u.motoristId === pack.incident.motoristId &&
+      Boolean(u.deletedAt),
+  )
+  return bundleFromParts(dossier, pack, profile, declaration, file, motoristAccountDeleted)
 }
 
 export function listDeskBundles(db: Db): DeskBundle[] {

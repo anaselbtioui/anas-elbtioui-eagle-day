@@ -62,6 +62,7 @@ export function seedDeskBundles(): DeskBundle[] {
         motoristVisible: true,
       },
     ],
+    motoristAccountDeleted: false,
   }
 
   const omar: DeskBundle = {
@@ -112,6 +113,7 @@ export function seedDeskBundles(): DeskBundle[] {
         motoristVisible: true,
       },
     ],
+    motoristAccountDeleted: false,
   }
 
   const sara: DeskBundle = {
@@ -154,6 +156,7 @@ export function seedDeskBundles(): DeskBundle[] {
         motoristVisible: true,
       },
     ],
+    motoristAccountDeleted: false,
   }
 
   return [nadia, omar, sara]

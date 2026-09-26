@@ -231,11 +231,12 @@ export function listBrokerClients(db: Db, brokerId: string) {
     email: string | null
     policyNumber: string | null
     plate: string | null
+    accountDeleted: boolean
   }> = []
   const seen = new Set<string>()
 
   for (const u of db.users) {
-    if (u.role !== 'motorist' || !u.motoristId || u.deletedAt) continue
+    if (u.role !== 'motorist' || !u.motoristId) continue
     const policy = u.policyId ? db.policies.find((p) => p.id === u.policyId) : null
     if (u.brokerId !== brokerId && policy?.brokerId !== brokerId) continue
     const motorist = db.motorists.find((m) => m.id === u.motoristId)
@@ -249,15 +250,14 @@ export function listBrokerClients(db: Db, brokerId: string) {
       email: u.email,
       policyNumber: policy?.number ?? null,
       plate: vehicle?.plate ?? null,
+      accountDeleted: Boolean(u.deletedAt),
     })
   }
 
   // Policies linked without matching user.brokerId yet
   for (const p of db.policies) {
     if (p.brokerId !== brokerId) continue
-    const user = db.users.find(
-      (u) => u.role === 'motorist' && u.policyId === p.id && !u.deletedAt,
-    )
+    const user = db.users.find((u) => u.role === 'motorist' && u.policyId === p.id)
     if (user?.motoristId && seen.has(user.motoristId)) continue
     if (!user?.motoristId) continue
     const motorist = db.motorists.find((m) => m.id === user.motoristId)
@@ -271,6 +271,7 @@ export function listBrokerClients(db: Db, brokerId: string) {
       email: user.email,
       policyNumber: p.number,
       plate: vehicle?.plate ?? null,
+      accountDeleted: Boolean(user.deletedAt),
     })
   }
 

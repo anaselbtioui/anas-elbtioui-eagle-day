@@ -92,6 +92,7 @@ export type BrokerClient = {
   email: string | null
   policyNumber: string | null
   plate: string | null
+  accountDeleted: boolean
 }
 
 /** Contract shared with `@labas/api` Hono API. */

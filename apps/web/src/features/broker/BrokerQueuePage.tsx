@@ -88,6 +88,14 @@ export function BrokerQueuePage() {
           <div className="min-w-[8rem]">
             <p>{row.original.profile.motorist.name}</p>
             <p className="text-xs text-ink-muted">{row.original.pack.incident.city}</p>
+            {row.original.motoristAccountDeleted ? (
+              <span
+                className="mt-1 inline-block rounded-full bg-sand-deep px-2 py-0.5 text-[0.6875rem] font-semibold text-ink-muted"
+                data-testid="queue-account-deleted"
+              >
+                {t('broker.accountDeleted')}
+              </span>
+            ) : null}
           </div>
         ),
       },

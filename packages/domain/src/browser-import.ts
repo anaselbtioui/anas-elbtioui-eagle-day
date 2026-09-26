@@ -323,6 +323,7 @@ export function createImportBundle(input: {
         motoristVisible: false,
       },
     ],
+    motoristAccountDeleted: false,
   }
   return bundle
 }

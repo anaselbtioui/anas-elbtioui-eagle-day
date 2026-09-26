@@ -63,6 +63,8 @@ export type DeskBundle = {
   requests: DocumentRequest[]
   drafts: MessageDraft[]
   events: DeskEvent[]
+  /** Motorist's Labas login soft-deleted; dossier may still sit on desk. */
+  motoristAccountDeleted: boolean
 }
 
 export function appendEvent(

@@ -478,6 +478,8 @@
     "photosNone": "Aucune",
     "photosCount": "{{count}}",
     "injuryFlag": "Blessure signalée — PV requis",
+    "accountDeleted": "Compte supprimé",
+    "accountDeletedHint": "Cet automobiliste a fermé son compte Labas. Le dossier reste sur votre desk.",
     "immobilisedFlag": "Véhicule immobilisé",
     "notDeclared": "Non envoyée",
     "declaredAt": "{{date}}",
