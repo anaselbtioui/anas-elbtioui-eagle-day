@@ -208,6 +208,7 @@ export function listRegisteredBrokers(db: Db): Array<{
   displayName: string
   email: string
   phone: string | null
+  avatarPhotoPath: string | null
 }> {
   return db.users
     .filter((u) => u.role === 'broker' && u.brokerId && !u.deletedAt)
@@ -218,6 +219,7 @@ export function listRegisteredBrokers(db: Db): Array<{
         displayName: row?.displayName || u.displayName,
         email: u.email,
         phone: row?.phone ?? null,
+        avatarPhotoPath: row?.avatarPhotoPath ?? null,
       }
     })
     .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr'))

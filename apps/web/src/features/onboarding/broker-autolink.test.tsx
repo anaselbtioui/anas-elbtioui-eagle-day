@@ -68,7 +68,13 @@ describe('onboarding broker auto-link', () => {
 
   it('auto-selects the sole registered broker without a click', async () => {
     listRegisteredBrokers.mockResolvedValue([
-      { id: 'B-sole', displayName: 'Said Courtier', email: 'said@courtier.com' },
+      {
+        id: 'B-sole',
+        displayName: 'Said Courtier',
+        email: 'said@courtier.com',
+        phone: null,
+        avatarPhotoPath: null,
+      },
     ])
 
     render(
@@ -104,7 +110,13 @@ describe('onboarding broker auto-link', () => {
       },
     })
     listRegisteredBrokers.mockResolvedValue([
-      { id: 'B-sole', displayName: 'Said Courtier', email: 'said@courtier.com' },
+      {
+        id: 'B-sole',
+        displayName: 'Said Courtier',
+        email: 'said@courtier.com',
+        phone: null,
+        avatarPhotoPath: null,
+      },
     ])
 
     await act(async () => {

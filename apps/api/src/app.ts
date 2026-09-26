@@ -658,6 +658,18 @@ export function createApp(
     return c.json(listRegisteredBrokers(db))
   })
 
+  /** Signed avatar URL for any registered broker (motorist onboarding picker). */
+  app.get('/api/brokers/:brokerId/avatar/url', async (c) => {
+    const denied = needAuth(c)
+    if (denied) return denied
+    const brokerId = c.req.param('brokerId')
+    const db = await load()
+    const registered = listRegisteredBrokers(db).find((b) => b.id === brokerId)
+    if (!registered?.avatarPhotoPath) return c.json({ error: 'not_found' }, 404)
+    const url = await signedEvidenceUrl(registered.avatarPhotoPath)
+    return c.json({ url, path: registered.avatarPhotoPath })
+  })
+
   app.post('/api/profile/demo', async (c) => {
     const db = await load()
     const next = mergeNadiaDemo(db)

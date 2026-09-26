@@ -70,6 +70,7 @@ export type RegisteredBroker = {
   displayName: string
   email: string
   phone: string | null
+  avatarPhotoPath: string | null
 }
 
 export type BrokerProfile = {
@@ -159,6 +160,7 @@ export type LabasHttpApi = {
   }) => Promise<BrokerProfileSaveResult>
   uploadBrokerAvatar: (dataUrl: string) => Promise<{ path: string }>
   brokerAvatarUrl: () => Promise<{ url: string; path: string }>
+  registeredBrokerAvatarUrl: (brokerId: string) => Promise<{ url: string; path: string }>
   brokerMotoristAvatarUrl: (motoristId: string) => Promise<{ url: string; path: string }>
   getBrokerDossier: (dossierId: string) => Promise<DeskBundle>
   requestBrokerPiece: (

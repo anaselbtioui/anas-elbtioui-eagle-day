@@ -771,8 +771,14 @@ describe('API broker profile', () => {
 
     const listed = await app.request('/api/brokers', { headers: broker.headers })
     expect(listed.status).toBe(200)
-    const brokers = (await listed.json()) as Array<{ id: string; phone: string | null }>
-    expect(brokers.find((b) => b.id === broker.user.brokerId)?.phone).toBe('+212612000111')
+    const brokers = (await listed.json()) as Array<{
+      id: string
+      phone: string | null
+      avatarPhotoPath: string | null
+    }>
+    const listedBroker = brokers.find((b) => b.id === broker.user.brokerId)
+    expect(listedBroker?.phone).toBe('+212612000111')
+    expect(listedBroker?.avatarPhotoPath).toBe('brokers/avatar.jpg')
   })
 
   it('forbids motorist on broker profile routes', async () => {

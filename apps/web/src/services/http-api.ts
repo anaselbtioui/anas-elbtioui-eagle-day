@@ -147,6 +147,8 @@ export const httpApi: LabasHttpApi = {
       body: JSON.stringify({ dataUrl }),
     }),
   brokerAvatarUrl: () => req<{ url: string; path: string }>('/api/broker/profile/avatar/url'),
+  registeredBrokerAvatarUrl: (brokerId) =>
+    req<{ url: string; path: string }>(`/api/brokers/${brokerId}/avatar/url`),
   brokerMotoristAvatarUrl: (motoristId) =>
     req<{ url: string; path: string }>(`/api/broker/motorists/${motoristId}/avatar/url`),
   getBrokerDossier: (dossierId) => req<DeskBundle>(`/api/broker/dossiers/${dossierId}`),

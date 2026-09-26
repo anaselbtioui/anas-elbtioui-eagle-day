@@ -1,12 +1,58 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LabasIcon } from '@/components/LabasIcon'
 import { FluidHover } from '@/components/ui/fluid-hover'
 import { LoadingLine } from '@/components/ui/loading-line'
 import { gapAttr } from '@/features/onboarding/gap-styles'
 import { StepNav } from '@/features/onboarding/StepNav'
 import { cn } from '@/lib/utils'
 import { api } from '@/services/api.ts'
+import type { RegisteredBroker } from '@/services/http-contract.ts'
 import { useProfileStore } from '@/store/profile'
+
+function BrokerPickAvatar({
+  brokerId,
+  avatarPhotoPath,
+}: {
+  brokerId: string
+  avatarPhotoPath: string | null
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [broken, setBroken] = useState(false)
+
+  useEffect(() => {
+    if (!avatarPhotoPath) {
+      setUrl(null)
+      setBroken(false)
+      return
+    }
+    let cancelled = false
+    setBroken(false)
+    void api
+      .registeredBrokerAvatarUrl(brokerId)
+      .then((res) => {
+        if (!cancelled) setUrl(res.url)
+      })
+      .catch(() => {
+        if (!cancelled) setUrl(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [brokerId, avatarPhotoPath])
+
+  if (url && !broken) {
+    return (
+      <img
+        src={url}
+        alt=""
+        className="h-full w-full object-cover"
+        onError={() => setBroken(true)}
+      />
+    )
+  }
+  return <LabasIcon name="user" className="h-5 w-5" tone="onSand" />
+}
 
 export function BrokerPickStep({
   onBack,
@@ -26,9 +72,7 @@ export function BrokerPickStep({
 }) {
   const { t } = useTranslation()
   const { profile, setProfile } = useProfileStore()
-  const [brokers, setBrokers] = useState<
-    Array<{ id: string; displayName: string; email: string }>
-  >([])
+  const [brokers, setBrokers] = useState<RegisteredBroker[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -114,7 +158,7 @@ export function BrokerPickStep({
                   data-fluid-item
                   onClick={() => pick(b.id, b.displayName)}
                   className={cn(
-                    'relative z-[1] flex w-full items-start gap-3 rounded-[var(--radius-labas)] border px-3 py-3 text-left',
+                    'relative z-[1] flex w-full items-center gap-3 rounded-[var(--radius-labas)] border px-3 py-3 text-left',
                     selected
                       ? 'border-ink bg-ink-soft outline outline-1 outline-ink/20'
                       : 'border-border bg-transparent',
@@ -122,12 +166,21 @@ export function BrokerPickStep({
                 >
                   <span
                     className={cn(
-                      'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
                       selected ? 'border-ink bg-ink' : 'border-border',
                     )}
                     aria-hidden
                   >
                     {selected ? <span className="h-2 w-2 rounded-full bg-sand" /> : null}
+                  </span>
+                  <span
+                    className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink-soft outline outline-1 outline-ink/15"
+                    aria-hidden
+                  >
+                    <BrokerPickAvatar
+                      brokerId={b.id}
+                      avatarPhotoPath={b.avatarPhotoPath}
+                    />
                   </span>
                   <span className="min-w-0">
                     <span className="block font-semibold text-ink">{b.displayName}</span>
