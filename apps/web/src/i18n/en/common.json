@@ -32,6 +32,23 @@
     "mobileUnavailableTitle": "Desktop view only for now",
     "mobileUnavailableBody": "Med Assurance is built for a wider screen. Open this page on a computer or widen the window to continue."
   },
+  "releases": {
+    "badge": "What’s new",
+    "hint": "Recent product changes on this device.",
+    "gotIt": "Got it",
+    "20260926Broker": {
+      "title": "Desk layout refresh",
+      "b1": "Dossier page shows the full lifecycle, with missing pieces as actions.",
+      "b2": "Queue filters reuse the same status rings as your file rows.",
+      "b3": "Import left the sidebar for now — queue and clients stay front and center."
+    },
+    "20260926Motorist": {
+      "title": "Shell shortcuts refresh",
+      "b1": "Declare and assistance stay in the sidebar — removed from the home strip.",
+      "b2": "Special CTAs use alert and moss so they read as distinct paths.",
+      "b3": "Accident tables fill the view and paginate when the list grows."
+    }
+  },
   "table": {
     "rowsPerPage": "Rows per page",
     "showing": "{{from}}–{{to}} of {{total}}",

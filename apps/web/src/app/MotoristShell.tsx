@@ -13,6 +13,7 @@ import { displayAccidentRef } from '@/domain/accident-ref'
 import type { EvidencePack } from '@/domain/evidence'
 import { packDeclareBlocked, packLifecycleStages } from '@/domain/lifecycle.ts'
 import { ProfileSettingsModal } from '@/features/home/ProfileSettingsModal'
+import { ReleaseNotesHost } from '@/components/ReleaseNotesHost'
 import { WalletNudgeDrawer } from '@/features/home/WalletNudgeDrawer'
 import { openMotoristPack } from '@/features/home/openMotoristPack'
 import { useEvidenceStore } from '@/store/evidencePack'
@@ -436,6 +437,7 @@ export function MotoristShell({ children }: { children?: ReactNode }) {
         {children}
       </AppShell>
       <ProfileSettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ReleaseNotesHost audience="motorist" />
       </DesktopOnlyGate>
     </>
   )

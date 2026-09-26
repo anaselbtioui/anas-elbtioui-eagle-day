@@ -32,6 +32,23 @@
     "mobileUnavailableTitle": "Vue ordinateur uniquement pour l’instant",
     "mobileUnavailableBody": "Med Assurance est conçu pour un écran plus large. Ouvrez cette page sur un ordinateur ou élargissez la fenêtre pour continuer."
   },
+  "releases": {
+    "badge": "Nouveautés",
+    "hint": "Changements récents du produit sur cet appareil.",
+    "gotIt": "Compris",
+    "20260926Broker": {
+      "title": "Desk recalibré",
+      "b1": "La fiche dossier montre le cycle de vie complet, avec les pièces manquantes en actions.",
+      "b2": "Les filtres de file réutilisent les mêmes anneaux de statut que les lignes.",
+      "b3": "L’import quitte la barre latérale pour l’instant — file et clients restent au centre."
+    },
+    "20260926Motorist": {
+      "title": "Raccourcis du shell",
+      "b1": "Déclaration et assistance restent dans la barre latérale — retirés du bandeau d’accueil.",
+      "b2": "Les CTA spéciaux passent en alerte et mousse pour se distinguer.",
+      "b3": "Les tableaux d’accidents remplissent la vue et paginent quand la liste grandit."
+    }
+  },
   "table": {
     "rowsPerPage": "Lignes par page",
     "showing": "{{from}}–{{to}} sur {{total}}",

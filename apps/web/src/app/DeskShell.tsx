@@ -9,6 +9,7 @@ import { LifecycleRing } from '@/components/LifecycleRing'
 import { concernedLifecycleStages } from '@/components/RecentPackRow'
 import { FluidHover } from '@/components/ui/fluid-hover'
 import { BrokerSettingsModal } from '@/features/broker/BrokerSettingsModal'
+import { ReleaseNotesHost } from '@/components/ReleaseNotesHost'
 import { filterDeskBundles, type DeskBundle } from '@/domain/desk.ts'
 import { dossierLifecycleStages } from '@/domain/lifecycle.ts'
 import type { DossierStatus } from '@/domain/types.ts'
@@ -277,6 +278,7 @@ export function DeskShell({ children }: { children?: ReactNode }) {
       {children}
     </AppShell>
     <BrokerSettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+    <ReleaseNotesHost audience="broker" />
     </>
     </DesktopOnlyGate>
   )
